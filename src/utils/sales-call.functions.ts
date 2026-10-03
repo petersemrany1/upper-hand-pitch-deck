@@ -1,3 +1,4 @@
+import { assertExistingBookingAccess } from "./booking-access.server";
 import { consultationMemberLabel } from "@/lib/consultation-team";
 import { createServerFn } from "@tanstack/react-start";
 
@@ -292,7 +293,9 @@ export const saveBooking = createServerFn({ method: "POST" })
     // confirmed to exist so enforce_booking_before_status_lock can never block us.
     promoteStatus: data.promoteStatus === true,
   }))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const actor = await assertExistingBookingAccess(context.supabase, supabaseAdmin, data.leadId);
+    if (actor.role !== "admin") data.repId = actor.id;
     if (!data.leadId || !data.clinicId || !data.doctorId || !data.date || !data.time) {
       return { success: false as const, error: "Lead, clinic, consultation team member, date and time are required" };
     }
@@ -534,7 +537,8 @@ export const saveNorwoodExpectations = createServerFn({ method: "POST" })
 export const clearBooking = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string }) => ({ leadId: String(data.leadId ?? "") }))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertExistingBookingAccess(context.supabase, supabaseAdmin, data.leadId);
     if (!data.leadId) return { success: false as const, error: "leadId required" };
     const { error } = await supabaseAdmin.from("meta_leads").update({
       booking_date: null,

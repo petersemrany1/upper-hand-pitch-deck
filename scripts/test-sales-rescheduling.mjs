@@ -1,0 +1,90 @@
+import {readFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const {PGlite}=await import(process.env.PGLITE_MODULE||'@electric-sql/pglite');
+const db=new PGlite();
+const uid=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const sql=path=>readFileSync(new URL('../supabase/migrations/'+path,import.meta.url),'utf8');
+await db.exec(`
+CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role BYPASSRLS;
+CREATE SCHEMA auth;
+CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT (auth.jwt()->>'sub')::uuid $$;
+CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT auth.jwt()->>'role' $$;
+GRANT USAGE ON SCHEMA public,auth TO authenticated,service_role;
+CREATE TABLE sales_reps(id uuid PRIMARY KEY,name text,email text,role text,is_active boolean default true,allowed_tabs text[]);
+CREATE TABLE partner_clinics(id uuid PRIMARY KEY,clinic_name text,address text,city text,state text,phone text,min_appointment_gap_mins integer default 0);
+CREATE TABLE clinic_portal_users(id uuid,clinic_id uuid);
+CREATE TABLE meta_leads(id uuid PRIMARY KEY,rep_id uuid,booking_date date,booking_time text);
+CREATE TABLE partner_doctors(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),clinic_id uuid,name text,title text,is_active boolean DEFAULT true,what_makes_them_different text);
+CREATE TABLE clinic_appointments(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),clinic_id uuid,doctor_id uuid,doctor_name text,lead_id uuid,patient_name text,patient_phone text,appointment_date date,appointment_time text,booked_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now(),outcome text,disqualified_at timestamptz,deposit_amount numeric);
+CREATE TABLE appointment_reminders(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),lead_id uuid,patient_first_name text,patient_last_name text,patient_phone text,doctor_name text,booking_date date,booking_time time,status text,booked_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now(),three_day_sms_sent boolean DEFAULT false,three_day_sms_sent_at timestamptz,twentyfour_hour_sms_sent boolean DEFAULT false,twentyfour_hour_sms_sent_at timestamptz);
+CREATE TABLE clinic_trading_hours(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),clinic_id uuid,day_of_week integer,open_time time,close_time time,is_closed boolean,consult_duration_mins integer);
+CREATE TABLE clinic_blocked_slots(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),clinic_id uuid,slot_date date,slot_start time,slot_end time,is_recurring boolean,recur_day_of_week integer);
+CREATE TABLE clinic_availability(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),clinic_id uuid,override_date date,override_type text,start_time time,end_time time);
+CREATE TABLE clinic_appointment_notes(id uuid DEFAULT gen_random_uuid(),appointment_id uuid,clinic_id uuid,author_name text,author_type text CHECK(author_type IN ('admin','clinic')),body text);
+CREATE VIEW booking_rep_attribution AS SELECT a.id appointment_id,l.rep_id FROM clinic_appointments a JOIN meta_leads l ON l.id=a.lead_id;
+CREATE FUNCTION is_clinic_user_for(c uuid) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER AS $$ SELECT exists(select 1 from clinic_portal_users where id=auth.uid() and clinic_id=c) $$;
+INSERT INTO sales_reps(id,name,email,role,allowed_tabs) VALUES
+('${uid(1)}','Admin','admin@fixture.test','admin',null),('${uid(2)}','Rep A','a@fixture.test','rep',ARRAY['sales_portal']),('${uid(3)}','Rep B','b@fixture.test','rep',null),('${uid(4)}','Caller','caller@fixture.test','caller',null);
+INSERT INTO partner_clinics VALUES('${uid(10)}','Fixture Clinic','123 Fixture St','Sydney','NSW','0299999999',0),('${uid(11)}','Other Clinic','456 Fixture St','Perth','WA','0899999999',0);
+INSERT INTO clinic_portal_users VALUES('${uid(5)}','${uid(10)}');
+INSERT INTO partner_doctors(id,clinic_id,name,title) VALUES('${uid(20)}','${uid(10)}','Consultant','Specialist'),('${uid(21)}','${uid(11)}','Doctor','Doctor');
+`);
+await db.exec(sql('20261003000000_consultation_and_procedure_roles.sql'));
+await db.exec(`CREATE TRIGGER fill_appointment_doctor_trg BEFORE INSERT OR UPDATE OF clinic_id,doctor_id,doctor_name ON clinic_appointments FOR EACH ROW EXECUTE FUNCTION fill_appointment_doctor();CREATE TRIGGER reminder AFTER INSERT ON clinic_appointments FOR EACH ROW EXECUTE FUNCTION auto_create_appointment_reminder();`);
+await db.exec(sql('20260523062813_a1faded2-d15f-4bec-9fe9-a3d32667bd1d.sql'));
+await db.exec(sql('20261003010000_link_and_safe_patient_reminders.sql'));
+for(const [a,owner,clinic,time] of [[30,2,10,'09:00'],[31,3,10,'10:00'],[32,3,11,'09:00']]){
+ await db.query('insert into meta_leads(id,rep_id,booking_date,booking_time) values($1,$2,$3,$4)',[uid(a+10),uid(owner),'2026-12-01',time]);
+ await db.query('insert into clinic_appointments(id,clinic_id,lead_id,patient_name,patient_phone,appointment_date,appointment_time,deposit_amount) values($1,$2,$3,$4,$5,$6,$7,75)',[uid(a),uid(clinic),uid(a+10),'Fixture '+a,'0400000000','2026-12-01',time]);
+}
+await db.exec(`ALTER TABLE appointment_reminders ENABLE ROW LEVEL SECURITY;ALTER TABLE clinic_appointments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY old_broad ON appointment_reminders FOR ALL TO authenticated USING(true) WITH CHECK(true);
+CREATE POLICY old_broad ON clinic_appointments FOR ALL TO authenticated USING(true) WITH CHECK(true);
+GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO authenticated,service_role;
+`);
+await db.exec(sql('20261003020000_sales_rescheduling.sql'));
+await db.exec(sql('20261003020000_sales_rescheduling.sql')); // deployment/canonical replay is safe
+const actor=async(n,email,role='authenticated')=>{await db.exec('RESET ROLE');await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:uid(n),email,role})]);await db.exec('SET ROLE '+role);};
+const count=async(table)=>Number((await db.query(`select count(*) n from ${table}`)).rows[0].n);
+await actor(2,'a@fixture.test');assert.equal(await count('appointment_reminders'),1);assert.equal(await count('clinic_appointments'),1);
+assert.equal((await db.query('select count(*) n from booking_busy_times($1)',[uid(10)])).rows[0].n,2);
+await assert.rejects(db.query('select get_booking_reschedule($1)',[uid(31)]),/access/);
+const details=(await db.query('select get_booking_reschedule($1) d',[uid(30)])).rows[0].d;
+assert.equal(details.snapshot.appointment.patient_name,'Fixture 30');assert.equal('patient_name' in details.snapshot.busy[0],false);
+assert.equal((await db.query('update clinic_appointments set appointment_time=$1 where id=$2 returning id',['14:00',uid(31)])).rows.length,0);
+await assert.rejects(db.query('update clinic_appointments set booking_rep_id=$1 where id=$2',[uid(3),uid(30)]),/administrator/);
+await assert.rejects(db.query('select commit_booking_reschedule($1,$2,$3,$4,$5,$6,$7,$8,$9)',[uid(30),uid(90),uid(2),details.version,'2026-12-02','11:00','reason','Fixture','+61400000000']),/permission denied/);
+await actor(3,'b@fixture.test');assert.equal(await count('appointment_reminders'),2);
+await actor(5,'clinic@fixture.test');assert.equal(await count('appointment_reminders'),0);assert.equal(await count('clinic_appointments'),2);
+await assert.rejects(db.query('select get_booking_reschedule($1)',[uid(30)]),/access/);assert.equal(await count('appointment_reschedules'),0);
+await actor(4,'caller@fixture.test');assert.equal(await count('appointment_reminders'),0);assert.equal(await count('clinic_appointments'),0);
+await actor(1,'admin@fixture.test');assert.equal(await count('appointment_reminders'),3);
+await db.exec('RESET ROLE');await db.exec("update appointment_reminders set three_day_sms_sent=true,twentyfour_hour_sms_sent=true");
+// Successful commit uses one transaction and preserves IDs, ownership and deposit.
+const fresh=(await db.query('select get_booking_reschedule($1) d',[uid(30)])).rows[0].d;
+const commit=async(appt,req,who,version,date,time)=>db.query('select commit_booking_reschedule($1,$2,$3,$4,$5,$6,$7,$8,$9) id',[uid(appt),uid(req),uid(who),version,date,time,'Patient requested','Fixture reschedule text','+61400000000']);
+await actor(1,'admin@fixture.test','service_role');
+await assert.rejects(commit(30,90,3,fresh.version,'2026-12-02','11:00'),/access/);
+await commit(30,90,2,fresh.version,'2026-12-02','11:00');
+assert.equal(await count('clinic_appointments'),3);assert.equal(await count('appointment_reminders'),3);assert.equal(await count('appointment_reschedules'),1);
+const a=(await db.query('select * from clinic_appointments where id=$1',[uid(30)])).rows[0];assert.equal(a.booking_rep_id,uid(2));assert.equal(a.deposit_amount,'75');assert.equal(a.appointment_time,'11:00');
+const r=(await db.query('select * from appointment_reminders where appointment_id=$1',[uid(30)])).rows[0];assert.equal(r.booking_time,'11:00:00');assert.equal(r.three_day_sms_sent,false);assert.equal(r.twentyfour_hour_sms_sent,false);assert.ok(r.schedule_changed_at);
+assert.equal((await db.query('select booking_time from meta_leads where id=$1',[uid(40)])).rows[0].booking_time,'11:00');
+await commit(30,90,2,fresh.version,'2026-12-02','11:00');assert.equal(await count('appointment_reschedules'),1);
+await assert.rejects(commit(30,91,2,fresh.version,'2026-12-03','11:00'),/changed/);
+// A stale slot snapshot, conflicting time and inactive booking all fail closed.
+await actor(1,'admin@fixture.test');const v=(await db.query('select get_booking_reschedule($1) d',[uid(31)])).rows[0].d.version;
+await actor(1,'admin@fixture.test','service_role');await assert.rejects(commit(31,92,3,v,'2026-12-02','11:15'),/overlaps/);
+await db.query('update clinic_appointments set outcome=$1 where id=$2',['noshow',uid(31)]);
+await actor(1,'admin@fixture.test');const inactive=(await db.query('select get_booking_reschedule($1) d',[uid(31)])).rows[0].d.version;
+await actor(1,'admin@fixture.test','service_role');await assert.rejects(commit(31,93,3,inactive,'2026-12-03','11:00'),/active confirmed/);
+// Clinic reads the updated SAME row while the internal tab remains inaccessible.
+await actor(5,'clinic@fixture.test');assert.equal((await db.query('select appointment_time from clinic_appointments where id=$1',[uid(30)])).rows[0].appointment_time,'11:00');assert.equal(await count('appointment_reminders'),0);
+await actor(2,'a@fixture.test');assert.equal(await count('appointment_reschedules'),1);
+await actor(3,'b@fixture.test');assert.equal(await count('appointment_reschedules'),0);
+await actor(1,'admin@fixture.test','service_role');
+await db.query('delete from clinic_appointments where id=$1',[uid(30)]);
+assert.equal(await count('appointment_reschedules'),1);
+assert.equal((await db.query('select appointment_id from appointment_reschedules')).rows[0].appointment_id,null);
+console.log('PASS: rep A/B isolation, admin visibility, clinic-only portal data, caller denial, direct API denial, frozen ownership, slot conflicts, stale updates, atomic reschedule/reminder/lead sync, preserved deposit, single outbox event, retry idempotency and audit visibility.');await db.close();

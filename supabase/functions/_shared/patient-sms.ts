@@ -44,3 +44,7 @@ export function clinicSmsAddress(clinic: { address: string | null; city: string 
   if (clinic?.state && !address.toLowerCase().split(/\W+/).includes(clinic.state.toLowerCase())) parts.push(clinic.state);
   return parts.join(", ");
 }
+
+export function rescheduleConfirmationSms(input: PatientSmsDetails): string {
+  return patientSms(input, `your hair transplant consultation has been rescheduled to ${input.date}`);
+}

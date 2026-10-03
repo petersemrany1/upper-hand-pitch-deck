@@ -4145,7 +4145,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       const [{ data: th }, { data: bs }, { data: ex }, { data: ov }, { data: pc }] = await Promise.all([
         supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", form.clinicId),
         supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", form.clinicId),
-        supabase.from("clinic_appointments").select("appointment_date, appointment_time").eq("clinic_id", form.clinicId).eq("appointment_date", form.date),
+        (supabase as any).rpc("booking_busy_times", { p_clinic: form.clinicId }),
         supabase.from("clinic_availability").select("override_date, override_type, start_time, end_time").eq("clinic_id", form.clinicId),
         supabase.from("partner_clinics").select("state, min_appointment_gap_mins").eq("id", form.clinicId).maybeSingle(),
       ]);
@@ -9371,7 +9371,7 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
     void Promise.all([
       supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
       supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
-      supabase.from("clinic_appointments").select("appointment_date, appointment_time").eq("clinic_id", clinicId),
+      (supabase as any).rpc("booking_busy_times", { p_clinic: clinicId }),
       supabase.from("clinic_availability").select("override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
       supabase.from("partner_clinics").select("state, min_appointment_gap_mins").eq("id", clinicId).maybeSingle(),
     ]).then(([a, b, c, d, e]) => {

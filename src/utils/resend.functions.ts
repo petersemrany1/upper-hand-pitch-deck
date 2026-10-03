@@ -1,3 +1,4 @@
+import { assertExistingBookingAccess } from "./booking-access.server";
 import { bookingConfirmationSms, PATIENT_SMS_FROM } from "@/lib/booking-confirmation-sms";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -871,9 +872,10 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       depositPaid: boolean;
     }) => data
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     const supabase = getAdminClient();
+    await assertExistingBookingAccess(context.supabase, supabase, data.leadId);
 
     const invalidBookingLabel = (value: string | null | undefined) =>
       !value?.trim() || value.trim().startsWith("[");

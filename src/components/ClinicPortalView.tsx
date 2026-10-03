@@ -56,6 +56,7 @@ export type ClinicAppointment = {
   chase_note?: string | null;
   chase_result_at?: string | null;
   booked_at?: string | null;
+  updated_at?: string;
   /** Derived: booked during the clinic's free trial, so it costs them nothing. */
   is_free_trial?: boolean;
 };
@@ -295,6 +296,17 @@ export function ClinicPortalView({
 
 
   const reload = () => setRefresh((n) => n + 1);
+
+  useEffect(() => {
+    const refreshVisible = () => { if (document.visibilityState === "visible") setRefresh(n => n + 1); };
+    const channel = supabase.channel(`clinic-appointments-${clinicId}`)
+      .on("postgres_changes", {event:"*",schema:"public",table:"clinic_appointments",filter:`clinic_id=eq.${clinicId}`},refreshVisible).subscribe();
+    const timer = window.setInterval(refreshVisible,30000);
+    window.addEventListener("focus",refreshVisible);
+    document.addEventListener("visibilitychange",refreshVisible);
+    return () => { void supabase.removeChannel(channel);window.clearInterval(timer);window.removeEventListener("focus",refreshVisible);document.removeEventListener("visibilitychange",refreshVisible); };
+  },[clinicId]);
+
 
   useEffect(() => {
     if (selected) {
@@ -1288,9 +1300,10 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   );
 }
 
-function RescheduleModal({ appt, onClose, onSaved }: {
+function RescheduleModal({ appt: liveAppt, onClose, onSaved }: {
   appt: ClinicAppointment; onClose: () => void; onSaved: () => void;
 }) {
+  const [appt] = useState(liveAppt); // Freeze the version the clinic actually reviewed.
   const [date, setDate] = useState<string>(appt.appointment_date);
   const timeInit = /^(\d{1,2}):(\d{2})/.exec(appt.appointment_time ?? "");
   const [time, setTime] = useState<string>(timeInit ? `${timeInit[1].padStart(2, "0")}:${timeInit[2]}` : "09:00");
@@ -1310,12 +1323,14 @@ function RescheduleModal({ appt, onClose, onSaved }: {
     const auditLine = `\n— Rescheduled from ${oldLabel} → ${newLabel} (${stamp})`;
     const nextNotes = (appt.intel_notes ?? "") + auditLine;
 
-    const { error } = await supabase
-      .from("clinic_appointments")
+    let change = supabase.from("clinic_appointments")
       .update({ appointment_date: date, appointment_time: time, intel_notes: nextNotes })
-      .eq("id", appt.id);
+      .eq("id", appt.id).eq("appointment_date", appt.appointment_date).eq("appointment_time", appt.appointment_time);
+    if (appt.updated_at) change = change.eq("updated_at", appt.updated_at);
+    const { data: changed, error } = await change.select("id");
     setSaving(false);
     if (error) { toast.error(error.message); return; }
+    if (!changed?.length) { toast.error("This appointment changed while you were editing. Close and reopen it to review the latest details."); return; }
     toast.success("Rescheduled");
     onSaved();
   };
@@ -1349,7 +1364,7 @@ function RescheduleModal({ appt, onClose, onSaved }: {
       </div>
 
       <div style={{ fontSize: 11, color: "#6b7785", marginTop: 12, lineHeight: 1.5 }}>
-        Reminder SMSes (3-day and 24-hour) will re-send for the new date. A note will be added to the Patient Intel for your records.
+        Remaining reminder SMSes will follow the new date. Reminder times that have already passed are skipped. A note will be added to the Patient Intel for your records.
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>

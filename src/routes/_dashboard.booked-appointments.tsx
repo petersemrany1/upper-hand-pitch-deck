@@ -1,3 +1,6 @@
+import { BookingRescheduleDialog } from "@/components/BookingRescheduleDialog";
+import { retryRescheduleSms } from "@/utils/booking-reschedule.functions";
+import { useAuth } from "@/hooks/useAuth";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Phone as PhoneIcon, X, ChevronDown, ChevronUp } from "lucide-react";
@@ -14,6 +17,10 @@ export const Route = createFileRoute("/_dashboard/booked-appointments")({
 
 type Reminder = {
   id: string;
+  appointment_id: string | null;
+  schedule_changed_at: string | null;
+  clinic_name?: string;
+  reschedule_event?: {id:string;sms_status:string;sms_error:string|null;created_at:string;actor_name:string;new_date:string;new_time:string};
   lead_id: string | null;
   booking_date: string | null;
   booking_time: string | null;
@@ -106,6 +113,8 @@ type Filter = "all" | "week" | "month" | "past";
 const ENABLED_KEY = "booked_appointments_enabled";
 
 function BookedAppointmentsPage() {
+  const { role } = useAuth();
+  const [rescheduling, setRescheduling] = useState<string | null>(null);
   const [rows, setRows] = useState<Reminder[]>([]);
   const [leads, setLeads] = useState<Record<string, Lead>>({});
   const [loading, setLoading] = useState(true);
@@ -129,20 +138,25 @@ function BookedAppointmentsPage() {
   const twilio = useTwilioDevice(true);
   const myRepId = useCurrentRepId();
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (background = false) => {
+    if (!background) setLoading(true);
     const { data, error } = await supabase
       .from("appointment_reminders")
-      .select("*")
-      .not("patient_first_name", "ilike", "%test%")
-      .not("patient_last_name", "ilike", "%test%")
+      .select("*, appointment:clinic_appointments!appointment_reminders_appointment_id_fkey(id,outcome,disqualified_at,clinic:partner_clinics!clinic_appointments_clinic_id_fkey(clinic_name))")
+      .or("patient_first_name.is.null,patient_first_name.not.ilike.%test%")
+      .or("patient_last_name.is.null,patient_last_name.not.ilike.%test%")
       .order("booking_date", { ascending: true });
     if (error) {
       toast.error("Failed to load appointments");
       setLoading(false);
       return;
     }
-    const list = (data ?? []) as Reminder[];
+    const {data:history} = await (supabase as any).from("appointment_reschedules").select("id,appointment_id,sms_status,sms_error,created_at,actor_name,new_date,new_time").order("created_at",{ascending:false});
+    const list = (data ?? []).map((r:any) => ({...r,
+      status:r.appointment?.disqualified_at ? "cancelled" : r.appointment?.outcome === "noshow" ? "no_show" : ["show","proceeded"].includes(r.appointment?.outcome) ? "showed_up" : r.status,
+      clinic_name:r.appointment?.clinic?.clinic_name,
+      reschedule_event:history?.find((event:any)=>event.appointment_id===r.appointment_id),
+    })) as Reminder[];
     setRows(list);
     const ids = Array.from(new Set(list.map((r) => r.lead_id).filter(Boolean))) as string[];
     if (ids.length > 0) {
@@ -157,7 +171,13 @@ function BookedAppointmentsPage() {
     setLoading(false);
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    const refresh = () => { if (document.visibilityState === "visible") void load(true); };
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, []);
 
   const today = todayInSydney();
 
@@ -276,7 +296,7 @@ function BookedAppointmentsPage() {
           <div>
             <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em", marginBottom: 4 }}>Booked Appointments</h1>
             <p style={{ fontSize: 13, color: COLOR.grey }}>
-              Track confirmed bookings and automated SMS reminders
+              {role === "admin" ? "All bookings" : "Your bookings only"} · Manage appointments and automated SMS reminders
             </p>
           </div>
           <button
@@ -345,11 +365,11 @@ function BookedAppointmentsPage() {
         ) : (
           <>
             <Section title="Today & Tomorrow" rows={grouped.todayTomorrow} renderCard={(r) => (
-              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} onEditHandover={() => setEditHandover(r)} busy={busy === r.id} />
+              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} onEditHandover={() => setEditHandover(r)} onReschedule={() => r.appointment_id && setRescheduling(r.appointment_id)} onRetrySms={async () => { if (!r.reschedule_event) return; try { const result = await retryRescheduleSms({data:{eventId:r.reschedule_event.id}}); result.status === "accepted" ? toast.success("Confirmation accepted for sending") : toast.warning(result.error || "Check SMS status"); void load(); } catch(e) { toast.error(e instanceof Error ? e.message : "Could not send"); } }} busy={busy === r.id} />
             )} />
 
             <Section title="Upcoming" rows={grouped.upcoming} renderCard={(r) => (
-              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} onEditHandover={() => setEditHandover(r)} busy={busy === r.id} />
+              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} onEditHandover={() => setEditHandover(r)} onReschedule={() => r.appointment_id && setRescheduling(r.appointment_id)} onRetrySms={async () => { if (!r.reschedule_event) return; try { const result = await retryRescheduleSms({data:{eventId:r.reschedule_event.id}}); result.status === "accepted" ? toast.success("Confirmation accepted for sending") : toast.warning(result.error || "Check SMS status"); void load(); } catch(e) { toast.error(e instanceof Error ? e.message : "Could not send"); } }} busy={busy === r.id} />
             )} />
 
             {/* Past & Cancelled — collapsible */}
@@ -372,7 +392,7 @@ function BookedAppointmentsPage() {
                   {grouped.pastCancelled.length === 0 ? (
                     <div style={{ ...cardStyle, padding: 20, textAlign: "center", color: COLOR.muted, fontSize: 13 }}>None</div>
                   ) : grouped.pastCancelled.map((r) => (
-                    <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} onEditHandover={() => setEditHandover(r)} busy={busy === r.id} />
+                    <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} onEditHandover={() => setEditHandover(r)} onReschedule={() => r.appointment_id && setRescheduling(r.appointment_id)} onRetrySms={async () => { if (!r.reschedule_event) return; try { const result = await retryRescheduleSms({data:{eventId:r.reschedule_event.id}}); result.status === "accepted" ? toast.success("Confirmation accepted for sending") : toast.warning(result.error || "Check SMS status"); void load(); } catch(e) { toast.error(e instanceof Error ? e.message : "Could not send"); } }} busy={busy === r.id} />
                   ))}
                 </div>
               )}
@@ -384,6 +404,7 @@ function BookedAppointmentsPage() {
       </div>
 
 
+      {rescheduling && <BookingRescheduleDialog appointmentId={rescheduling} onClose={()=>setRescheduling(null)} onSaved={()=>{setRescheduling(null);void load();}} />}
       {/* Cancel confirmation */}
       {confirmCancel && (
         <div
@@ -467,7 +488,7 @@ function Section({ title, rows, renderCard }: { title: string; rows: Reminder[];
 }
 
 function Card({
-  r, today, onCall, onCancel, onNoShow, onShowedUp, onEditHandover, busy,
+  r, today, onCall, onCancel, onNoShow, onShowedUp, onEditHandover, onReschedule, onRetrySms, busy,
 }: {
   r: Reminder;
   today: Date;
@@ -476,6 +497,8 @@ function Card({
   onNoShow: (r: Reminder) => void;
   onShowedUp: (r: Reminder) => void;
   onEditHandover: () => void;
+  onReschedule: () => void;
+  onRetrySms: () => void;
   busy: boolean;
 }) {
   const d = r.booking_date ? parseBookingDate(r.booking_date) : null;
@@ -543,7 +566,7 @@ function Card({
             {fullName}
           </div>
           <div style={{ fontSize: 12, color: COLOR.grey, marginTop: 2 }}>
-            {consultationName(r.doctor_name) ?? "—"}
+            {r.clinic_name || "Clinic not linked"} · {consultationName(r.doctor_name) ?? "—"}
           </div>
           <div style={{ fontSize: 12, color: COLOR.grey, marginTop: 2 }}>
             {r.patient_phone || "—"}
@@ -556,12 +579,14 @@ function Card({
               status={r.status}
               sent={r.three_day_sms_sent}
               bookingDate={r.booking_date}
+              scheduleChangedAt={r.schedule_changed_at}
             />
             <ReminderPill
               kind="24h"
               status={r.status}
               sent={r.twentyfour_hour_sms_sent}
               bookingDate={r.booking_date}
+              scheduleChangedAt={r.schedule_changed_at}
             />
           </div>
         </div>
@@ -582,6 +607,7 @@ function Card({
             </button>
           )}
 
+          {!isFinalised && r.appointment_id && <button onClick={onReschedule} disabled={busy} style={{fontSize:12,fontWeight:600,color:COLOR.coral,background:COLOR.coralBg,border:`1px solid ${COLOR.coral}`,borderRadius:8,padding:"8px 14px"}}>Reschedule</button>}
           {showOutcomeButtons ? (
             <div style={{ display: "flex", gap: 6 }}>
               <button
@@ -635,6 +661,11 @@ function Card({
         </div>
       </div>
 
+      {r.reschedule_event && <div style={{fontSize:12,marginTop:12,padding:10,background:COLOR.greyBg,borderRadius:8}}>
+        Rescheduled by {r.reschedule_event.actor_name} · Patient text: {r.reschedule_event.sms_status === "accepted" ? "accepted for sending" : r.reschedule_event.sms_status === "sending" ? "sending — check the inbox if this persists" : r.reschedule_event.sms_status}.
+        {r.reschedule_event.sms_error && <span> {r.reschedule_event.sms_error}</span>}
+        {["pending","failed"].includes(r.reschedule_event.sms_status) && r.booking_date === r.reschedule_event.new_date && r.booking_time?.slice(0,5) === r.reschedule_event.new_time.slice(0,5) && <button onClick={onRetrySms} style={{marginLeft:8,textDecoration:"underline"}}>Send confirmation</button>}
+      </div>}
       {/* Footer */}
       <div style={{
         display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -656,12 +687,13 @@ function Card({
 }
 
 function ReminderPill({
-  kind, status, sent, bookingDate,
+  kind, status, sent, bookingDate, scheduleChangedAt,
 }: {
   kind: "3day" | "24h";
   status: string;
   sent: boolean;
   bookingDate: string | null;
+  scheduleChangedAt: string | null;
 }) {
   const label = kind === "3day" ? "3-day SMS" : "24hr SMS";
   if (status === "cancelled" || status === "no_show" || status === "showed_up") {
@@ -686,7 +718,9 @@ function ReminderPill({
       </span>
     );
   }
-  const sendAt = sendDateAt3pm(bookingDate, daysBefore);
+  const sendAt = new Date(bookingDate + "T05:00:00Z");
+  sendAt.setUTCDate(sendAt.getUTCDate() - daysBefore);
+  if (scheduleChangedAt && new Date(scheduleChangedAt) > sendAt) return <span style={{fontSize:11,color:COLOR.muted}}>— {label}: booking changed after this reminder's cutoff</span>;
   const sendDateStr = fmtSendDate(bookingDate, daysBefore);
   const now = new Date();
   if (sendAt.getTime() < now.getTime()) {
@@ -698,7 +732,7 @@ function ReminderPill({
   }
   return (
     <span style={{ fontSize: 11, color: COLOR.amber, background: COLOR.amberBg, padding: "3px 8px", borderRadius: 6 }}>
-      ⏳ {label} — sends {sendDateStr} 3pm
+      ⏳ {label} — sends {sendDateStr} {sendAt.toLocaleTimeString("en-AU",{timeZone:"Australia/Sydney",hour:"numeric",minute:"2-digit"})}
     </span>
   );
 }

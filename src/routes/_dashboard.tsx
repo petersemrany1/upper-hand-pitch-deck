@@ -110,6 +110,11 @@ function DashboardLayout() {
     return <div className="min-h-screen" style={{ background: "#f7f7f5" }} />;
   }
 
+  const currentTab = tabForPath(location.pathname);
+  if (userType === "clinic" || userType === "unknown" || (role !== "admin" && currentTab && !allowedTabs.includes(currentTab))) {
+    return <div className="min-h-screen" style={{ background: "#f7f7f5" }} />;
+  }
+
   if (isClinicSetter && location.pathname !== "/clinics") {
     return <div className="min-h-screen" style={{ background: "#f7f7f5" }} />;
   }
