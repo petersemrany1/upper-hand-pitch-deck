@@ -123,6 +123,7 @@ export type Database = {
           patient_first_name: string | null
           patient_last_name: string | null
           patient_phone: string | null
+          schedule_changed_at: string | null
           status: string
           three_day_sms_claim: string | null
           three_day_sms_sent: boolean
@@ -144,6 +145,7 @@ export type Database = {
           patient_first_name?: string | null
           patient_last_name?: string | null
           patient_phone?: string | null
+          schedule_changed_at?: string | null
           status?: string
           three_day_sms_claim?: string | null
           three_day_sms_sent?: boolean
@@ -165,6 +167,7 @@ export type Database = {
           patient_first_name?: string | null
           patient_last_name?: string | null
           patient_phone?: string | null
+          schedule_changed_at?: string | null
           status?: string
           three_day_sms_claim?: string | null
           three_day_sms_sent?: boolean
@@ -198,6 +201,92 @@ export type Database = {
           },
           {
             foreignKeyName: "appointment_reminders_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_show_slots"
+            referencedColumns: ["appointment_id"]
+          },
+        ]
+      }
+      appointment_reschedules: {
+        Row: {
+          actor_id: string
+          actor_name: string
+          actor_role: string
+          appointment_id: string | null
+          created_at: string
+          id: string
+          new_date: string
+          new_time: string
+          old_date: string
+          old_time: string
+          reason: string | null
+          sms_body: string
+          sms_error: string | null
+          sms_phone: string
+          sms_sid: string | null
+          sms_status: string
+        }
+        Insert: {
+          actor_id: string
+          actor_name: string
+          actor_role: string
+          appointment_id?: string | null
+          created_at?: string
+          id: string
+          new_date: string
+          new_time: string
+          old_date: string
+          old_time: string
+          reason?: string | null
+          sms_body: string
+          sms_error?: string | null
+          sms_phone: string
+          sms_sid?: string | null
+          sms_status?: string
+        }
+        Update: {
+          actor_id?: string
+          actor_name?: string
+          actor_role?: string
+          appointment_id?: string | null
+          created_at?: string
+          id?: string
+          new_date?: string
+          new_time?: string
+          old_date?: string
+          old_time?: string
+          reason?: string | null
+          sms_body?: string
+          sms_error?: string | null
+          sms_phone?: string
+          sms_sid?: string | null
+          sms_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_reschedules_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "appointment_reschedules_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "booking_rep_attribution"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "appointment_reschedules_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_reschedules_appointment_id_fkey"
             columns: ["appointment_id"]
             isOneToOne: false
             referencedRelation: "clinic_show_slots"
@@ -454,6 +543,7 @@ export type Database = {
           appointment_date: string
           appointment_time: string
           booked_at: string
+          booking_rep_id: string | null
           chase_note: string | null
           chase_requested_at: string | null
           chase_requested_by: string | null
@@ -491,6 +581,7 @@ export type Database = {
           appointment_date: string
           appointment_time: string
           booked_at?: string
+          booking_rep_id?: string | null
           chase_note?: string | null
           chase_requested_at?: string | null
           chase_requested_by?: string | null
@@ -528,6 +619,7 @@ export type Database = {
           appointment_date?: string
           appointment_time?: string
           booked_at?: string
+          booking_rep_id?: string | null
           chase_note?: string | null
           chase_requested_at?: string | null
           chase_requested_by?: string | null
@@ -562,6 +654,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "clinic_appointments_booking_rep_id_fkey"
+            columns: ["booking_rep_id"]
+            isOneToOne: false
+            referencedRelation: "sales_reps"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "clinic_appointments_clinic_id_fkey"
             columns: ["clinic_id"]
@@ -3106,6 +3205,22 @@ export type Database = {
           upcoming: number
         }[]
       }
+      booking_busy_times: {
+        Args: { p_clinic: string }
+        Returns: {
+          appointment_date: string
+          appointment_time: string
+        }[]
+      }
+      booking_sales_actor: {
+        Args: never
+        Returns: {
+          id: string
+          role: string
+        }[]
+      }
+      booking_schedule_snapshot: { Args: { p_id: string }; Returns: Json }
+      can_manage_booking: { Args: { p_id: string }; Returns: boolean }
       claim_appointment_reminder: {
         Args: {
           p_claim: string
@@ -3136,6 +3251,20 @@ export type Database = {
           value_owed: number
         }[]
       }
+      commit_booking_reschedule: {
+        Args: {
+          p_actor: string
+          p_date: string
+          p_id: string
+          p_phone: string
+          p_reason: string
+          p_request: string
+          p_sms: string
+          p_time: string
+          p_version: string
+        }
+        Returns: string
+      }
       current_clinic_id: { Args: never; Returns: string }
       current_sales_rep_id: { Args: never; Returns: string }
       current_sales_rep_role: { Args: never; Returns: string }
@@ -3159,6 +3288,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_booking_reschedule: { Args: { p_id: string }; Returns: Json }
       get_dashboard_stats: { Args: never; Returns: Json }
       has_sales_role: { Args: { _roles: string[] }; Returns: boolean }
       is_admin_user: { Args: never; Returns: boolean }
