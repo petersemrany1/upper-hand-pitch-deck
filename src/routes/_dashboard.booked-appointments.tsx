@@ -1,3 +1,5 @@
+import { periodDates } from "@/lib/reporting-period";
+import { sydneyTodayISO } from "@/lib/timezone";
 import { BookingRescheduleDialog } from "@/components/BookingRescheduleDialog";
 import { retryRescheduleSms } from "@/utils/booking-reschedule.functions";
 import { useAuth } from "@/hooks/useAuth";
@@ -108,7 +110,7 @@ function sendDateAt3pm(d: string, daysBefore: number): Date {
   return date;
 }
 
-type Filter = "all" | "week" | "month" | "past";
+type Filter = "all" | "week" | "month" | "past" | "custom";
 
 const ENABLED_KEY = "booked_appointments_enabled";
 
@@ -119,6 +121,8 @@ function BookedAppointmentsPage() {
   const [leads, setLeads] = useState<Record<string, Lead>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
+  const [customStart,setCustomStart]=useState(sydneyTodayISO());
+  const [customEnd,setCustomEnd]=useState(sydneyTodayISO());
   const [pastOpen, setPastOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState<Reminder | null>(null);
   const [editHandover, setEditHandover] = useState<Reminder | null>(null);
@@ -184,7 +188,7 @@ function BookedAppointmentsPage() {
   const stats = useMemo(() => {
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    const sevenAhead = new Date(today); sevenAhead.setDate(today.getDate() + 7);
+    const week = periodDates("week")!;
 
     let thisMonth = 0, thisWeek = 0, showed = 0, noShow = 0;
     for (const r of rows) {
@@ -195,7 +199,7 @@ function BookedAppointmentsPage() {
       if (inMonth && r.status === "no_show") noShow++;
       if (r.status === "confirmed") {
         if (inMonth) thisMonth++;
-        if (d >= today && d <= sevenAhead) thisWeek++;
+        if (r.booking_date >= week.start! && r.booking_date <= week.end!) thisWeek++;
       }
     }
     return { thisMonth, thisWeek, showed, noShow };
@@ -203,18 +207,11 @@ function BookedAppointmentsPage() {
 
   const filtered = useMemo(() => {
     if (filter === "all") return rows;
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    const sevenAhead = new Date(today); sevenAhead.setDate(today.getDate() + 7);
-    return rows.filter((r) => {
-      if (!r.booking_date) return false;
-      const d = parseBookingDate(r.booking_date);
-      if (filter === "week") return d >= today && d <= sevenAhead;
-      if (filter === "month") return d >= startOfMonth && d <= endOfMonth;
-      if (filter === "past") return d < today;
-      return true;
-    });
-  }, [rows, filter]);
+    if (filter === "past") return rows.filter(r => r.booking_date && r.booking_date < sydneyTodayISO());
+    const range = periodDates(filter, customStart, customEnd);
+    if(!range)return [];
+    return rows.filter(r => r.booking_date && (!range.start || r.booking_date >= range.start) && (!range.end || r.booking_date <= range.end));
+  }, [rows, filter, customStart, customEnd]);
 
   const grouped = useMemo(() => {
     const todayTomorrow: Reminder[] = [];
@@ -336,12 +333,13 @@ function BookedAppointmentsPage() {
         </div>
 
         {/* Filters */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
           {([
             ["all", "All"],
-            ["week", "This Week"],
+            ["week", "This Week (Mon–Sun)"],
             ["month", "This Month"],
             ["past", "Past"],
+            ["custom", "Custom dates"],
           ] as const).map(([k, label]) => (
             <button
               key={k}
@@ -359,6 +357,13 @@ function BookedAppointmentsPage() {
             </button>
           ))}
         </div>
+
+        {filter === "custom" && <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:12}}>
+          <label>From <input aria-label="Appointment start date" type="date" value={customStart} max={customEnd} onChange={e=>setCustomStart(e.target.value)} /></label>
+          <label>To <input aria-label="Appointment end date" type="date" value={customEnd} min={customStart} onChange={e=>setCustomEnd(e.target.value)} /></label>
+          {!periodDates("custom",customStart,customEnd) && <p role="alert">Choose a valid start and end date.</p>}
+        </div>}
+        <p style={{fontSize:12,color:COLOR.muted,marginBottom:20}}>Filtered by appointment date · Sydney time · Both dates included</p>
 
         {loading ? (
           <div style={{ ...cardStyle, padding: 40, textAlign: "center", color: COLOR.muted }}>Loading...</div>

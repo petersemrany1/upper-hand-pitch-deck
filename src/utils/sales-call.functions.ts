@@ -1,4 +1,7 @@
-import { assertExistingBookingAccess } from "./booking-access.server";
+import { salesCallCounts, dashboardMetrics, conversionPercent } from "@/lib/leaderboard-metrics";
+import { addDays, periodDates, sydneyMidnight } from "@/lib/reporting-period";
+import { sydneyTodayISO } from "@/lib/timezone";
+import { bookingActor, assertExistingBookingAccess } from "./booking-access.server";
 import { consultationMemberLabel } from "@/lib/consultation-team";
 import { createServerFn } from "@tanstack/react-start";
 
@@ -1088,79 +1091,56 @@ export type LeaderboardRange =
   | "today" | "yesterday" | "today_yesterday" | "week" | "lastweek"
   | "7d" | "30d" | "90d" | "month" | "lastmonth" | "year" | "lastyear" | "all" | "custom";
 
+type LeaderboardInput = { range: LeaderboardRange; from?: string | null; to?: string | null; city?: string | null };
 export const getLeaderboard = createServerFn({ method: "POST" })
-  .inputValidator((data: { range: LeaderboardRange; from?: string | null; to?: string | null }) => ({
-    range: data.range ?? "today",
-    from: data.from ?? null,
-    to: data.to ?? null,
-  }))
-  .handler(async ({ data }) => {
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: LeaderboardInput) => data)
+  .handler(async ({ data, context }) => {
+    await bookingActor(context.supabase);
+    return calculateLeaderboard(data);
+  });
+
+// The dashboard consumes the same calculation, returning only the caller's aggregate.
+export const getDashboardConversion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: LeaderboardInput) => data)
+  .handler(async ({ data, context }) => {
+    const actor = await bookingActor(context.supabase);
+    const result = await calculateLeaderboard(data);
+    const rows = actor.role === "admin" ? result.rows : result.rows.filter(r => r.id === actor.id);
+    return dashboardMetrics(rows);
+  });
+
+async function calculateLeaderboard(data: LeaderboardInput) {
     const now = new Date();
-    let from: Date, to: Date;
-    // BUG 2 FIX: compute day boundaries in Australia/Sydney rather than UTC,
-    // so "today" on the leaderboard matches what the reps experience locally.
-    const dayStartAU = (d: Date): Date => {
-      const ymd = new Intl.DateTimeFormat("sv-SE", {
-        timeZone: APP_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit",
-      }).format(d); // e.g. "2026-05-13"
-      const offPart = new Intl.DateTimeFormat("en-US", {
-        timeZone: APP_TIMEZONE, timeZoneName: "longOffset",
-      }).formatToParts(d).find((p) => p.type === "timeZoneName")?.value ?? "GMT+10:00";
-      const m = offPart.match(/GMT([+-])(\d{1,2}):?(\d{2})?/);
-      const sign = m?.[1] ?? "+";
-      const hh = String(parseInt(m?.[2] ?? "10")).padStart(2, "0");
-      const mm = (m?.[3] ?? "00").padStart(2, "0");
-      return new Date(`${ymd}T00:00:00${sign}${hh}:${mm}`);
-    };
-    const todayStart = dayStartAU(now);
-    // Subtract n days using noon-of-today as a DST-safe anchor, then snap to AU midnight.
-    const auNoon = new Date(todayStart.getTime() + 12 * 3600 * 1000);
-    const auDayBefore = (n: number) => dayStartAU(new Date(auNoon.getTime() - n * 24 * 3600 * 1000));
-    // Calendar-boundary helpers, all read in Australia/Sydney.
-    const auParts = (d: Date) => {
-      const ymd = new Intl.DateTimeFormat("sv-SE", {
-        timeZone: APP_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit",
-      }).format(d);
-      const [y, m, day] = ymd.split("-").map((n) => parseInt(n, 10));
-      return { y, m, day };
-    };
-    // Midnight (AU) of a Y-M-D, DST-safe: anchor at AU noon then snap.
-    const auMidnight = (y: number, m: number, day: number) =>
-      dayStartAU(new Date(`${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}T12:00:00+10:00`));
-    const { y: nowY, m: nowM } = auParts(now);
-    const monthStart = auMidnight(nowY, nowM, 1);
-    const lastMonthStart = nowM === 1 ? auMidnight(nowY - 1, 12, 1) : auMidnight(nowY, nowM - 1, 1);
-    const yearStart = auMidnight(nowY, 1, 1);
-
-    switch (data.range) {
-      case "yesterday":         { from = auDayBefore(1);  to = todayStart; break; }
-      case "today_yesterday":   { from = auDayBefore(1);  to = new Date(now); break; }
-      case "week":              { from = auDayBefore(7);  to = new Date(now); break; }
-      case "lastweek":          { from = auDayBefore(14); to = auDayBefore(7); break; }
-      case "7d":                { from = auDayBefore(7);  to = new Date(now); break; }
-      case "30d":               { from = auDayBefore(30); to = new Date(now); break; }
-      case "90d":               { from = auDayBefore(90); to = new Date(now); break; }
-      case "month":             { from = monthStart;      to = new Date(now); break; }
-      case "lastmonth":         { from = lastMonthStart;  to = monthStart; break; }
-      case "year":              { from = yearStart;       to = new Date(now); break; }
-      case "lastyear":          { from = auMidnight(nowY - 1, 1, 1); to = yearStart; break; }
-      case "all":               { from = new Date("2020-01-01T00:00:00+10:00"); to = new Date(now); break; }
-      case "custom": {
-        const ymd = /^\d{4}-\d{2}-\d{2}$/;
-        const f = data.from && ymd.test(data.from) ? data.from : null;
-        const t = data.to && ymd.test(data.to) ? data.to : null;
-        from = f ? dayStartAU(new Date(`${f}T12:00:00+10:00`)) : todayStart;
-        // Inclusive end date: run to midnight of the following day.
-        to = t
-          ? new Date(dayStartAU(new Date(`${t}T12:00:00+10:00`)).getTime() + 24 * 3600 * 1000)
-          : new Date(now);
-        if (to.getTime() < from.getTime()) { const swap = from; from = to; to = swap; }
-        break;
+    const today = sydneyTodayISO(now);
+    const week = periodDates('week', '', '', now)!;
+    let start: string | null = today, end: string | null = today;
+    switch(data.range) {
+      case 'yesterday': start=end=addDays(today,-1); break;
+      case 'today_yesterday': start=addDays(today,-1); break;
+      case 'week': start=week.start; end=week.end; break;
+      case 'lastweek': start=addDays(week.start!,-7); end=addDays(week.start!,-1); break;
+      case '7d': start=addDays(today,-6); break;
+      case '30d': start=addDays(today,-29); break;
+      case '90d': start=addDays(today,-89); break;
+      case 'month': start=periodDates('month','','',now)!.start; break;
+      case 'lastmonth': end=addDays(today.slice(0,7)+'-01',-1); start=end.slice(0,7)+'-01'; break;
+      case 'year': start=today.slice(0,4)+'-01-01'; break;
+      case 'lastyear': start=(Number(today.slice(0,4))-1)+'-01-01'; end=(Number(today.slice(0,4))-1)+'-12-31'; break;
+      case 'all': start=null; break;
+      case 'custom': {
+        const dates=periodDates('custom',data.from||'',data.to||'',now);
+        if(!dates) throw new Error('Choose a valid start and end date.');
+        start=dates.start; end=dates.end; break;
       }
-      default:                  { from = todayStart;      to = new Date(now); }
     }
+    const from = new Date(start ? sydneyMidnight(start) : '1900-01-01T00:00:00Z');
+    const endInstant = end ? new Date(sydneyMidnight(addDays(end,1))) : now;
+    const to = endInstant < now ? endInstant : now;
 
-    const { data: reps } = await supabaseAdmin.from("sales_reps").select("*");
+    const { data: reps, error: repsError } = await supabaseAdmin.from("sales_reps").select("*");
+    if(repsError) throw repsError;
 
     // Call metrics come from Twilio-derived call_records. The Twilio status
     // callback writes `duration` in seconds; `duration_seconds` is legacy.
@@ -1176,16 +1156,17 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     };
     const calls: LeaderboardCall[] = [];
     const PAGE = 1000;
-    for (let page = 0; page < 60; page++) {
-      const { data: chunk } = await supabaseAdmin.from("call_records")
+    for (let page = 0; ; page++) {
+      const { data: chunk, error: chunkError } = await supabaseAdmin.from("call_records")
         .select("id, rep_id, lead_id, clinic_id, duration, duration_seconds, outcome, status, called_at")
-        .gte("called_at", from.toISOString()).lte("called_at", to.toISOString())
+        .gte("called_at", from.toISOString()).lt("called_at", to.toISOString())
         // Outbound dials only — inbound calls are not rep "calls made" and were
         // inflating calls/convos vs the dashboard.
         .eq("direction", "outbound")
         .or("clinic_id.is.null,lead_id.not.is.null")
-        .order("called_at", { ascending: true })
+        .order("called_at", { ascending: true }).order("id")
         .range(page * PAGE, page * PAGE + PAGE - 1);
+      if(chunkError) throw chunkError;
       const rows = (chunk ?? []) as unknown as LeaderboardCall[];
       calls.push(...rows);
       if (rows.length < PAGE) break;
@@ -1196,13 +1177,18 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     // the booking was made (dedicated field, falls back to created_at via
     // backfill + default). Do not use the appointment date itself — a booking
     // made today for next week should still count on today's leaderboard.
-    const { data: appointmentBookings } = await supabaseAdmin.from("appointment_reminders")
-      .select("id, lead_id, status, booked_at")
-      .neq("status", "cancelled")
-      .gte("booked_at", from.toISOString()).lte("booked_at", to.toISOString());
-    const { data: clinicAppointmentBookings } = await supabaseAdmin.from("clinic_appointments")
-      .select("id, lead_id, booked_at")
-      .gte("booked_at", from.toISOString()).lte("booked_at", to.toISOString());
+    type BookingRow = {id:string;lead_id:string|null;booked_at:string|null};
+    const appointmentBookings:BookingRow[]=[];
+    const clinicAppointmentBookings:BookingRow[]=[];
+    for(const table of ["appointment_reminders","clinic_appointments"] as const) {
+      for(let offset=0;;offset+=PAGE) {
+        const base = table === "appointment_reminders" ? supabaseAdmin.from("appointment_reminders").select("id,lead_id,booked_at").neq("status","cancelled") : supabaseAdmin.from("clinic_appointments").select("id,lead_id,booked_at");
+        const q=base.gte("booked_at",from.toISOString()).lt("booked_at",to.toISOString()).order("id").range(offset,offset+PAGE-1);
+        const {data:chunk,error}=await q;if(error)throw error;
+        (table==='appointment_reminders'?appointmentBookings:clinicAppointmentBookings).push(...(chunk||[]));
+        if((chunk||[]).length<PAGE)break;
+      }
+    }
     // NOTE: we intentionally do NOT fall back to meta_leads.booking_date here.
     // booking_date is the APPOINTMENT date, not when the booking was made.
     // Bookings now only count from appointment_reminders / clinic_appointments,
@@ -1217,13 +1203,14 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     ]));
 
     // Chunk the lead lookup too: `.in()` on 1000+ ids also hits the row cap.
-    const leadRows: { id: string; rep_id: string | null; first_name: string | null; last_name: string | null; deposit_paid_at: string | null }[] = [];
+    const leadRows: { id: string; rep_id: string | null; first_name: string | null; last_name: string | null; deposit_paid_at: string | null; campaign_name: string | null }[] = [];
     for (let i = 0; i < relevantLeadIds.length; i += 500) {
       const slice = relevantLeadIds.slice(i, i + 500);
-      const { data: chunk } = await supabaseAdmin
+      const { data: chunk, error: chunkError } = await supabaseAdmin
         .from("meta_leads")
-        .select("id, rep_id, first_name, last_name, deposit_paid_at")
+        .select("id, rep_id, first_name, last_name, deposit_paid_at, campaign_name")
         .in("id", slice);
+      if(chunkError) throw chunkError;
       leadRows.push(...((chunk ?? []) as unknown as typeof leadRows));
     }
     // Deposit-paid timestamp per lead: any dial placed AFTER the deposit was
@@ -1278,6 +1265,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     const excludedLeadIds = new Set(
       (leadRows ?? [])
         .filter((l) => {
+          if(data.city && !(l.campaign_name||"").toLowerCase().includes(data.city.toLowerCase())) return true;
           const fn = (l.first_name ?? "").trim().toLowerCase();
           const ln = (l.last_name ?? "").trim().toLowerCase();
           if (fn === "peter" && ln.startsWith("test")) return true;
@@ -1341,49 +1329,13 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     const byRep = new Map<string, ReturnType<typeof blank>>();
     for (const r of dedupedReps) byRep.set(r.id, blank());
 
-    // Dedupe per lead: 5 dials to the same lead = 1 "call". Aggregate across
-    // all dial rows for that lead+rep, then classify once using the MAX duration.
-    const perRepLead = new Map<string, Map<string, { maxDur: number; reached: boolean }>>();
-    for (const c of calls ?? []) {
-      if (c.lead_id && excludedLeadIds.has(c.lead_id)) continue; // skip Peter Test
-      if (c.status === "ringing" || c.status === "initiated" || c.status === "queued" || c.status === "in-progress") continue;
-      // Follow-up rule: dials placed after the lead's deposit was paid are
-      // service/follow-up calls, not sales calls — never count them.
-      const paidAt = c.lead_id ? leadDepositPaidAt.get(c.lead_id as string) : undefined;
-      if (paidAt !== undefined && new Date(c.called_at as string).getTime() > paidAt) continue;
-      const repId = repIdForCall(c);
-      if (!repId) continue;
-      // Group key: lead_id when present, otherwise fall back to the call's own id
-      // so anonymous one-off calls still count individually.
-      const groupKey = (c.lead_id as string) || (c.id as string);
-      const dur = (c.duration ?? c.duration_seconds ?? 0) as number;
-      // Twilio "completed" includes voicemails. Treat as Not Reached when:
-      //  - status is no-answer / busy / failed / canceled, OR
-      //  - duration is under 15s (too short to be a real human pickup; mostly voicemails).
-      // Override: outcome === "connected" is a manual confirmation a human picked up.
-      const failedStatus = c.status === "no-answer" || c.status === "busy" || c.status === "failed" || c.status === "canceled";
-      const reached = c.outcome === "connected" || (!failedStatus && dur >= 15);
-      const inner = perRepLead.get(repId) ?? new Map();
-      const existing = inner.get(groupKey) ?? { maxDur: 0, reached: false };
-      existing.maxDur = Math.max(existing.maxDur, dur);
-      existing.reached = existing.reached || reached;
-      inner.set(groupKey, existing);
-      perRepLead.set(repId, inner);
+    const metricCallsByRep = new Map<string, LeaderboardCall[]>();
+    for(const call of calls) {
+      const repId=repIdForCall(call); if(!repId)continue;
+      const list=metricCallsByRep.get(repId)||[]; list.push(call); metricCallsByRep.set(repId,list);
     }
-    for (const [repId, leads] of perRepLead.entries()) {
-      const s = byRep.get(repId) ?? blank();
-      for (const { maxDur, reached } of leads.values()) {
-        s.calls += 1;
-        s.attempted += 1;
-        if (!reached) {
-          s.notReached += 1;
-        } else {
-          s.connected += 1;
-          if (maxDur < 120) s.short += 1;
-          else { s.convos += 1; s.holds += 1; }
-        }
-      }
-      byRep.set(repId, s);
+    for(const [repId, repCalls] of metricCallsByRep) {
+      byRep.set(repId,{...(byRep.get(repId)||blank()),...salesCallCounts(repCalls,excludedLeadIds,leadDepositPaidAt)});
     }
 
     // Break time = idle gaps between consecutive calls per rep. Use the END of
@@ -1503,7 +1455,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     const rows = dedupedReps.map((r) => {
       const s = byRep.get(r.id) ?? blank();
       const holdRate = s.connected > 0 ? Math.round((s.holds / s.connected) * 100) : 0;
-      const conversion = s.convos > 0 ? Math.round((s.bookings / s.convos) * 100) : 0;
+      const conversion = conversionPercent(s.bookings, s.convos) ?? 0;
       return {
         id: r.id, name: r.name, email: r.email,
         calls: s.calls,
@@ -1524,7 +1476,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     }).sort((a, b) => b.bookings - a.bookings || b.calls - a.calls);
 
     return { success: true as const, rows };
-  });
+  }
 
 /* ───────────────────────── Find lead by inbound phone ───────────────────────── */
 

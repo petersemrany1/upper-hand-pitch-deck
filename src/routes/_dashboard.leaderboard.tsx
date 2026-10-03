@@ -33,6 +33,9 @@ function LeaderboardPage() {
   const [customFrom, setCustomFrom] = useState<string>(todayYmd());
   const [customTo, setCustomTo] = useState<string>(todayYmd());
   const [rows, setRows] = useState<Row[]>([]);
+  const [loadError,setLoadError]=useState("");
+  const [loading,setLoading]=useState(true);
+  const loadVersion=useRef(0);
   const [showAdd, setShowAdd] = useState(false);
   const [newRep, setNewRep] = useState({ firstName: "", lastName: "", email: "" });
   const [inviting, setInviting] = useState(false);
@@ -45,8 +48,12 @@ function LeaderboardPage() {
   const abortRef = useRef<AbortController | null>(null);
 
   const load = async () => {
-    const r = await getLeaderboard({ data: { range, from: customFrom, to: customTo } });
-    if (r.success) setRows(r.rows);
+    const version=++loadVersion.current; setLoading(true); setLoadError("");
+    try {
+      const r = await getLeaderboard({ data: { range, from: customFrom, to: customTo } });
+      if(version===loadVersion.current && r.success) setRows(r.rows);
+    } catch { if(version===loadVersion.current) {setRows([]);setLoadError("Leaderboard could not be loaded. Check the date range and refresh.");} }
+    finally {if(version===loadVersion.current)setLoading(false);}
   };
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [range, customFrom, customTo]);
 
@@ -60,7 +67,7 @@ function LeaderboardPage() {
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
     // eslint-disable-next-line
-  }, [range]);
+  }, [range, customFrom, customTo]);
 
   const onAddRep = async () => {
     if (!newRep.firstName.trim() || !newRep.lastName.trim() || !newRep.email.trim()) {
@@ -135,7 +142,7 @@ function LeaderboardPage() {
 
   const ranges: { key: Range; label: string }[] = [
     { key: "today", label: "Today" }, { key: "yesterday", label: "Yesterday" },
-    { key: "week", label: "This Week" }, { key: "lastweek", label: "Last Week" },
+    { key: "week", label: "This Week (Mon–Sun)" }, { key: "lastweek", label: "Last Week" },
     { key: "30d", label: "30 Days" }, { key: "90d", label: "90 Days" },
     { key: "month", label: "This Month" }, { key: "lastmonth", label: "Last Month" },
     { key: "year", label: "This Year" }, { key: "lastyear", label: "Last Year" },
@@ -202,6 +209,8 @@ function LeaderboardPage() {
 
 
 
+        {loadError && <p role="alert">{loadError}</p>}
+        {loading && <p>Loading leaderboard…</p>}
         <div className="mt-4 rounded-lg overflow-hidden" style={{ background: C.card, border: `1px solid ${C.line}` }}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -209,20 +218,20 @@ function LeaderboardPage() {
                 <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.muted, background: "#ffffff" }}>
                   <Th>Rank</Th>
                   <Th>Rep</Th>
-                  <Th info="Twilio call attempts recorded in this period.">Calls</Th>
-                  <Th info="Twilio calls with no connected duration.">Not Reached</Th>
+                  <Th info="Unique leads dialled per rep in this period; repeat calls count once. Excludes test leads, pending calls and calls after deposit payment.">Calls</Th>
+                  <Th info="Leads without a call reaching 15 seconds or a manually confirmed connection.">Not Reached</Th>
                   <Th info="Connected Twilio calls under 2 minutes.">Short</Th>
                   <Th info="Connected Twilio calls lasting 2 minutes or more.">Convos</Th>
                   <Th info="Of everyone who picked up, % that stayed for a real conversation (2min+).">Hold %</Th>
                   <Th info="Bookings as a percentage of real conversations (Booked ÷ Convos).">Conv %</Th>
-                  <Th info="Internal deposit-paid bookings confirmed in this period.">Booked</Th>
+                  <Th info="Bookings created in this period, counted once per lead using the booking timestamp.">Booked</Th>
                   <Th info="Total shift time from first call to last call of the day.">Work</Th>
                   <Th info="Average pause between hanging up one call and dialling the next, excluding booking gaps (handover/deposit work). Green = under 30s, amber = 30–60s, red = 60s+.">Avg Idle</Th>
                   <Th info="Bookings × $50.">Bonus</Th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => {
+                {(!loading && !loadError ? rows : []).map((r, i) => {
                   const holdColor = r.holdRate === 0 ? "#111" : r.holdRate >= 60 ? C.green : r.holdRate >= 40 ? C.amber : C.red;
                   const convColor = r.conversion === 0 ? "#111" : r.conversion >= 70 ? C.green : r.conversion >= 50 ? C.amber : C.red;
                    const idleColor = r.avgIdleSeconds === 0 ? "#111" : r.avgIdleSeconds < 30 ? C.green : r.avgIdleSeconds <= 60 ? C.amber : C.red;
