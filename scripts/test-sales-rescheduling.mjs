@@ -83,6 +83,10 @@ await actor(1,'admin@fixture.test','service_role');await assert.rejects(commit(3
 await actor(5,'clinic@fixture.test');assert.equal((await db.query('select appointment_time from clinic_appointments where id=$1',[uid(30)])).rows[0].appointment_time,'11:00');assert.equal(await count('appointment_reminders'),0);
 await actor(2,'a@fixture.test');assert.equal(await count('appointment_reschedules'),1);
 await actor(3,'b@fixture.test');assert.equal(await count('appointment_reschedules'),0);
+// New bookings cannot spoof another rep's ownership, and service bookings inherit lead ownership.
+await actor(2,'a@fixture.test');
+await db.query('insert into clinic_appointments(id,clinic_id,booking_rep_id,patient_name,appointment_date,appointment_time) values($1,$2,$3,$4,$5,$6)',[uid(60),uid(10),uid(3),'New Fixture','2026-12-10','09:00']);
+assert.equal((await db.query('select booking_rep_id from clinic_appointments where id=$1',[uid(60)])).rows[0].booking_rep_id,uid(2));
 await actor(1,'admin@fixture.test','service_role');
 await db.query('delete from clinic_appointments where id=$1',[uid(30)]);
 assert.equal(await count('appointment_reschedules'),1);
