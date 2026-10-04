@@ -367,3 +367,81 @@ export const recoverInvoiceCheck = createServerFn({ method: "POST" })
     await deliverInvoice(db, data.id);
     return { ok: true };
   });
+
+// The personal upload log is the private storage object's durable metadata.
+// Owner prefixes always come from the authenticated account, never the request.
+export const listPersonalInvoices = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ offset: z.number().int().min(0).max(100000) }))
+  .handler(async ({ data, context }) => {
+    const { db, rep } = await actor(context.claims.email);
+    const { data: files, error } = await db.storage
+      .from("rep-invoices")
+      .list(rep.id, {
+        limit: 26,
+        offset: data.offset,
+        sortBy: { column: "created_at", order: "desc" },
+      });
+    if (error)
+      throw new Error("Could not load your invoices. Please try again.");
+    return {
+      hasMore: files.length > 25,
+      invoices: files.slice(0, 25).map((file) => ({
+        key: file.name,
+        name: file.name.includes("--")
+          ? file.name.slice(file.name.indexOf("--") + 2)
+          : "Invoice.pdf",
+        createdAt: file.created_at,
+      })),
+    };
+  });
+
+export const uploadPersonalInvoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      name: z.string().min(1).max(255),
+      pdf: z.string().min(1).max(6990508),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { db, rep } = await actor(context.claims.email);
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(data.pdf))
+      throw new Error("Invalid PDF upload.");
+    const bytes = Buffer.from(data.pdf, "base64");
+    if (bytes.length > 5242880 || bytes.subarray(0, 5).toString() !== "%PDF-")
+      throw new Error("Choose a PDF no larger than 5 MB.");
+    const name = data.name.replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 180);
+    const key = `${crypto.randomUUID()}--${name}`;
+    const { error } = await db.storage
+      .from("rep-invoices")
+      .upload(`${rep.id}/${key}`, bytes, {
+        contentType: "application/pdf",
+        upsert: false,
+      });
+    if (error)
+      throw new Error(
+        "Upload could not be confirmed. Refresh your history before trying again.",
+      );
+    return { key };
+  });
+
+export const personalInvoiceUrl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      key: z
+        .string()
+        .min(1)
+        .max(255)
+        .regex(/^[a-zA-Z0-9._ -]+$/),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { db, rep } = await actor(context.claims.email);
+    const { data: url, error } = await db.storage
+      .from("rep-invoices")
+      .createSignedUrl(`${rep.id}/${data.key}`, 120);
+    if (error || !url) throw new Error("Could not open your invoice.");
+    return url.signedUrl;
+  });
