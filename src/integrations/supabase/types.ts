@@ -2466,6 +2466,30 @@ export type Database = {
         }
         Relationships: []
       }
+      rep_booking_earnings: {
+        Row: {
+          earned_at: string
+          lead_id: string
+          patient_name: string
+          rep_id: string | null
+          verified: boolean
+        }
+        Insert: {
+          earned_at: string
+          lead_id: string
+          patient_name: string
+          rep_id?: string | null
+          verified?: boolean
+        }
+        Update: {
+          earned_at?: string
+          lead_id?: string
+          patient_name?: string
+          rep_id?: string | null
+          verified?: boolean
+        }
+        Relationships: []
+      }
       rep_booking_targets: {
         Row: {
           created_at: string
@@ -2530,6 +2554,112 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "rep_hour_overrides_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rep_invoice_config: {
+        Row: {
+          hourly_rate_cents: number
+          rep_id: string
+          timezone: string
+        }
+        Insert: {
+          hourly_rate_cents: number
+          rep_id: string
+          timezone?: string
+        }
+        Update: {
+          hourly_rate_cents?: number
+          rep_id?: string
+          timezone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rep_invoice_config_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: true
+            referencedRelation: "sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rep_invoice_tracking: {
+        Row: {
+          id: boolean
+          started_at: string
+        }
+        Insert: {
+          id?: boolean
+          started_at?: string
+        }
+        Update: {
+          id?: boolean
+          started_at?: string
+        }
+        Relationships: []
+      }
+      rep_invoices: {
+        Row: {
+          claim: Json
+          created_at: string
+          email_attempt_at: string | null
+          email_error: string | null
+          email_sent_at: string | null
+          email_status: string
+          evidence: Json
+          file_hash: string
+          file_path: string
+          id: string
+          invoice_number: string
+          period_from: string
+          period_to: string
+          rep_id: string
+          result: Json | null
+          status: string
+        }
+        Insert: {
+          claim: Json
+          created_at?: string
+          email_attempt_at?: string | null
+          email_error?: string | null
+          email_sent_at?: string | null
+          email_status?: string
+          evidence: Json
+          file_hash: string
+          file_path: string
+          id: string
+          invoice_number: string
+          period_from: string
+          period_to: string
+          rep_id: string
+          result?: Json | null
+          status?: string
+        }
+        Update: {
+          claim?: Json
+          created_at?: string
+          email_attempt_at?: string | null
+          email_error?: string | null
+          email_sent_at?: string | null
+          email_status?: string
+          evidence?: Json
+          file_hash?: string
+          file_path?: string
+          id?: string
+          invoice_number?: string
+          period_from?: string
+          period_to?: string
+          rep_id?: string
+          result?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rep_invoices_rep_id_fkey"
             columns: ["rep_id"]
             isOneToOne: false
             referencedRelation: "sales_reps"
@@ -2694,23 +2824,35 @@ export type Database = {
       }
       rep_sessions: {
         Row: {
+          close_reason: string | null
+          connection_gap: boolean
           created_at: string
           ended_at: string | null
           id: string
+          invoice_tracking: boolean
+          last_seen_at: string | null
           rep_id: string
           started_at: string
         }
         Insert: {
+          close_reason?: string | null
+          connection_gap?: boolean
           created_at?: string
           ended_at?: string | null
           id?: string
+          invoice_tracking?: boolean
+          last_seen_at?: string | null
           rep_id: string
           started_at?: string
         }
         Update: {
+          close_reason?: string | null
+          connection_gap?: boolean
           created_at?: string
           ended_at?: string | null
           id?: string
+          invoice_tracking?: boolean
+          last_seen_at?: string | null
           rep_id?: string
           started_at?: string
         }
@@ -3386,6 +3528,10 @@ export type Database = {
           work_date: string
         }[]
       }
+      rep_invoice_session_action: {
+        Args: { p_action: string; p_rep: string }
+        Returns: Json
+      }
       rep_rate_for: {
         Args: { _date: string; _rep: string }
         Returns: {
@@ -3406,6 +3552,16 @@ export type Database = {
       spend_location: {
         Args: { p_campaign: string; p_location: string }
         Returns: string
+      }
+      submit_rep_invoice: {
+        Args: {
+          p_claim: Json
+          p_hash: string
+          p_id: string
+          p_path: string
+          p_rep: string
+        }
+        Returns: Json
       }
     }
     Enums: {
