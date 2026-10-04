@@ -38,6 +38,11 @@ await db.exec(
     "utf8",
   ),
 );
+// Replaying the deployment receipt after the canonical migration must be safe.
+await db.exec(readFileSync(new URL(
+  "../supabase/migrations/20261004230749_4ac82c68-0b1e-425e-8119-15d3317979e7.sql",
+  import.meta.url,
+), "utf8"));
 const one = async (sql, args = []) => (await db.query(sql, args)).rows[0];
 assert.equal(
   (
