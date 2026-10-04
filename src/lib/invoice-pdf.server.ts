@@ -40,3 +40,18 @@ export async function checkInvoicePdf(
     ];
   }
 }
+
+// AI only extracts claims; the deterministic checker decides the verdict.
+export async function extractInvoiceClaim(bytes: Uint8Array): Promise<unknown> {
+  const pdf = await getDocumentProxy(bytes.slice());
+  if (pdf.numPages > 10)
+    throw new Error("Invoice has too many pages for automatic extraction.");
+  const { items } = await extractTextItems(pdf);
+  const text = items
+    .map((page) => page.map((item) => item.str).join(" "))
+    .join("\n");
+  if (text.trim().length < 30 || text.length > 50000)
+    throw new Error("Invoice text could not be extracted reliably.");
+  const { extractInvoiceText } = await import("./invoice-ai.server");
+  return await extractInvoiceText(text);
+}

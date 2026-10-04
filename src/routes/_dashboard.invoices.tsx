@@ -5,6 +5,7 @@ import {
   listPersonalInvoices,
   uploadPersonalInvoice,
   personalInvoiceUrl,
+  checkPersonalInvoice,
 } from "@/lib/rep-invoices.functions";
 
 export const Route = createFileRoute("/_dashboard/invoices")({
@@ -54,13 +55,37 @@ function InvoicesPage() {
         reader.onerror = () => reject(new Error("Could not read the file."));
         reader.readAsDataURL(file);
       });
-      await uploadPersonalInvoice({ data: { name: file.name, pdf } });
+      const outcome = await uploadPersonalInvoice({
+        data: { name: file.name, pdf },
+      });
       setFile(null);
       setFileKey((k) => k + 1);
-      setNotice("Invoice uploaded.");
+      setNotice(
+        outcome.emailSent
+          ? "Invoice uploaded. Review emailed to Peter."
+          : "Invoice uploaded. The review email is pending; use Retry check below.",
+      );
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not upload invoice.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function retryCheck(key: string) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await checkPersonalInvoice({ data: { key } });
+      setNotice(
+        result.emailSent
+          ? "Review emailed to Peter."
+          : "Your invoice is saved. Email is still pending; please try again shortly.",
+      );
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not finish the check.");
     } finally {
       setBusy(false);
     }
@@ -170,6 +195,21 @@ function InvoicesPage() {
                         })
                       : "—"}
                   </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {invoice.emailStatus === "sent"
+                      ? "Review emailed"
+                      : "Review email pending"}
+                  </p>
+                  {invoice.emailStatus !== "sent" && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => retryCheck(invoice.key)}
+                      className="mt-2 text-xs text-emerald-900 disabled:opacity-50"
+                    >
+                      {busy ? "Checking…" : "Retry check"}
+                    </button>
+                  )}
                 </div>
                 <button
                   type="button"

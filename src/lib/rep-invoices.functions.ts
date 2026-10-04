@@ -119,18 +119,27 @@ async function deliverInvoice(db: SupabaseClient, id: string) {
       row.status === "approved"
         ? "Approved — ready to pay"
         : "Needs review — do not pay automatically";
-    const rows = [
-      ["Hours (breaks included)", c.hours, r.systemHours],
-      ["Deposit-paid bookings", c.bookings, r.systemBookings],
-      [
-        "Hourly rate",
-        money(Math.round(c.hourlyRate * 100)),
-        money(e.hourly_rate_cents),
-      ],
-      ["Booking rate", money(Math.round(c.bookingRate * 100)), "$50.00"],
-      ["Total", money(r.claimedTotalCents), money(r.expectedTotalCents)],
-    ];
-    const html = `<div style="font-family:Arial,sans-serif;color:#18231c;line-height:1.6"><h2>${esc(verdict)}</h2><p>${esc(e.rep_name)} · Invoice ${esc(c.number)}<br>${esc(c.from)} to ${esc(c.to)} (WA dates)</p><table cellpadding="8" border="1" style="border-collapse:collapse"><tr><th>Check</th><th>Invoice</th><th>System</th></tr>${rows.map((a) => `<tr>${a.map((v) => `<td>${esc(v)}</td>`).join("")}</tr>`).join("")}</table><p>Difference: ${esc(money(r.differenceCents))}</p>${r.reasons.length ? `<ul>${r.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "<p>The PDF figures, recorded session hours, booking records and agreed rates match. No duplicate or overlapping invoice was found.</p>"}<p>The original invoice is attached. Open the Invoices tab in your portal for session and booking evidence. This check does not transfer money.</p><p>Checked ${esc(e.captured_at)}. Hours rounded once to two decimal places; payments calculated in cents.</p></div>`;
+    const unavailable = row.claim.extractionUnavailable === true;
+    const rows = unavailable
+      ? [
+          [
+            "Invoice figures and portal comparison",
+            "Unavailable",
+            "Manual review required",
+          ],
+        ]
+      : [
+          ["Hours (breaks included)", c.hours, r.systemHours],
+          ["Deposit-paid bookings", c.bookings, r.systemBookings],
+          [
+            "Hourly rate",
+            money(Math.round(c.hourlyRate * 100)),
+            money(e.hourly_rate_cents),
+          ],
+          ["Booking rate", money(Math.round(c.bookingRate * 100)), "$50.00"],
+          ["Total", money(r.claimedTotalCents), money(r.expectedTotalCents)],
+        ];
+    const html = `<div style="font-family:Arial,sans-serif;color:#18231c;line-height:1.6"><h2>${esc(verdict)}</h2><p>${esc(e.rep_name)} · Invoice ${esc(c.number)}<br>${unavailable ? "Service dates could not be verified" : `${esc(c.from)} to ${esc(c.to)} (WA dates)`}</p><table cellpadding="8" border="1" style="border-collapse:collapse"><tr><th>Check</th><th>Invoice</th><th>System</th></tr>${rows.map((a) => `<tr>${a.map((v) => `<td>${esc(v)}</td>`).join("")}</tr>`).join("")}</table><p>Difference: ${esc(money(r.differenceCents))}</p>${r.reasons.length ? `<ul>${r.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "<p>The PDF figures, recorded session hours, booking records and agreed rates match. No duplicate or overlapping invoice was found.</p>"}<p>The original invoice is attached. The comparison uses the portal records captured when this check ran. This check does not transfer money.</p><p>Checked ${esc(e.captured_at)}. Hours rounded once to two decimal places; payments calculated in cents.</p></div>`;
     const key = process.env.RESEND_API_KEY,
       gateway = process.env.LOVABLE_API_KEY;
     if (!key || !gateway)
@@ -147,7 +156,7 @@ async function deliverInvoice(db: SupabaseClient, id: string) {
           "Idempotency-Key": `rep-invoice-${id}`,
         },
         body: JSON.stringify({
-          from: "Bold Patients <admin@bold-patients.com>",
+          from: "Hair Transplant Group <admin@bold-patients.com>",
           to: [INVOICE_EMAIL],
           subject: `${verdict}: ${e.rep_name} — ${c.number}`,
           html,
@@ -384,6 +393,19 @@ export const listPersonalInvoices = createServerFn({ method: "GET" })
       });
     if (error)
       throw new Error("Could not load your invoices. Please try again.");
+    const page = files.slice(0, 25);
+    const { data: checks, error: checkError } = page.length
+      ? await db
+          .from("rep_invoices")
+          .select("file_path,status,email_status")
+          .eq("rep_id", rep.id)
+          .in(
+            "file_path",
+            page.map((file) => `${rep.id}/${file.name}`),
+          )
+      : { data: [], error: null };
+    if (checkError)
+      throw new Error("Could not load invoice check status. Please refresh.");
     return {
       hasMore: files.length > 25,
       invoices: files.slice(0, 25).map((file) => ({
@@ -392,6 +414,9 @@ export const listPersonalInvoices = createServerFn({ method: "GET" })
           ? file.name.slice(file.name.indexOf("--") + 2)
           : "Invoice.pdf",
         createdAt: file.created_at,
+        emailStatus:
+          checks?.find((check) => check.file_path === `${rep.id}/${file.name}`)
+            ?.email_status ?? "not_checked",
       })),
     };
   });
@@ -423,7 +448,13 @@ export const uploadPersonalInvoice = createServerFn({ method: "POST" })
       throw new Error(
         "Upload could not be confirmed. Refresh your history before trying again.",
       );
-    return { key };
+    try {
+      const outcome = await processPersonalInvoice(db, rep, key);
+      return { key, emailSent: outcome.emailSent };
+    } catch {
+      // The PDF is durable. Never ask the rep to upload another copy.
+      return { key, emailSent: false };
+    }
   });
 
 export const personalInvoiceUrl = createServerFn({ method: "POST" })
@@ -444,4 +475,160 @@ export const personalInvoiceUrl = createServerFn({ method: "POST" })
       .createSignedUrl(`${rep.id}/${data.key}`, 120);
     if (error || !url) throw new Error("Could not open your invoice.");
     return url.signedUrl;
+  });
+
+async function processPersonalInvoice(
+  db: SupabaseClient,
+  rep: { id: string; name: string },
+  key: string,
+) {
+  const path = `${rep.id}/${key}`;
+  const id = key.slice(0, 36);
+  if (!z.string().uuid().safeParse(id).success)
+    throw new Error("Invalid invoice file.");
+  const { data: existing, error: readError } = await db
+    .from("rep_invoices")
+    .select("*")
+    .eq("id", id)
+    .eq("rep_id", rep.id)
+    .maybeSingle();
+  if (readError) throw new Error("Could not load the invoice check.");
+  if (existing?.email_status === "sent") return { emailSent: true };
+  if (existing?.email_status === "sending") {
+    const { error } = await db
+      .from("rep_invoices")
+      .update({
+        email_status: "failed",
+        email_error: "Previous email attempt was interrupted.",
+      })
+      .eq("id", id)
+      .eq("rep_id", rep.id)
+      .eq("email_status", "sending")
+      .lt("email_attempt_at", new Date(Date.now() - 5 * 60000).toISOString());
+    if (error) throw new Error("Could not recover email delivery.");
+  }
+  if (existing && existing.file_path !== path)
+    throw new Error("Invoice file does not match.");
+  if (existing && existing.status !== "checking") {
+    await deliverInvoice(db, id);
+  } else {
+    const { data: file, error: downloadError } = await db.storage
+      .from("rep-invoices")
+      .download(path);
+    if (downloadError || !file)
+      throw new Error("Could not read the saved invoice.");
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const hash = Buffer.from(
+      await crypto.subtle.digest("SHA-256", bytes),
+    ).toString("hex");
+    let claim: InvoiceClaim | undefined = existing?.claim;
+    let evidence: InvoiceEvidence | undefined = existing?.evidence;
+    let extractionFailure = "";
+    if (!existing) {
+      try {
+        const { extractInvoiceClaim } = await import("./invoice-pdf.server");
+        const parsed = claimSchema.safeParse(await extractInvoiceClaim(bytes));
+        if (!parsed.success)
+          throw new Error(
+            "AI could not reliably identify all invoice figures and service dates.",
+          );
+        claim = parsed.data;
+      } catch (e) {
+        extractionFailure =
+          e instanceof Error ? e.message : "Invoice extraction failed.";
+      }
+      if (claim) {
+        const { data: snapshot, error } = await db.rpc("submit_rep_invoice", {
+          p_id: id,
+          p_rep: rep.id,
+          p_claim: claim,
+          p_path: path,
+          p_hash: hash,
+        });
+        if (error)
+          throw new Error(
+            "The saved invoice is waiting for its check. Please retry the check.",
+          );
+        evidence = snapshot;
+      } else {
+        const today = new Date().toLocaleDateString("en-CA", {
+          timeZone: "Australia/Perth",
+        });
+        const result = {
+          status: "needs_review",
+          reasons: [
+            extractionFailure,
+            "No payment approval was made. Read the attached PDF and verify its service dates, hours and bookings manually.",
+          ],
+          systemHours: 0,
+          systemBookings: 0,
+          expectedTotalCents: null,
+          claimedTotalCents: 0,
+          differenceCents: null,
+        };
+        const { error } = await db
+          .from("rep_invoices")
+          .insert({
+            id,
+            rep_id: rep.id,
+            invoice_number: key.slice(38),
+            period_from: today,
+            period_to: today,
+            file_path: path,
+            file_hash: hash,
+            claim: { number: key.slice(38), extractionUnavailable: true },
+            evidence: {
+              rep_name: rep.name,
+              captured_at: new Date().toISOString(),
+            },
+            status: "needs_review",
+            result,
+          });
+        if (error)
+          throw new Error(
+            "Could not record the invoice review. Retry the check, not the upload.",
+          );
+      }
+    }
+    if (claim && evidence) {
+      const { checkInvoicePdf } = await import("./invoice-pdf.server");
+      const result = checkInvoice(
+        claim,
+        evidence,
+        await checkInvoicePdf(bytes, claim, rep.name),
+      );
+      const { error } = await db
+        .from("rep_invoices")
+        .update({ result, status: result.status })
+        .eq("id", id)
+        .eq("rep_id", rep.id)
+        .eq("status", "checking");
+      if (error) throw new Error("Could not finish the saved invoice check.");
+    }
+    await deliverInvoice(db, id);
+  }
+  const { data: delivered, error } = await db
+    .from("rep_invoices")
+    .select("email_status")
+    .eq("id", id)
+    .eq("rep_id", rep.id)
+    .single();
+  if (error) throw new Error("Could not confirm the email status.");
+  return { emailSent: delivered.email_status === "sent" };
+}
+
+export const checkPersonalInvoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      key: z
+        .string()
+        .min(36)
+        .max(255)
+        .regex(/^[a-zA-Z0-9._ -]+$/),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { db, rep } = await actor(context.claims.email);
+    return processPersonalInvoice(db, rep, data.key);
   });
