@@ -1,3 +1,4 @@
+import "./clinic-portal.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock, Sparkles } from "lucide-react";
 import { ClinicFlowSetup } from "@/components/ClinicFlowSetup";
@@ -316,10 +317,10 @@ export function ClinicPortalView({
   }, [appts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div style={{ background: "#f0f2f5", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+    <div className="clinic-portal" style={{ background: "#f0f2f5", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
       <ClinicPackBalanceCard clinicId={clinicId} isAdmin={isAdmin} />
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec", marginTop: 16 }}>
-        <div style={{ display: "flex", gap: 0, padding: "0 24px" }}>
+        <div className="clinic-portal-tabs" style={{ display: "flex", gap: 0, padding: "0 24px" }}>
           <TabBtn active={tab === "appointments"} onClick={() => setTab("appointments")} icon={<ClipboardList size={16} />}>Appointments</TabBtn>
           <TabBtn active={tab === "availability"} onClick={() => setTab("availability")} icon={<CalendarDays size={16} />}>Availability</TabBtn>
           <TabBtn active={tab === "clinicflow"} onClick={() => setTab("clinicflow")} icon={<Sparkles size={16} />}>ClinicFlow</TabBtn>
@@ -414,9 +415,9 @@ function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicSt
   const [showAdd, setShowAdd] = useState(false);
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="clinic-portal-content" style={{ padding: 24 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "inline-flex", background: "#fff", border: "1px solid #e2e6ec", borderRadius: 8, padding: 3 }}>
+        <div className="clinic-filter-tabs" style={{ display: "inline-flex", background: "#fff", border: "1px solid #e2e6ec", borderRadius: 8, padding: 3 }}>
           <ViewToggleBtn active={view === "list"} onClick={() => setView("list")} icon={<ListIcon size={14} />}>List</ViewToggleBtn>
           <ViewToggleBtn active={view === "calendar"} onClick={() => setView("calendar")} icon={<CalendarIcon size={14} />}>Calendar</ViewToggleBtn>
         </div>
@@ -552,7 +553,7 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
     <div>
       {/* Toolbar: tabs + search + date range */}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginBottom: 12 }}>
-        <div style={{ display: "inline-flex", background: "#fff", border: "1px solid #e2e6ec", borderRadius: 8, padding: 3 }}>
+        <div className="clinic-filter-tabs" style={{ display: "inline-flex", background: "#fff", border: "1px solid #e2e6ec", borderRadius: 8, padding: 3 }}>
           <ViewToggleBtn active={tab === "upcoming"} onClick={() => setTab("upcoming")} icon={null}>Upcoming ({upcomingCount})</ViewToggleBtn>
           <ViewToggleBtn active={tab === "past"} onClick={() => setTab("past")} icon={null}>Past ({pastCount})</ViewToggleBtn>
           <ViewToggleBtn active={tab === "noshow"} onClick={() => setTab("noshow")} icon={null}>No shows ({noShowCount})</ViewToggleBtn>
@@ -569,7 +570,7 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
           onChange={(e) => setQuery(e.target.value)}
           style={{ ...inputStyle, flex: "1 1 200px", minWidth: 160 }}
         />
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <div className="clinic-date-range" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} style={inputStyle} aria-label="From date" />
           <span style={{ fontSize: 12, color: "#6b7785" }}>→</span>
           <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} style={inputStyle} aria-label="To date" />
@@ -612,6 +613,7 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
                   const d = parseDateOnly(a.appointment_date);
                   return (
                     <button
+                      className="clinic-appointment-row"
                       key={a.id}
                       onClick={() => onSelect(a)}
                       style={{
@@ -634,7 +636,7 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
                         </div>
                         <div style={{ fontSize: 12, color: "#6b7785" }}>{fmtTime(a.appointment_time)} · {a.patient_phone || "no phone"}</div>
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div className="clinic-appointment-badges" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <span style={{ background: c.bg, color: c.fg, padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 12 }}>{c.label}</span>
                         {(a.refund_status === "refunded" || a.refund_status === "refunded_manual") && (
                           <span style={{ background: "#e8f5ef", color: "#1a7a4a", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>
@@ -703,13 +705,16 @@ function CalendarView({ appts, tradingHours, blockedSlots, clinicState, minGapMi
         <button onClick={() => setView((d) => { const n = new Date(d); n.setMonth(n.getMonth() + 1); return n; })} style={navBtn}>›</button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 6 }}>
+      <p className="clinic-calendar-hint">Swipe across to see all seven days.</p>
+      <div className="clinic-calendar-scroll" role="region" aria-label="Appointment calendar, scroll horizontally to see all days" tabIndex={0}>
+      <div className="clinic-calendar">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6, marginBottom: 6 }}>
         {DAY_SHORT.map((d) => (
           <div key={d} style={{ fontSize: 11, fontWeight: 600, color: "#6b7785", textTransform: "uppercase", letterSpacing: 0.5, padding: "4px 8px" }}>{d}</div>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6 }}>
         {days.map((d, i) => {
           if (!d) return <div key={i} />;
           const dateStr = ymd(d);
@@ -756,6 +761,8 @@ function CalendarView({ appts, tradingHours, blockedSlots, clinicState, minGapMi
         })}
       </div>
 
+      </div>
+      </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 16, fontSize: 11, color: "#6b7785" }}>
         {Object.entries(OUTCOME_COLORS).map(([k, v]) => (
           <div key={k} style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1409,6 +1416,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
   const [viewMonth, setViewMonth] = useState<Date>(new Date());
 
   // drag-select state
+  const mouseSlotSelection = useRef(false);
   const [dragStart, setDragStart] = useState<number | null>(null);
   const [dragEnd, setDragEnd] = useState<number | null>(null);
   const [pending, setPending] = useState<PendingRange | null>(null);
@@ -1540,7 +1548,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
   const allBlocked = !isClosedDay && slots.length > 0 && slots.every((s) => s.blocked);
 
   return (
-    <div style={{ padding: 24, display: "grid", gridTemplateColumns: "420px 1fr", gap: 20, maxWidth: 1200, margin: "0 auto" }}>
+    <div className="clinic-availability clinic-portal-content" style={{ padding: 24, display: "grid", gridTemplateColumns: "420px minmax(0, 1fr)", gap: 20, maxWidth: 1200, margin: "0 auto" }}>
       {/* LEFT — calendar */}
       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", padding: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -1548,12 +1556,12 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
           <div style={{ fontSize: 14, fontWeight: 600, color: NAVY }}>{MONTHS[month]} {year}</div>
           <button onClick={() => setViewMonth((d) => { const n = new Date(d); n.setMonth(n.getMonth() + 1); return n; })} style={navBtn}>›</button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 4 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4, marginBottom: 4 }}>
           {DAY_SHORT.map((d) => (
             <div key={d} style={{ fontSize: 10, fontWeight: 600, color: "#6b7785", textAlign: "center", padding: 4 }}>{d}</div>
           ))}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4 }}>
           {Array.from({ length: offset }, (_, i) => <div key={`o${i}`} />)}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
             const date = new Date(year, month, day);
@@ -1585,7 +1593,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
 
       {/* RIGHT — slot editor */}
       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: "#6b7785", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>Editing</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: NAVY }}>
@@ -1667,7 +1675,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
           );
         })() : (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, userSelect: "none", touchAction: "none" }}>
+            <div className="clinic-slot-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8, userSelect: "none", touchAction: "pan-y" }}>
               {slots.map((s, i) => {
                 const dragging = inDragRange(i);
                 let bg = "#fff", color = "#111", border = "1px solid #e6e6e6";
@@ -1677,7 +1685,13 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
                 return (
                   <button
                     key={s.time}
-                    onPointerDown={(e) => { e.preventDefault(); onSlotPointerDown(i, s); }}
+                    onPointerDown={(e) => { mouseSlotSelection.current = e.pointerType === "mouse"; if (!mouseSlotSelection.current) return; e.preventDefault(); onSlotPointerDown(i, s); }}
+                    onClick={(e) => {
+                      if (e.detail !== 0 && mouseSlotSelection.current) return;
+                      const [h, m] = s.time.split(":").map(Number);
+                      const end = h * 60 + m + (selectedTH?.consult_duration_mins ?? 15);
+                      setPending({ startTime: s.time, endTime: `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`, alreadyBlocked: s.blocked });
+                    }}
                     onPointerEnter={() => onSlotPointerEnter(i)}
                     disabled={s.booked}
                     style={{
@@ -1698,7 +1712,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
             </div>
 
             <div style={{ marginTop: 18, background: NAVY_PALE, padding: 14, borderRadius: 10, fontSize: 12, color: "#111", lineHeight: 1.55 }}>
-              <strong style={{ color: NAVY }}>Tip —</strong> Click and drag across slots to block a range ({fmtTime(selectedTH!.open_time)}–{fmtTime(selectedTH!.close_time)}, {selectedTH?.consult_duration_mins ?? 30}-min slots). You can choose to repeat the block daily, weekly or monthly.
+              <strong style={{ color: NAVY }}>Tip —</strong> Tap a slot to edit it, or use a mouse to drag across slots to block a range ({fmtTime(selectedTH!.open_time)}–{fmtTime(selectedTH!.close_time)}, {selectedTH?.consult_duration_mins ?? 30}-min slots). You can choose to repeat the block daily, weekly or monthly.
             </div>
           </>
         )}
@@ -1840,7 +1854,7 @@ function BlockRangeModal({
           </div>
 
           <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7785", textTransform: "uppercase", marginBottom: 8 }}>Repeat</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 14 }}>
+          <div className="clinic-repeat-options" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 14 }}>
             {(["none","daily","weekly","monthly"] as Repeat[]).map((r) => (
               <button key={r} onClick={() => setRepeat(r)}
                 style={{
@@ -2365,7 +2379,7 @@ function ModalShell({ onClose, children }: { onClose: () => void; children: Reac
       }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
     >
-      <div onMouseDown={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 12, padding: 24, maxWidth: 480, width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+      <div className="clinic-modal" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 12, padding: 24, maxWidth: 480, width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
         {children}
       </div>
     </div>

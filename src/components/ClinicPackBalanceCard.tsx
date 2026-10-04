@@ -121,7 +121,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   const help = isAdmin ? "" : " Please contact your account manager.";
 
   return (
-    <div style={{
+    <div className="clinic-pack-card" style={{
       background: "#fff",
       borderRadius: RADIUS_CARD,
       border: `1px solid ${GREY_BORDER}`,
@@ -192,7 +192,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
             </div>
 
             {/* Three facts, each with its own label, so none has to be read. */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(120px, 160px))", gap: SPACE_8, flex: "0 1 auto" }}>
+            <div className="clinic-pack-stats" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(120px, 160px))", gap: SPACE_8, flex: "0 1 auto" }}>
               <Stat label="Reserved" value={bal.reserved} sub="booked consults" />
               <Stat label="Used" value={bal.used} sub="delivered" />
               <Stat label="Bought" value={bal.bought} sub="all time" />

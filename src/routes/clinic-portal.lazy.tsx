@@ -37,15 +37,15 @@ function ClinicPortalPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f0f2f5", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      <header style={{ height: 60, background: NAVY, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 34, height: 34, background: "#fff", color: NAVY, borderRadius: 6, fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>HT</div>
+      <header className="clinic-portal-header" style={{ height: 60, background: NAVY, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px" }}>
+        <div className="clinic-header-group" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ flexShrink: 0, width: 34, height: 34, background: "#fff", color: NAVY, borderRadius: 6, fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>HT</div>
           <div>
             <div style={{ color: "#fff", fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>Hair Transplant Group</div>
             <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11 }}>Clinic Partner Portal</div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div className="clinic-header-group" style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {clinicName && (
             <div style={{ background: "rgba(255,255,255,0.15)", color: "#fff", padding: "6px 12px", borderRadius: 16, fontSize: 12, fontWeight: 500 }}>{clinicName}</div>
           )}

@@ -1,0 +1,52 @@
+/* Scoped to the clinic portal, including its admin preview. */
+.clinic-portal { min-width: 0; overflow-wrap: anywhere; }
+.clinic-portal-tabs { overflow-x: auto; }
+.clinic-portal-tabs > button { flex-shrink: 0; white-space: nowrap; }
+.clinic-calendar-scroll { max-width: 100%; overflow-x: auto; }
+.clinic-calendar { min-width: 680px; }
+.clinic-calendar-hint { display: none; }
+.clinic-availability > * { min-width: 0; }
+.clinic-appointment-badges { flex-wrap: wrap; }
+.clinic-modal { overscroll-behavior: contain; }
+.clinic-portal button:focus-visible,
+.clinic-portal-header button:focus-visible,
+.clinic-calendar-scroll:focus-visible { outline: 2px solid #2d5fa0; outline-offset: 3px; }
+
+@media (max-width: 900px) {
+  .clinic-availability { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+@media (max-width: 600px) {
+  .clinic-portal-header {
+    height: auto !important;
+    min-height: 60px;
+    padding: 12px !important;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .clinic-header-group { min-width: 0; flex-wrap: wrap; }
+  .clinic-header-group:last-child { width: 100%; justify-content: space-between; }
+  .clinic-header-group:last-child > div { min-width: 0; overflow-wrap: anywhere; flex: 1; }
+  .clinic-header-group button { flex-shrink: 0; }
+  .clinic-portal button, .clinic-portal-header button { min-height: 44px; }
+  /* 16px prevents focus zoom on iOS. */
+  .clinic-portal input, .clinic-portal select, .clinic-portal textarea { font-size: 16px !important; min-width: 0; max-width: 100%; }
+  .clinic-portal input, .clinic-portal select { min-height: 44px; }
+  .clinic-portal-content { padding: 12px !important; }
+  .clinic-portal-tabs { padding: 0 4px !important; }
+  .clinic-portal-tabs > button { padding: 14px 8px !important; gap: 4px !important; font-size: 12px !important; }
+  .clinic-portal-tabs svg { width: 14px; height: 14px; }
+  .clinic-pack-stats > div { padding: 10px 8px !important; }
+  .clinic-pack-stats > div > div:first-child { letter-spacing: 0 !important; font-size: 10px !important; }
+  .clinic-pack-card { margin: 12px 12px 0 !important; padding: 16px !important; }
+  .clinic-pack-stats { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; width: 100%; }
+  .clinic-filter-tabs { max-width: 100%; flex-wrap: wrap; }
+  .clinic-date-range { width: 100%; flex-wrap: wrap; }
+  .clinic-date-range input { flex: 1; width: 0; }
+  .clinic-appointment-row { display: grid !important; grid-template-columns: 64px minmax(0, 1fr); gap: 10px !important; }
+  .clinic-appointment-badges { grid-column: 1 / -1; }
+  .clinic-calendar-hint { display: block; font-size: 12px; color: #6b7785; margin: 0 0 10px; }
+  .clinic-repeat-options { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .clinic-slot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .clinic-modal { padding: 16px !important; max-height: calc(100dvh - 40px) !important; }
+}
