@@ -21,7 +21,7 @@ import {
   saveBooking, clearBooking, updateLeadStatus, ensureRepForEmail,
   saveNorwoodExpectations,
   saveCallNotes, discoveryToAmpAudio, findLeadByPhone,
-  getCurrentRepSession, startRepSession, endRepSession, sweepAbandonedCalls } from "@/utils/sales-call.functions";
+  getCurrentRepSession, startRepSession, endRepSession, heartbeatRepSession, sweepAbandonedCalls } from "@/utils/sales-call.functions";
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
 import { stopRingback } from "@/utils/ringback";
 import { generateSlots, holidayLabelFor, summarizeDay, ymdLocal, type TradingHours, type BlockedSlot, type ExistingAppt, type AvailabilityOverride } from "@/lib/slot-generation";
@@ -744,6 +744,15 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       breakSeconds, breakStartedAt,
     }));
   }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds, sessionStartedAt, plannedHours, breakSeconds, breakStartedAt]);
+  // Presence continues through paid breaks. A disconnected/sleeping browser
+  // creates an audit flag; we never silently count that gap as verified work.
+  useEffect(() => {
+    if (!sessionActive || !sessionStartedAt) return;
+    const ping = () => { heartbeatRepSession({ data: undefined as never }).catch(err => console.error("Session presence could not be saved", err)); };
+    ping();
+    const interval = setInterval(ping, 60000);
+    return () => clearInterval(interval);
+  }, [sessionActive, sessionStartedAt]);
   const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionActiveRef = useRef(false);
   useEffect(() => { sessionActiveRef.current = sessionActive; }, [sessionActive]);

@@ -26,6 +26,7 @@ import { Route as DashboardClinicContactReviewRouteImport } from './routes/_dash
 import { Route as DashboardClinicOwnerReviewRouteImport } from './routes/_dashboard.clinic-owner-review'
 import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinics'
 import { Route as DashboardInboxRouteImport } from './routes/_dashboard.inbox'
+import { Route as DashboardInvoicesRouteImport } from './routes/_dashboard.invoices'
 import { Route as DashboardLeaderboardRouteImport } from './routes/_dashboard.leaderboard'
 import { Route as DashboardLeadsRouteImport } from './routes/_dashboard.leads'
 import { Route as DashboardLetterCampaignRouteImport } from './routes/_dashboard.letter-campaign'
@@ -164,6 +165,11 @@ const DashboardClinicsRoute = DashboardClinicsRouteImport.update({
 const DashboardInboxRoute = DashboardInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardInvoicesRoute = DashboardInvoicesRouteImport.update({
+  id: '/invoices',
+  path: '/invoices',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardLeaderboardRoute = DashboardLeaderboardRouteImport.update({
@@ -461,6 +467,7 @@ export interface FileRoutesByFullPath {
   '/clinic-owner-review': typeof DashboardClinicOwnerReviewRoute
   '/clinics': typeof DashboardClinicsRoute
   '/inbox': typeof DashboardInboxRoute
+  '/invoices': typeof DashboardInvoicesRoute
   '/leaderboard': typeof DashboardLeaderboardRoute
   '/leads': typeof DashboardLeadsRoute
   '/letter-campaign': typeof DashboardLetterCampaignRoute
@@ -527,6 +534,7 @@ export interface FileRoutesByTo {
   '/clinic-owner-review': typeof DashboardClinicOwnerReviewRoute
   '/clinics': typeof DashboardClinicsRoute
   '/inbox': typeof DashboardInboxRoute
+  '/invoices': typeof DashboardInvoicesRoute
   '/leaderboard': typeof DashboardLeaderboardRoute
   '/leads': typeof DashboardLeadsRoute
   '/letter-campaign': typeof DashboardLetterCampaignRoute
@@ -595,6 +603,7 @@ export interface FileRoutesById {
   '/_dashboard/clinic-owner-review': typeof DashboardClinicOwnerReviewRoute
   '/_dashboard/clinics': typeof DashboardClinicsRoute
   '/_dashboard/inbox': typeof DashboardInboxRoute
+  '/_dashboard/invoices': typeof DashboardInvoicesRoute
   '/_dashboard/leaderboard': typeof DashboardLeaderboardRoute
   '/_dashboard/leads': typeof DashboardLeadsRoute
   '/_dashboard/letter-campaign': typeof DashboardLetterCampaignRoute
@@ -665,6 +674,7 @@ export interface FileRouteTypes {
     | '/clinic-owner-review'
     | '/clinics'
     | '/inbox'
+    | '/invoices'
     | '/leaderboard'
     | '/leads'
     | '/letter-campaign'
@@ -731,6 +741,7 @@ export interface FileRouteTypes {
     | '/clinic-owner-review'
     | '/clinics'
     | '/inbox'
+    | '/invoices'
     | '/leaderboard'
     | '/leads'
     | '/letter-campaign'
@@ -798,6 +809,7 @@ export interface FileRouteTypes {
     | '/_dashboard/clinic-owner-review'
     | '/_dashboard/clinics'
     | '/_dashboard/inbox'
+    | '/_dashboard/invoices'
     | '/_dashboard/leaderboard'
     | '/_dashboard/leads'
     | '/_dashboard/letter-campaign'
@@ -1001,6 +1013,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof DashboardInboxRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/invoices': {
+      id: '/_dashboard/invoices'
+      path: '/invoices'
+      fullPath: '/invoices'
+      preLoaderRoute: typeof DashboardInvoicesRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/leaderboard': {
@@ -1395,6 +1414,7 @@ interface DashboardRouteChildren {
   DashboardClinicOwnerReviewRoute: typeof DashboardClinicOwnerReviewRoute
   DashboardClinicsRoute: typeof DashboardClinicsRoute
   DashboardInboxRoute: typeof DashboardInboxRoute
+  DashboardInvoicesRoute: typeof DashboardInvoicesRoute
   DashboardLeaderboardRoute: typeof DashboardLeaderboardRoute
   DashboardLeadsRoute: typeof DashboardLeadsRoute
   DashboardLetterCampaignRoute: typeof DashboardLetterCampaignRoute
@@ -1423,6 +1443,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardClinicOwnerReviewRoute: DashboardClinicOwnerReviewRoute,
   DashboardClinicsRoute: DashboardClinicsRoute,
   DashboardInboxRoute: DashboardInboxRoute,
+  DashboardInvoicesRoute: DashboardInvoicesRoute,
   DashboardLeaderboardRoute: DashboardLeaderboardRoute,
   DashboardLeadsRoute: DashboardLeadsRoute,
   DashboardLetterCampaignRoute: DashboardLetterCampaignRoute,

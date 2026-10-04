@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { salesCallCounts, dashboardMetrics, conversionPercent } from "@/lib/leaderboard-metrics";
 import { addDays, periodDates, sydneyMidnight } from "@/lib/reporting-period";
 import { sydneyTodayISO } from "@/lib/timezone";
@@ -1548,64 +1549,25 @@ async function resolveRepIdForUser(userId: string): Promise<string> {
   return rep.id as string;
 }
 
-export const getCurrentRepSession = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+// Server-owned session timestamps and presence checks for invoice evidence.
+async function repSessionAction(userId: string, action: "current" | "start" | "end" | "heartbeat") {
+  const repId = await resolveRepIdForUser(userId);
+  const { data, error } = await (supabaseAdmin as unknown as SupabaseClient).rpc("rep_invoice_session_action", { p_rep: repId, p_action: action });
+  if (error) throw new Error(error.message);
+  return data as { id: string; started_at: string } | null;
+}
+export const getCurrentRepSession = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => repSessionAction(context.userId, "current"));
+export const startRepSession = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const repId = await resolveRepIdForUser((context as any).userId);
-    // Auto-close stale opens (started on a previous calendar day, UTC). Keeps
-    // long-abandoned rows from looking active.
-    const todayStartUtc = new Date();
-    todayStartUtc.setUTCHours(0, 0, 0, 0);
-    await supabaseAdmin
-      .from("rep_sessions")
-      .update({ ended_at: new Date().toISOString() })
-      .eq("rep_id", repId)
-      .is("ended_at", null)
-      .lt("started_at", todayStartUtc.toISOString());
-
-    const { data, error } = await supabaseAdmin
-      .from("rep_sessions")
-      .select("id, started_at, ended_at")
-      .eq("rep_id", repId)
-      .is("ended_at", null)
-      .order("started_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    return data ? { id: data.id as string, started_at: data.started_at as string } : null;
+    const row = await repSessionAction(context.userId, "start");
+    if (!row) throw new Error("Could not start calling session");
+    return row;
   });
-
-export const startRepSession = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const repId = await resolveRepIdForUser((context as any).userId);
-    // Close any still-open session defensively.
-    await supabaseAdmin
-      .from("rep_sessions")
-      .update({ ended_at: new Date().toISOString() })
-      .eq("rep_id", repId)
-      .is("ended_at", null);
-    const { data, error } = await supabaseAdmin
-      .from("rep_sessions")
-      .insert({ rep_id: repId, started_at: new Date().toISOString() })
-      .select("id, started_at")
-      .single();
-    if (error) throw new Error(error.message);
-    return { id: data.id as string, started_at: data.started_at as string };
-  });
-
-export const endRepSession = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const repId = await resolveRepIdForUser((context as any).userId);
-    const { error } = await supabaseAdmin
-      .from("rep_sessions")
-      .update({ ended_at: new Date().toISOString() })
-      .eq("rep_id", repId)
-      .is("ended_at", null);
-    if (error) throw new Error(error.message);
-    return { ok: true as const };
-  });
+export const endRepSession = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => { await repSessionAction(context.userId, "end"); return { ok: true as const }; });
+export const heartbeatRepSession = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => { await repSessionAction(context.userId, "heartbeat"); return { ok: true as const }; });
 
 // Marks leads that are still "new" but were dialled hours ago with nobody
 // answering as no_answer, so the new list only holds leads nobody has tried.

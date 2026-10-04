@@ -1,6 +1,7 @@
 // Per-user tab access. Tab keys match the sidebar items.
 
 export type TabKey =
+  | "invoices"
   | "dashboard"
   | "training"
   | "partner_clinics"
@@ -37,9 +38,11 @@ export const ALL_TAB_KEYS: TabKey[] = [
   "chase_queue",
   "recordings",
   "sales_test_leads",
+  "invoices",
 ];
 
 export const TAB_LABELS: Record<TabKey, string> = {
+  invoices: "Invoices",
   dashboard: "Dashboard",
   training: "Training",
   partner_clinics: "Partner Clinics",
@@ -61,11 +64,12 @@ export const TAB_LABELS: Record<TabKey, string> = {
 
 export const TAB_GROUPS: { title: string; tabs: TabKey[] }[] = [
   { title: "General", tabs: ["dashboard", "training", "partner_clinics"] },
-  { title: "Sales", tabs: ["sales_portal", "leaderboard", "appointments", "leads", "analytics", "numbers", "numbers_game", "phone", "chase_queue", "recordings"] },
+  { title: "Sales", tabs: ["invoices", "sales_portal", "leaderboard", "appointments", "leads", "analytics", "numbers", "numbers_game", "phone", "chase_queue", "recordings"] },
   { title: "Clinic Acquisition", tabs: ["pitch_deck", "clinics", "sent_links", "sales_test_leads"] },
 ];
 
 export const TAB_TO_URL: Record<TabKey, string> = {
+  invoices: "/invoices",
   dashboard: "/",
   training: "/training",
   partner_clinics: "/partner-clinics",
@@ -93,7 +97,7 @@ export function defaultTabsForRole(role: RoleKey): TabKey[] {
   if (role === "admin") return [...ALL_TAB_KEYS];
   if (role === "caller") return ["clinics", "phone"];
   // rep
-  return ["dashboard", "training", "sales_portal", "appointments", "phone", "chase_queue", "recordings"];
+  return ["dashboard", "training", "sales_portal", "appointments", "phone", "chase_queue", "recordings", "invoices"];
 }
 
 // Resolve effective tabs given the role and optional override.
