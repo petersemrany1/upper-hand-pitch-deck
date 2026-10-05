@@ -118,8 +118,8 @@ async function deliverInvoice(db: SupabaseClient, id: string) {
     const e = row.evidence as InvoiceEvidence;
     const verdict =
       row.status === "approved"
-        ? "Approved — ready to pay"
-        : "Needs review — do not pay automatically";
+        ? "PAY — invoice approved"
+        : "HOLD — check before paying";
     const unavailable = row.claim.extractionUnavailable === true;
     const summary = invoiceEmailSummary(r, unavailable, c);
     const html = `<div style="font-family:Arial,sans-serif;color:#18231c;line-height:1.6"><h2>${esc(verdict)}</h2><p>${esc(e.rep_name)} · ${esc(c.number)}${unavailable ? "" : `<br>${esc(c.from)} to ${esc(c.to)}`}</p>${unavailable ? "" : `<p><strong>Invoice: ${esc(money(r.claimedTotalCents))}</strong> · Portal calculation: ${esc(money(r.expectedTotalCents))}</p>`}${summary.map((line) => `<p>${esc(line)}</p>`).join("")}<p>Invoice attached.</p></div>`;
@@ -136,7 +136,7 @@ async function deliverInvoice(db: SupabaseClient, id: string) {
           "Content-Type": "application/json",
           "X-Connection-Api-Key": key,
           "Lovable-API-Key": gateway,
-          "Idempotency-Key": `rep-invoice-${id}`,
+          "Idempotency-Key": `rep-invoice-${id}-plain-v2`,
         },
         body: JSON.stringify({
           from: "Hair Transplant Group <admin@bold-patients.com>",
@@ -159,7 +159,11 @@ async function deliverInvoice(db: SupabaseClient, id: string) {
       throw new Error("Email service did not return a delivery receipt.");
     const { error: updateError } = await db
       .from("rep_invoices")
-      .update({ email_status: "sent", email_sent_at: new Date().toISOString() })
+      .update({
+        email_status: "sent",
+        email_sent_at: new Date().toISOString(),
+        result: { ...r, emailTemplateVersion: 2 },
+      })
       .eq("id", id);
     if (updateError)
       throw new Error(
@@ -380,7 +384,7 @@ export const listPersonalInvoices = createServerFn({ method: "GET" })
     const { data: checks, error: checkError } = page.length
       ? await db
           .from("rep_invoices")
-          .select("file_path,status,email_status")
+          .select("file_path,status,email_status,result")
           .eq("rep_id", rep.id)
           .in(
             "file_path",
@@ -397,6 +401,9 @@ export const listPersonalInvoices = createServerFn({ method: "GET" })
           ? file.name.slice(file.name.indexOf("--") + 2)
           : "Invoice.pdf",
         createdAt: file.created_at,
+        needsUpdatedReview:
+          checks?.find((check) => check.file_path === `${rep.id}/${file.name}`)
+            ?.result?.emailTemplateVersion !== 2,
         emailStatus:
           checks?.find((check) => check.file_path === `${rep.id}/${file.name}`)
             ?.email_status ?? "not_checked",
@@ -476,7 +483,45 @@ async function processPersonalInvoice(
     .eq("rep_id", rep.id)
     .maybeSingle();
   if (readError) throw new Error("Could not load the invoice check.");
-  if (existing?.email_status === "sent") return { emailSent: true };
+  if (existing?.email_status === "sent") {
+    if (existing.result?.emailTemplateVersion === 2) return { emailSent: true };
+    // Explicit refresh of an older email: reuse its saved evidence and file.
+    // Never submit another invoice or count this invoice as its own duplicate.
+    let result = existing.result;
+    if (!existing.claim.extractionUnavailable) {
+      const { data: pdf, error } = await db.storage
+        .from("rep-invoices")
+        .download(path);
+      if (error || !pdf) throw new Error("Could not read the saved invoice.");
+      const { checkInvoicePdf } = await import("./invoice-pdf.server");
+      result = checkInvoice(
+        existing.claim,
+        existing.evidence,
+        await checkInvoicePdf(
+          new Uint8Array(await pdf.arrayBuffer()),
+          existing.claim,
+          rep.name,
+        ),
+      );
+    }
+    const { error } = await db
+      .from("rep_invoices")
+      .update({ result, status: result.status, email_status: "pending" })
+      .eq("id", id)
+      .eq("rep_id", rep.id)
+      .eq("email_status", "sent")
+      .is("result->>emailTemplateVersion", null);
+    if (error) throw new Error("Could not update the invoice review.");
+    await deliverInvoice(db, id);
+    const { data: outcome, error: outcomeError } = await db
+      .from("rep_invoices")
+      .select("email_status")
+      .eq("id", id)
+      .eq("rep_id", rep.id)
+      .single();
+    if (outcomeError) throw new Error("Could not confirm the updated email.");
+    return { emailSent: outcome.email_status === "sent" };
+  }
   if (existing?.email_status === "sending") {
     const { error } = await db
       .from("rep_invoices")

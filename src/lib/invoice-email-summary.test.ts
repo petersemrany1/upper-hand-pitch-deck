@@ -15,7 +15,7 @@ const result: InvoiceCheck = {
 };
 test("Nina review is short plain English without internal IDs", () => {
   const lines = invoiceEmailSummary(result);
-  expect(lines.join(" ")).toContain("$160.25 lower");
+  expect(lines.join(" ")).toContain("Under-invoiced by $160.25");
   expect(lines.join(" ")).toContain("only an estimate");
   expect(lines.join(" ")).not.toContain("57b36b39");
   expect(lines.length).toBe(2);

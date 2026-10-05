@@ -16,17 +16,18 @@ export function invoiceEmailSummary(
   const difference = result.differenceCents;
   const comparison =
     difference < 0
-      ? `The invoice is ${money(difference)} lower than the portal calculation—you are not worse off.`
+      ? `Under-invoiced by ${money(difference)} compared with the portal records.`
       : difference === 0
-        ? "The invoice matches the portal calculation."
+        ? "The invoice matches the portal records."
         : difference <= 10000
-          ? `The invoice is ${money(difference)} higher than the portal calculation, within your $100 buffer.`
-          : `The invoice is ${money(difference)} higher than the portal calculation—above your $100 buffer. Check this before paying.`;
-  if (result.status === "approved") return [comparison];
+          ? `Over-invoiced by ${money(difference)}, within your $100 buffer.`
+          : `Over-invoiced by ${money(difference)}—above your $100 buffer. Hold payment.`;
+  if (result.status === "approved")
+    return [`Pay ${money(result.claimedTotalCents)}. ${comparison}`];
   const text = result.reasons.join(" ");
   if (/Possible duplicate or overlapping invoice/i.test(text))
     return [
-      "This invoice or some of its work dates were already submitted. Check before paying twice.",
+      `Hold payment: this invoice or its work dates${claim ? ` (${claim.from} to ${claim.to})` : ""} were already submitted. Check whether the earlier invoice has been paid; do not pay both.`,
       comparison,
     ];
   const explanation: string[] = [];
