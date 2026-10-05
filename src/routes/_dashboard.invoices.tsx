@@ -200,19 +200,14 @@ function InvoicesPage() {
                       ? "Review emailed"
                       : "Review email pending"}
                   </p>
-                  {(invoice.emailStatus !== "sent" ||
-                    invoice.needsUpdatedReview) && (
+                  {invoice.emailStatus !== "sent" && (
                     <button
                       type="button"
                       disabled={busy}
                       onClick={() => retryCheck(invoice.key)}
                       className="mt-2 text-xs text-emerald-900 disabled:opacity-50"
                     >
-                      {busy
-                        ? "Checking…"
-                        : invoice.emailStatus === "sent"
-                          ? "Update review email"
-                          : "Retry check"}
+                      {busy ? "Checking…" : "Retry check"}
                     </button>
                   )}
                 </div>

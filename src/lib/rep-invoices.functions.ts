@@ -384,7 +384,7 @@ export const listPersonalInvoices = createServerFn({ method: "GET" })
     const { data: checks, error: checkError } = page.length
       ? await db
           .from("rep_invoices")
-          .select("file_path,status,email_status,result")
+          .select("file_path,status,email_status")
           .eq("rep_id", rep.id)
           .in(
             "file_path",
@@ -401,9 +401,6 @@ export const listPersonalInvoices = createServerFn({ method: "GET" })
           ? file.name.slice(file.name.indexOf("--") + 2)
           : "Invoice.pdf",
         createdAt: file.created_at,
-        needsUpdatedReview:
-          checks?.find((check) => check.file_path === `${rep.id}/${file.name}`)
-            ?.result?.emailTemplateVersion !== 2,
         emailStatus:
           checks?.find((check) => check.file_path === `${rep.id}/${file.name}`)
             ?.email_status ?? "not_checked",
