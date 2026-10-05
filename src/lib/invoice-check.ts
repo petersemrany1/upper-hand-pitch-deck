@@ -2,6 +2,7 @@
 export const INVOICE_TIMEZONE = "Australia/Perth";
 export const INVOICE_EMAIL = "petersemrany1@gmail.com";
 export const BOOKING_BONUS_CENTS = 5000;
+export const INVOICE_OVERCHARGE_BUFFER_CENTS = 10000;
 export type InvoiceClaim = {
   number: string;
   from: string;
@@ -58,6 +59,7 @@ export function checkInvoice(
   documentIssues: string[],
 ): InvoiceCheck {
   const reasons = [...documentIssues];
+  const differences: string[] = [];
   if (evidence.unattributed_bookings)
     reasons.push(
       "Some bookings in this period have no original rep attribution; check ownership manually.",
@@ -115,7 +117,7 @@ export function checkInvoice(
   }
   const systemHours = Math.round(seconds / 36) / 100;
   if (cents(claim.hours) !== cents(systemHours))
-    reasons.push(
+    differences.push(
       `Hours: invoiced ${claim.hours}; system recorded ${systemHours} (including breaks).`,
     );
   const unique = new Map(evidence.bookings.map((b) => [b.lead_id, b]));
@@ -135,18 +137,18 @@ export function checkInvoice(
   }
   const systemBookings = unique.size;
   if (claim.bookings !== systemBookings)
-    reasons.push(
+    differences.push(
       `Bookings: invoiced ${claim.bookings}; system recorded ${systemBookings} deposit-paid bookings.`,
     );
   const rate = evidence.hourly_rate_cents;
   if (rate == null)
     reasons.push("This rep does not have a verified invoice rate configured.");
   else if (cents(claim.hourlyRate) !== rate)
-    reasons.push(
+    differences.push(
       `Hourly rate: invoiced $${claim.hourlyRate}; agreed $${(rate / 100).toFixed(2)}.`,
     );
   if (cents(claim.bookingRate) !== BOOKING_BONUS_CENTS)
-    reasons.push("Booking rate must be $50.");
+    differences.push("Booking rate differs from the agreed $50.");
   const claimedTotalCents = cents(claim.total);
   const lineTotal =
     Math.round((cents(claim.hours) * cents(claim.hourlyRate)) / 100) +
@@ -161,14 +163,21 @@ export function checkInvoice(
       : Math.round((cents(systemHours) * rate) / 100) +
         systemBookings * BOOKING_BONUS_CENTS;
   if (expectedTotalCents != null && claimedTotalCents !== expectedTotalCents)
-    reasons.push(
+    differences.push(
       `Total: invoiced $${(claimedTotalCents / 100).toFixed(2)}; system calculation $${(expectedTotalCents / 100).toFixed(2)}.`,
     );
   if (!sessions.length && claim.hours > 0)
     reasons.push("No session records were found for the invoiced hours.");
+  const differenceCents =
+    expectedTotalCents == null ? null : claimedTotalCents - expectedTotalCents;
   return {
-    status: reasons.length ? "needs_review" : "approved",
-    reasons: [...new Set(reasons)],
+    status:
+      reasons.length ||
+      differenceCents == null ||
+      differenceCents > INVOICE_OVERCHARGE_BUFFER_CENTS
+        ? "needs_review"
+        : "approved",
+    reasons: [...new Set([...reasons, ...differences])],
     systemHours,
     systemBookings,
     expectedTotalCents,

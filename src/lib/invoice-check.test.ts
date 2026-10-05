@@ -53,21 +53,21 @@ const lines = [
 describe("invoice approval", () => {
   test("approves only a complete matching invoice", () =>
     expect(checkInvoice(claim, evidence(), []).status).toBe("approved"));
-  test("one extra booking needs review with exact difference", () => {
+  test("one extra booking is within the buffer with exact difference", () => {
     const r = checkInvoice(
       { ...claim, bookings: 18, total: 1312.5 },
       evidence(),
       [],
     );
-    expect(r.status).toBe("needs_review");
+    expect(r.status).toBe("approved");
     expect(r.differenceCents).toBe(5000);
   });
   test("counts paid break time, not only talk duration", () =>
     expect(checkInvoice(claim, evidence(), []).systemHours).toBe(16.5));
-  test("wrong rep rate is flagged even when arithmetic agrees", () => {
+  test("lower invoiced rate does not disadvantage the business", () => {
     const e = evidence();
     e.hourly_rate_cents = 3500;
-    expect(checkInvoice(claim, e, []).status).toBe("needs_review");
+    expect(checkInvoice(claim, e, []).status).toBe("approved");
   });
   test.each([
     "legacy",
@@ -195,4 +195,39 @@ describe("PDF comparison", () => {
         "Nina Sinclair",
       ).length,
     ).toBeGreaterThan(0));
+});
+
+test.each([
+  [99.99, "approved"],
+  [100, "approved"],
+  [100.01, "needs_review"],
+  [-160.25, "approved"],
+])("one-sided buffer at %s dollars", (difference, status) => {
+  // Use a one-hour invoice to exercise the exact cent boundary without rate rounding.
+  const e = evidence();
+  e.bookings = [];
+  e.hourly_rate_cents = 2500;
+  e.sessions = [
+    {
+      ...e.sessions[0],
+      started_at: "2026-09-29T00:00:00Z",
+      ended_at: "2026-09-29T01:00:00Z",
+      seconds: 3600,
+    },
+  ];
+  const base = Number(difference) < 0 ? 200 : 25;
+  e.hourly_rate_cents = base * 100;
+  const r = checkInvoice(
+    {
+      ...claim,
+      hours: 1,
+      bookings: 0,
+      hourlyRate: base + Number(difference),
+      total: base + Number(difference),
+    },
+    e,
+    [],
+  );
+  expect(r.status).toBe(status);
+  expect(r.differenceCents).toBe(Math.round(Number(difference) * 100));
 });

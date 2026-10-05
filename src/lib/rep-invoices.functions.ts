@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { invoiceEmailSummary } from "./invoice-email-summary";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   checkInvoice,
@@ -120,26 +121,8 @@ async function deliverInvoice(db: SupabaseClient, id: string) {
         ? "Approved — ready to pay"
         : "Needs review — do not pay automatically";
     const unavailable = row.claim.extractionUnavailable === true;
-    const rows = unavailable
-      ? [
-          [
-            "Invoice figures and portal comparison",
-            "Unavailable",
-            "Manual review required",
-          ],
-        ]
-      : [
-          ["Hours (breaks included)", c.hours, r.systemHours],
-          ["Deposit-paid bookings", c.bookings, r.systemBookings],
-          [
-            "Hourly rate",
-            money(Math.round(c.hourlyRate * 100)),
-            money(e.hourly_rate_cents),
-          ],
-          ["Booking rate", money(Math.round(c.bookingRate * 100)), "$50.00"],
-          ["Total", money(r.claimedTotalCents), money(r.expectedTotalCents)],
-        ];
-    const html = `<div style="font-family:Arial,sans-serif;color:#18231c;line-height:1.6"><h2>${esc(verdict)}</h2><p>${esc(e.rep_name)} · Invoice ${esc(c.number)}<br>${unavailable ? "Service dates could not be verified" : `${esc(c.from)} to ${esc(c.to)} (WA dates)`}</p><table cellpadding="8" border="1" style="border-collapse:collapse"><tr><th>Check</th><th>Invoice</th><th>System</th></tr>${rows.map((a) => `<tr>${a.map((v) => `<td>${esc(v)}</td>`).join("")}</tr>`).join("")}</table><p>Difference: ${esc(money(r.differenceCents))}</p>${r.reasons.length ? `<ul>${r.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "<p>The PDF figures, recorded session hours, booking records and agreed rates match. No duplicate or overlapping invoice was found.</p>"}<p>The original invoice is attached. The comparison uses the portal records captured when this check ran. This check does not transfer money.</p><p>Checked ${esc(e.captured_at)}. Hours rounded once to two decimal places; payments calculated in cents.</p></div>`;
+    const summary = invoiceEmailSummary(r, unavailable, c);
+    const html = `<div style="font-family:Arial,sans-serif;color:#18231c;line-height:1.6"><h2>${esc(verdict)}</h2><p>${esc(e.rep_name)} · ${esc(c.number)}${unavailable ? "" : `<br>${esc(c.from)} to ${esc(c.to)}`}</p>${unavailable ? "" : `<p><strong>Invoice: ${esc(money(r.claimedTotalCents))}</strong> · Portal calculation: ${esc(money(r.expectedTotalCents))}</p>`}${summary.map((line) => `<p>${esc(line)}</p>`).join("")}<p>Invoice attached.</p></div>`;
     const key = process.env.RESEND_API_KEY,
       gateway = process.env.LOVABLE_API_KEY;
     if (!key || !gateway)
@@ -566,24 +549,22 @@ async function processPersonalInvoice(
           claimedTotalCents: 0,
           differenceCents: null,
         };
-        const { error } = await db
-          .from("rep_invoices")
-          .insert({
-            id,
-            rep_id: rep.id,
-            invoice_number: key.slice(38),
-            period_from: today,
-            period_to: today,
-            file_path: path,
-            file_hash: hash,
-            claim: { number: key.slice(38), extractionUnavailable: true },
-            evidence: {
-              rep_name: rep.name,
-              captured_at: new Date().toISOString(),
-            },
-            status: "needs_review",
-            result,
-          });
+        const { error } = await db.from("rep_invoices").insert({
+          id,
+          rep_id: rep.id,
+          invoice_number: key.slice(38),
+          period_from: today,
+          period_to: today,
+          file_path: path,
+          file_hash: hash,
+          claim: { number: key.slice(38), extractionUnavailable: true },
+          evidence: {
+            rep_name: rep.name,
+            captured_at: new Date().toISOString(),
+          },
+          status: "needs_review",
+          result,
+        });
         if (error)
           throw new Error(
             "Could not record the invoice review. Retry the check, not the upload.",
