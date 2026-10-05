@@ -76,9 +76,10 @@ export function checkInvoice(
     reasons.push("Invalid evidence period.");
   if (Date.parse(evidence.captured_at) < end)
     reasons.push("The invoice period has not finished yet.");
-  if (Date.parse(evidence.coverage_started_at) > start)
-    reasons.push(
-      "This period predates verified tracking. Historical hours and booking ownership need manual review.",
+  const legacy = Date.parse(evidence.coverage_started_at) > start;
+  if (legacy)
+    differences.push(
+      "This period predates verified tracking. Historical records are used under the configured payment tolerance.",
     );
   if (evidence.duplicates.length)
     reasons.push(
@@ -93,11 +94,13 @@ export function checkInvoice(
     const a = Math.max(start, Date.parse(s.started_at));
     const b = Math.min(end, Date.parse(s.ended_at ?? evidence.captured_at));
     if (!s.verified || !s.ended_at)
-      reasons.push(
+      (legacy && s.ended_at ? differences : reasons).push(
         `Session ${s.id}: its end time or continuous connection cannot be verified.`,
       );
     if (!s.has_calls)
-      reasons.push(`Session ${s.id}: no recorded calls during this session.`);
+      (legacy ? differences : reasons).push(
+        `Session ${s.id}: no recorded calls during this session.`,
+      );
     if (a < lastEnd) reasons.push(`Session ${s.id}: overlaps another session.`);
     if (
       !Number.isFinite(a) ||
@@ -125,7 +128,7 @@ export function checkInvoice(
     reasons.push("Duplicate booking evidence was found.");
   for (const b of unique.values()) {
     if (!b.verified || !b.rep_id)
-      reasons.push(
+      (legacy && b.rep_id ? differences : reasons).push(
         `Booking ${b.lead_id}: original booking date or rep ownership is unverified.`,
       );
     if (

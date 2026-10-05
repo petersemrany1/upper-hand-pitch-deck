@@ -70,7 +70,6 @@ describe("invoice approval", () => {
     expect(checkInvoice(claim, e, []).status).toBe("approved");
   });
   test.each([
-    "legacy",
     "gap",
     "no calls",
     "open",
@@ -230,4 +229,21 @@ test.each([
   );
   expect(r.status).toBe(status);
   expect(r.differenceCents).toBe(Math.round(Number(difference) * 100));
+});
+
+test("historical tracking alone does not block a lower invoice", () => {
+  const e = evidence();
+  e.coverage_started_at = "2026-10-04T00:00:00Z";
+  e.sessions.forEach((s) => {
+    s.verified = false;
+    s.has_calls = false;
+  });
+  e.bookings.forEach((b) => (b.verified = false));
+  const c = { ...claim, hours: 15.5, total: 1237.5 };
+  expect(checkInvoice(c, e, []).status).toBe("approved");
+  e.duplicates = ["INV_0004"];
+  expect(checkInvoice(c, e, []).status).toBe("needs_review");
+  e.duplicates = [];
+  e.sessions[0].ended_at = null;
+  expect(checkInvoice(c, e, []).status).toBe("needs_review");
 });

@@ -44,3 +44,20 @@ test("unreadable invoice never shows a fabricated comparison", () => {
   expect(lines.join(" ")).not.toContain("160.25");
   expect(lines.join(" ")).toContain("couldn’t reliably read");
 });
+
+test("approved historical comparisons do not ask for manual review", () => {
+  expect(
+    invoiceEmailSummary({ ...result, status: "approved" }).join(" "),
+  ).not.toContain("before paying");
+});
+test("duplicate hold states the actionable reason first", () => {
+  const lines = invoiceEmailSummary({
+    ...result,
+    reasons: [
+      ...result.reasons,
+      "Possible duplicate or overlapping invoice: INV_0004.",
+    ],
+  });
+  expect(lines[0]).toContain("work dates were already submitted");
+  expect(lines.join(" ")).not.toContain("unverified");
+});

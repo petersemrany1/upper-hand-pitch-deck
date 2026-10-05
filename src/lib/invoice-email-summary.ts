@@ -22,7 +22,13 @@ export function invoiceEmailSummary(
         : difference <= 10000
           ? `The invoice is ${money(difference)} higher than the portal calculation, within your $100 buffer.`
           : `The invoice is ${money(difference)} higher than the portal calculation—above your $100 buffer. Check this before paying.`;
+  if (result.status === "approved") return [comparison];
   const text = result.reasons.join(" ");
+  if (/Possible duplicate or overlapping invoice/i.test(text))
+    return [
+      "This invoice or some of its work dates were already submitted. Check before paying twice.",
+      comparison,
+    ];
   const explanation: string[] = [];
   if (/duplicate|overlapping invoice/i.test(text))
     explanation.push(
