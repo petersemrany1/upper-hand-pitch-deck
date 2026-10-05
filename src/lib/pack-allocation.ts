@@ -70,8 +70,8 @@ export function allocatePacks<P extends PackLike>(packs: P[], delivered: number,
       bought: counted.reduce((s, p) => s + p.pack_size, 0),
       free,
       trial,
-      delivered: fills.reduce((s, f) => s + f.delivered, 0),
-      booked: fills.reduce((s, f) => s + f.booked, 0),
+      delivered: Math.max(0, delivered),
+      booked: Math.max(0, upcoming),
       open: fills.reduce((s, f) => s + f.open, 0),
     },
   };
@@ -89,10 +89,11 @@ export function creditBalance(a: PackAllocation<PackLike>): {
   key: "none" | "ok" | "low" | "empty" | "over"; line: string;
 } {
   const { bought, delivered, booked, open } = a.totals;
-  const over = a.overflowBooked;
-  const base = { available: open, reserved: booked, used: delivered, bought, over };
+  const available = bought - delivered - booked;
+  const over = Math.max(0, -available);
+  const base = { available, reserved: booked, used: delivered, bought, over };
+  if (over > 0) return { ...base, key: "over", line: `${over} consult${over === 1 ? " is" : "s are"} beyond your balance — add a pack to cover ${over === 1 ? "it" : "them"}.` };
   if (bought === 0) return { ...base, key: "none", line: "No credits yet." };
-  if (over > 0) return { ...base, key: "over", line: `${over} consult${over === 1 ? " is" : "s are"} booked beyond your balance — add a pack to cover ${over === 1 ? "it" : "them"}.` };
   if (open === 0) return { ...base, key: "empty", line: "No credits left — add a pack before booking more consults." };
   if (open <= LOW_CREDITS) return { ...base, key: "low", line: `${open} credit${open === 1 ? "" : "s"} left — add a pack soon.` };
   return { ...base, key: "ok", line: "" };

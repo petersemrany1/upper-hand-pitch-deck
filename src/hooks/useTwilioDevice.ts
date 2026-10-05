@@ -11,6 +11,7 @@ async function loadDeviceCtor(): Promise<typeof DeviceType> {
 import { supabase } from "@/integrations/supabase/client";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
 import { startRingback, stopRingback } from "@/utils/ringback";
+import { salesCallCapacity } from "@/lib/sales-call-capacity";
 
 
 // Browser-based Twilio softphone — module-level singleton.
@@ -128,6 +129,11 @@ function notifySalesSessionCallStarted() {
 }
 
 function setSnapshot(patch: Partial<Snapshot>) {
+  // A completed/failed call must not lend its capacity exception to a later
+  // call to the same lead (including calls from another screen).
+  if (patch.activeCallInstanceId === null && currentCallInstanceId !== null) {
+    salesCallCapacity.clear();
+  }
   if (patch.status !== undefined) currentStatus = patch.status;
   if (patch.dialerStatus !== undefined) currentDialerStatus = patch.dialerStatus;
   if (patch.error !== undefined) currentError = patch.error;

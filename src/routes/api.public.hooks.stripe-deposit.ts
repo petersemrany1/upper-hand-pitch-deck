@@ -7,6 +7,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { createHmac, timingSafeEqual } from "crypto";
+import { needsPaymentBookingAlert } from "@/utils/payment-booking-alert.server";
 
 // Verify Stripe signature header: "t=<ts>,v1=<sig>[,v1=<sig>...]"
 // Spec: https://stripe.com/docs/webhooks/signatures
@@ -191,9 +192,12 @@ export const Route = createFileRoute("/api/public/hooks/stripe-deposit")({
           console.warn("stripe-deposit webhook: appointment/status update non-fatal error", e);
         }
 
-        // Best-effort: notify ops via email on every successful deposit payment.
+        // Notify only when the paid lead is not yet marked Booked — Deposit Paid.
         // Fixed recipient is baked into the payment-received template (peter@gobold.com.au).
         try {
+          if (!(await needsPaymentBookingAlert(supabase, leadId))) {
+            return Response.json({ ok: true, leadId });
+          }
           const patientName =
             [existing.first_name, existing.last_name].filter(Boolean).join(" ").trim() || null;
 

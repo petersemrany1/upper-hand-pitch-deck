@@ -457,9 +457,9 @@ function DashboardHome() {
       const breakdown: Array<{ clinicId: string; clinicName: string; remaining: number; total: number }> = [];
       for (const c of clinicsList) {
         const total = capacityByClinic.get(c.id) ?? 0;
-        if (total === 0) continue;
         const booked = bookedByClinic.get(c.id) ?? 0;
-        const remaining = Math.max(0, total - booked);
+        if (total === 0 && booked === 0) continue;
+        const remaining = total - booked;
         breakdown.push({ clinicId: c.id, clinicName: c.clinic_name || "Unknown", remaining, total });
       }
       setPackBreakdown(breakdown);
@@ -914,7 +914,7 @@ function DashboardHome() {
                 </div>
                 <div>
                   {packBreakdown
-                    .filter((p) => p.remaining > 0)
+                    .filter((p) => p.remaining !== 0)
                     .map((p) => (
                       <div
                         key={p.clinicId}
@@ -929,8 +929,8 @@ function DashboardHome() {
                       >
                         <div style={{ fontSize: 13, color: "#111", fontWeight: 500, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.clinicName}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ fontSize: 13, color: "#16a34a", fontWeight: 600 }}>
-                            {p.remaining} show{p.remaining !== 1 ? "s" : ""} needed
+                          <div style={{ fontSize: 13, color: p.remaining < 0 ? "#b83232" : "#16a34a", fontWeight: 600 }}>
+                            {p.remaining < 0 ? `${p.remaining} · over balance` : `${p.remaining} show${p.remaining !== 1 ? "s" : ""} needed`}
                           </div>
                         </div>
                       </div>
@@ -946,7 +946,7 @@ function DashboardHome() {
                   >
                     <div style={{ fontSize: 13, color: "#111", fontWeight: 600 }}>Total</div>
                     <div style={{ fontSize: 13, color: "#111", fontWeight: 700 }}>
-                      {packBreakdown.reduce((sum, p) => sum + p.remaining, 0)} show{packBreakdown.reduce((sum, p) => sum + p.remaining, 0) !== 1 ? "s" : ""} needed
+                      {packBreakdown.reduce((sum, p) => sum + Math.max(0, p.remaining), 0)} show{packBreakdown.reduce((sum, p) => sum + Math.max(0, p.remaining), 0) !== 1 ? "s" : ""} needed
                     </div>
                   </div>
                 </div>

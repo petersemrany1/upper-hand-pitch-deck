@@ -21,12 +21,16 @@ const PaymentReceivedEmail = ({
   <Html lang="en" dir="ltr">
     <Head />
     <Preview>
-      {patientName ? `${patientName} just paid their deposit` : 'Deposit payment received'}
+      URGENT: {patientName || 'A patient'} has paid but is not marked Booked — Deposit Paid.
     </Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>✅ Deposit payment received</Heading>
-        <Text style={text}>A patient has just paid their consultation deposit.</Text>
+        <Heading style={h1}>URGENT: Paid but not marked booked</Heading>
+        <Text style={text}>
+          {patientName || 'A patient'} has paid their consultation deposit but has not
+          been put into the <strong>Booked — Deposit Paid</strong> status yet.
+          Please follow up with the assigned rep to confirm the booking and update the status.
+        </Text>
 
         <Section style={box}>
           {patientName && <Text style={row}><strong>Patient:</strong> {patientName}</Text>}
@@ -46,9 +50,9 @@ export const template = {
   component: PaymentReceivedEmail,
   subject: (d: Record<string, any>) =>
     d?.patientName
-      ? `💳 Deposit paid — ${d.patientName}${d.amount ? ` (${d.amount})` : ''}`
-      : `💳 Deposit payment received${d?.amount ? ` (${d.amount})` : ''}`,
-  displayName: 'Payment received notification',
+      ? `URGENT: ${d.patientName} paid — not marked Booked — Deposit Paid`
+      : 'URGENT: Patient paid — not marked Booked — Deposit Paid',
+  displayName: 'Urgent paid but not booked alert',
   to: 'peter@gobold.com.au',
   previewData: {
     amount: '$75.00 AUD',

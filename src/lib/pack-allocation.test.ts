@@ -78,7 +78,7 @@ describe("allocatePacks", () => {
     const boss = creditBalance(allocatePacks([pack("a", 10, "2026-09-10")], 4, 6));
     expect(boss).toMatchObject({ available: 0, reserved: 6, key: "empty" });
     const over = creditBalance(allocatePacks([pack("a", 10, "2026-09-10")], 4, 8));
-    expect(over).toMatchObject({ available: 0, reserved: 6, over: 2, key: "over" });
+    expect(over).toMatchObject({ available: -2, reserved: 8, over: 2, key: "over" });
     // a no-show hands the credit straight back: one fewer reserved, one more available
     const afterNoShow = creditBalance(allocatePacks([pack("a", 10, "2026-09-10")], 4, 5));
     expect(afterNoShow.available).toBe(1);
@@ -90,5 +90,17 @@ describe("allocatePacks", () => {
     expect(a.current).toBeNull();
     expect(a.overflowBooked).toBe(2);
     expect(packStatus(a).key).toBe("none");
+  });
+
+  test("one extra booking stays at minus one even after the patient shows", () => {
+    const packs = [pack("nitai", 10, "2026-09-01")];
+    expect(creditBalance(allocatePacks(packs, 8, 3))).toMatchObject({ available: -1, reserved: 3, used: 8, over: 1 });
+    expect(creditBalance(allocatePacks(packs, 11, 0))).toMatchObject({ available: -1, reserved: 0, used: 11, over: 1 });
+    expect(creditBalance(allocatePacks(packs, 8, 2))).toMatchObject({ available: 0, over: 0 });
+    expect(creditBalance(allocatePacks([...packs, pack("topup", 10, "2026-10-05")], 8, 3)).available).toBe(9);
+  });
+
+  test("removing all packs does not hide existing consumption", () => {
+    expect(creditBalance(allocatePacks([], 3, 2))).toMatchObject({ available: -5, used: 3, reserved: 2, key: "over" });
   });
 });

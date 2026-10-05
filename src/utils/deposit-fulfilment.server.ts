@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { needsPaymentBookingAlert } from "./payment-booking-alert.server";
 
 type StripeCheckoutSession = {
   id: string;
@@ -87,8 +88,11 @@ export async function fulfilDepositPayment(
     console.warn("deposit fulfilment: appointment/status update non-fatal error", e);
   }
 
-  // Best-effort ops notification.
+  // Only notify Peter when payment has not resulted in the booked/paid status.
   try {
+    if (!(await needsPaymentBookingAlert(supabase, leadId))) {
+      return { ok: true, detail: "credited" };
+    }
     const patientName =
       [existing.first_name, existing.last_name].filter(Boolean).join(" ").trim() || null;
 

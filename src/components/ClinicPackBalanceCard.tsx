@@ -94,7 +94,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
         // even if the clinic never marked an outcome. Only an explicit
         // no-show hands the slot back.
         showed += 1;
-      } else if (!o) {
+      } else {
         up += 1;
       }
     }

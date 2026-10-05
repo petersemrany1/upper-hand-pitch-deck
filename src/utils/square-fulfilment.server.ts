@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import type { SquarePayment } from "@/lib/square.server";
 import { opsAlertEmail } from "@/utils/ops-alert.server";
+import { needsPaymentBookingAlert } from "./payment-booking-alert.server";
 
 /**
  * Business logic for a paid $75 booking fee taken on Square.
@@ -83,8 +84,11 @@ export async function fulfilSquareDeposit(
     console.warn("square fulfilment: appointment/status update non-fatal error", e);
   }
 
-  // Best-effort ops notification — same template + idempotency scheme as Stripe.
+  // Only notify Peter when payment has not resulted in the booked/paid status.
   try {
+    if (!(await needsPaymentBookingAlert(supabase, leadId))) {
+      return { ok: true, detail: "credited" };
+    }
     const patientName =
       [existing.first_name, existing.last_name].filter(Boolean).join(" ").trim() || null;
 

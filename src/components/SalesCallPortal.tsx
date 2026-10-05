@@ -26,6 +26,7 @@ import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmati
 import { stopRingback } from "@/utils/ringback";
 import { generateSlots, holidayLabelFor, summarizeDay, ymdLocal, type TradingHours, type BlockedSlot, type ExistingAppt, type AvailabilityOverride } from "@/lib/slot-generation";
 import { clinicLocationKeywords, fetchClinicRemainingSlots, invalidateClinicRemainingSlots } from "@/lib/clinic-capacity";
+import { canStartSalesCall, salesCallCapacity } from "@/lib/sales-call-capacity";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -381,7 +382,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // ringing a missed caller back). In that case we must not block on the
   // outcome gate — the very call that armed the gate is the call they want
   // to land in.
-  const { activeLeadId: liveCallLeadId } = useTwilioDevice();
+  const { activeLeadId: liveCallLeadId, status: queueCallStatus } = useTwilioDevice();
   const [leads, setLeads] = useState<Lead[]>([]);
   // Locations (from ad_set_name) that the admin has paused. Leads matching
   // any of these are hidden from the pipeline, session queue, and callback
@@ -427,13 +428,16 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const [clinicCapacity, setClinicCapacity] = useState<{ all: string[]; available: string[] }>({ all: [], available: [] });
   useEffect(() => {
     let cancelled = false;
-    const load = async () => {
+    let latestRequest = 0;
+    const load = async (fresh = false) => {
+      const request = ++latestRequest;
       try {
-        const [{ data }, remaining] = await Promise.all([
+        const [{ data, error }, remaining] = await Promise.all([
           supabase.from("partner_clinics").select("id, location, city").eq("is_active", true),
-          fetchClinicRemainingSlots(),
+          fetchClinicRemainingSlots({ fresh }),
         ]);
-        if (cancelled) return;
+        if (error) throw error;
+        if (cancelled || request !== latestRequest) return;
         const all: string[] = [];
         const available: string[] = [];
         for (const c of (data ?? []) as { id: string; location: string | null; city: string | null }[]) {
@@ -449,15 +453,25 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       }
     };
     void load();
-    const onChanged = () => void load();
+    // Realtime must bypass the 30-second cache, including any older in-flight read.
+    const onChanged = () => void load(true);
     window.addEventListener("clinic-capacity-changed", onChanged);
+    window.addEventListener("focus", onChanged);
+    const poll = window.setInterval(onChanged, 15_000);
     const ch = supabase.channel("clinic-capacity-queue")
       .on("postgres_changes", { event: "*", schema: "public", table: "clinic_appointments" }, onChanged)
       .on("postgres_changes", { event: "*", schema: "public", table: "clinic_packs" }, onChanged)
+      // Reps share leads but cannot read other reps' appointment rows. The
+      // shared lead's booking update also wakes the aggregate balance refresh.
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "meta_leads" }, (payload) => {
+        if (payload.new.booking_date || payload.old.booking_date) onChanged();
+      })
       .subscribe();
     return () => {
       cancelled = true;
       window.removeEventListener("clinic-capacity-changed", onChanged);
+      window.removeEventListener("focus", onChanged);
+      window.clearInterval(poll);
       void supabase.removeChannel(ch);
     };
   }, []);
@@ -1476,13 +1490,13 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
 
   // Mid-session capacity: the moment a city's clinics fill up (e.g. the last
   // Melbourne show is booked), pull that city's leads out of the live session
-  // queue so the rep never wastes a dial on someone she can't book. The lead
-  // currently on screen is left alone — the rep finishes that call. If a slot
+  // queue so the rep never wastes a dial on someone she can't book. A lead
+  // already on a connected call is left alone — the rep finishes that call. If a slot
   // comes back (no-show marked, new pack), the leads reappear automatically.
   useEffect(() => {
     const byId = new Map(leads.map((l) => [l.id, l]));
     const keep = (id: string) => {
-      if (id === activeIdRef.current) return true;
+      if (id === liveCallLeadId && queueCallStatus === "in-call") return true;
       const l = byId.get(id);
       return !l || !isLeadClinicFull(l);
     };
@@ -1498,7 +1512,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const next = prev.filter(keep);
       return next.length === prev.length ? prev : next;
     });
-  }, [isLeadClinicFull, leads, sessionActive]);
+  }, [isLeadClinicFull, leads, sessionActive, liveCallLeadId, queueCallStatus]);
   const dueLeadIds = dueQueue.order;
   const dueSet = useMemo(() => new Set(dueLeadIds), [dueLeadIds]);
   const dueSetRef = useRef(dueSet);
@@ -3580,7 +3594,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const [previewClinicEmail, setPreviewClinicEmail] = useState("");
 
   // Live Twilio state — used to hard-block "Send handover" while a call is active.
-  const { status: liveCallStatus } = useTwilioDevice();
+  const { status: liveCallStatus, activeLeadId: bookingCallLeadId } = useTwilioDevice();
   const isRepOnCall =
     liveCallStatus === "in-call" ||
     liveCallStatus === "connecting" ||
@@ -4018,15 +4032,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           fetchClinicRemainingSlots(),
         ]);
         if (error) throw error;
-        // Clinics with no consult slots left to fill can't be booked into.
-        // The lead's already-booked clinic stays available so existing bookings
-        // can still be edited.
+        // A call admitted before capacity ran out can still close the sale.
+        // Existing bookings also keep their clinic available for editing.
         const list = ((data ?? []) as Clinic[]).filter(
-          // A full clinic is a hard stop. The only exception is a lead that is
-          // ALREADY booked there, so an existing appointment can still be
-          // edited — a lead merely pre-assigned to a full clinic cannot be
-          // booked past the pack limit.
-          (c) => (remaining[c.id] ?? 0) > 0 || (c.id === lead.clinic_id && !!lead.booking_date),
+          (c) => (remaining[c.id] ?? 0) > 0
+            || salesCallCapacity.allows(lead.id, c.id, bookingCallLeadId, liveCallStatus)
+            || (c.id === lead.clinic_id && !!lead.booking_date),
         );
         setClinics(list);
       } catch (err) {
@@ -4038,7 +4049,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         setClinicsLoading(false);
       }
     })();
-  }, [lead.clinic_id, clinicsRetryTick]);
+  }, [lead.id, lead.clinic_id, clinicsRetryTick, bookingCallLeadId, liveCallStatus]);
 
 
   useEffect(() => {
@@ -7188,11 +7199,11 @@ function RightPanel({
           fetchClinicRemainingSlots(),
         ]);
         if (error) throw error;
-        // Only offer clinics that still have consult slots left in their pack.
+        // Keep the original clinic options for a call already in progress.
         const list = ((clinics ?? []) as Clinic[]).filter(
-          // Same rule as the booking form: only a lead already booked at a full
-          // clinic keeps it in the list (to edit that booking).
-          (c) => (remaining[c.id] ?? 0) > 0 || (c.id === active.clinic_id && !!active.booking_date),
+          (c) => (remaining[c.id] ?? 0) > 0
+            || salesCallCapacity.allows(active.id, c.id, deviceActiveLeadId, deviceStatus)
+            || (c.id === active.clinic_id && !!active.booking_date),
         );
         setPanelClinics(list);
 
@@ -7213,7 +7224,7 @@ function RightPanel({
         setPanelClinicsLoading(false);
       }
     })();
-  }, [active.id, active.clinic_id, loadDoctorForClinic, panelClinicsRetryTick]);
+  }, [active.id, active.clinic_id, loadDoctorForClinic, panelClinicsRetryTick, deviceActiveLeadId, deviceStatus]);
 
   useEffect(() => {
     const syncSelectedClinic = (event: Event) => {
@@ -7441,8 +7452,12 @@ function RightPanel({
   // Reset open objection when switching leads
   useEffect(() => { setOpenObjection(null); }, [active.id]);
 
+  const preparingCallRef = useRef(false);
+  const dialLeadRef = useRef(active.id);
+  dialLeadRef.current = active.id;
   const callNow = async () => {
     console.log("[callNow] click", { phone: active.phone, leadId: active.id, deviceStatus });
+    if (inCall || preparingCallRef.current) return;
     if (!active.phone) { toast.error("No phone number"); return; }
     // Backstop: even if this lead somehow surfaced in the queue, never let a rep
     // cold call someone who already has an upcoming appointment.
@@ -7458,6 +7473,37 @@ function RightPanel({
       return;
     }
 
+    preparingCallRef.current = true;
+    if (!practiceMode) {
+      // The cutoff is at the next dial, not at the booking save. A rep already
+      // on the phone can finish, even when another rep uses the final credit.
+      try {
+        const [{ data: clinics, error }, remaining] = await Promise.all([
+          supabase.from("partner_clinics").select("id, location, city").eq("is_active", true),
+          fetchClinicRemainingSlots({ fresh: true }),
+        ]);
+        if (error) throw error;
+        if (dialLeadRef.current !== active.id) {
+          preparingCallRef.current = false;
+          return;
+        }
+        const location = leadLocationText(active);
+        const matching = (clinics ?? []).filter((c) => clinicLocationKeywords(c).some((key) => location.includes(key)));
+        if (!canStartSalesCall(matching.map((c) => c.id), remaining)) {
+          preparingCallRef.current = false;
+          salesCallCapacity.clear();
+          invalidateClinicRemainingSlots();
+          toast.error("No shows left for this location — its leads are paused until more shows are available.");
+          return;
+        }
+        salesCallCapacity.admit(active.id, remaining);
+      } catch (error) {
+        preparingCallRef.current = false;
+        toast.error("Could not check available shows. Please retry before calling.");
+        return;
+      }
+    }
+
     // Mark outcome as pending the INSTANT the rep initiates a dial so the
     // local "Next Lead" button gates correctly. Do NOT arm the parent-level
     // pendingOutcomeLeadId here — that would auto-open the forced-outcome
@@ -7471,6 +7517,7 @@ function RightPanel({
       await placeCall(active.phone, { leadId: active.id, repId: repId ?? "" });
       console.log("[callNow] placeCall returned");
     } catch (e) {
+      salesCallCapacity.clear();
       stopRingback();
       console.error("[callNow] placeCall threw", e);
       callAttemptLeadIdRef.current = null;
@@ -7479,6 +7526,8 @@ function RightPanel({
       setOutcomeRequired(false);
       setCallDurationAtHangup(0);
       toast.error(e instanceof Error ? e.message : "Failed to start call");
+    } finally {
+      preparingCallRef.current = false;
     }
   };
 
