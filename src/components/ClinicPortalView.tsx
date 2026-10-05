@@ -900,6 +900,11 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
             const border = isAdminNote ? "#fcd9a8" : "#c7dcf5";
             const badgeBg = isAdminNote ? "#f59e0b" : NAVY;
             const badgeLabel = isAdminNote ? "ADMIN" : "Clinic";
+            // Hard rule: clinics never see a salesperson's name — always the company name.
+            const shownName = isAdminNote && !isAdmin ? "Hair Transplant Group" : n.author_name;
+            const shownBody = !isAdmin
+              ? n.body.replace(/Rescheduled by [^:()]+ \(sales\):/g, "Rescheduled by Hair Transplant Group:")
+              : n.body;
             return (
               <div key={n.id} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 8, padding: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -908,8 +913,8 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
                       display: "inline-block", padding: "2px 8px", fontSize: 10, fontWeight: 700,
                       background: badgeBg, color: "#fff", borderRadius: 10, textTransform: "uppercase", letterSpacing: 0.4,
                     }}>{badgeLabel}</span>
-                    {n.author_name && (
-                      <span style={{ fontSize: 11, color: "#111", fontWeight: 600 }}>{n.author_name}</span>
+                    {shownName && (
+                      <span style={{ fontSize: 11, color: "#111", fontWeight: 600 }}>{shownName}</span>
                     )}
                     <span style={{ fontSize: 11, color: "#6b7785" }}>{fmtStamp(n.created_at)}</span>
                   </div>
@@ -923,7 +928,7 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
                     </button>
                   )}
                 </div>
-                <div style={{ fontSize: 13, color: "#111", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{n.body}</div>
+                <div style={{ fontSize: 13, color: "#111", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{shownBody}</div>
               </div>
             );
           })}
