@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { bookingActor } from "./booking-access.server";
 import { clinicRemainingBalances, type CapacityPack, type CapacityAppointment } from "@/lib/clinic-capacity-balance";
@@ -9,7 +10,7 @@ import { sydneyTodayISO } from "@/lib/timezone";
  * every rep's bookings, so calculate on the server and return only clinic totals.
  */
 export const getClinicRemainingSlots = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([attachSupabaseAuth, requireSupabaseAuth])
   .handler(async ({ context }): Promise<Record<string, number>> => {
     await bookingActor(context.supabase);
     const signal = AbortSignal.timeout(6_000);
