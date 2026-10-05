@@ -45,9 +45,10 @@ type Pack = {
 type Props = {
   clinicId: string;
   isAdmin: boolean;
+  refreshKey?: number;
 };
 
-export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
+export function ClinicPackBalanceCard({ clinicId, isAdmin, refreshKey = 0 }: Props) {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [showedUp, setShowedUp] = useState(0);
   const [upcoming, setUpcoming] = useState(0);
@@ -103,7 +104,8 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
     setLoading(false);
   }, [clinicId]);
 
-  useEffect(() => { void load(); }, [load]);
+  // Follow saved outcomes, realtime appointment changes and portal refreshes.
+  useEffect(() => { void load(); }, [load, refreshKey]);
 
   // A balance, not a progress bar: a delivered show uses a credit, a booking
   // reserves one, a no-show does neither, a pack adds them. Packs themselves

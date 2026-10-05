@@ -318,7 +318,7 @@ export function ClinicPortalView({
 
   return (
     <div className="clinic-portal" style={{ background: "#f0f2f5", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      <ClinicPackBalanceCard clinicId={clinicId} isAdmin={isAdmin} />
+      <ClinicPackBalanceCard clinicId={clinicId} isAdmin={isAdmin} refreshKey={refresh} />
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec", marginTop: 16 }}>
         <div className="clinic-portal-tabs" style={{ display: "flex", gap: 0, padding: "0 24px" }}>
           <TabBtn active={tab === "appointments"} onClick={() => setTab("appointments")} icon={<ClipboardList size={16} />}>Appointments</TabBtn>
