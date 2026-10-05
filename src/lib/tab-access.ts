@@ -64,7 +64,7 @@ export const TAB_LABELS: Record<TabKey, string> = {
 
 export const TAB_GROUPS: { title: string; tabs: TabKey[] }[] = [
   { title: "General", tabs: ["dashboard", "training", "partner_clinics"] },
-  { title: "Sales", tabs: ["invoices", "sales_portal", "leaderboard", "appointments", "leads", "analytics", "numbers", "numbers_game", "phone", "chase_queue", "recordings"] },
+  { title: "Sales", tabs: ["sales_portal", "leaderboard", "appointments", "leads", "analytics", "numbers", "numbers_game", "phone", "chase_queue", "recordings", "invoices"] },
   { title: "Clinic Acquisition", tabs: ["pitch_deck", "clinics", "sent_links", "sales_test_leads"] },
 ];
 

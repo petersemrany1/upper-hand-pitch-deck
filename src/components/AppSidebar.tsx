@@ -30,7 +30,6 @@ const ALL_FOLDERS: NavFolder[] = [
     repIcon: Headphones,
     repUrl: "/sales-call",
     items: [
-      { title: "Invoices", url: "/invoices", icon: DollarSign, tab: "invoices" },
       { title: "Sales Portal", url: "/sales-call", icon: Headphones, tab: "sales_portal" },
       { title: "Training", url: "/training", icon: GraduationCap, tab: "training" },
       { title: "Leaderboard", url: "/leaderboard", icon: Trophy, tab: "leaderboard" },
@@ -42,6 +41,7 @@ const ALL_FOLDERS: NavFolder[] = [
       { title: "Phone", url: "/inbox", icon: Phone, tab: "phone" },
       { title: "Chase Queue", url: "/chase-queue", icon: Bell, tab: "chase_queue" },
       { title: "My Recordings", url: "/my-recordings", icon: FileAudio, tab: "recordings" },
+      { title: "Invoices", url: "/invoices", icon: DollarSign, tab: "invoices" },
     ],
   },
   {
