@@ -17,6 +17,11 @@ import {
 import { ClinicPackBalanceCard } from "@/components/ClinicPackBalanceCard";
 import { sydneyTodayISO } from "@/lib/timezone";
 import { freeTrialCutoff, isFreeTrialBooking, type FreeTrialPack } from "@/lib/clinic-free-trial";
+// Load action stubs with the portal, not on the first click. A tab left open
+// across a deployment must not request a removed, old action chunk on save.
+import { checkOutcomeFree, recordClinicNoShow, resetClinicOutcome, markDepositRefundedManually } from "@/utils/clinic-outcome.functions";
+import { disqualifyAppointment, resolveAppointmentDeposit, processConsultOutcome } from "@/utils/consult-outcome.functions";
+import { requestChase } from "@/utils/chase.functions";
 
 export type ChaseStatus = "requested" | "rebooked" | "not_proceeding" | "no_answer" | "voicemail";
 
@@ -967,7 +972,6 @@ function ChaseSection({ appt, onChange }: { appt: ClinicAppointment; onChange: (
   const submit = async () => {
     setSaving(true);
     try {
-      const { requestChase } = await import("@/utils/chase.functions");
       const r = await requestChase({ data: { appointmentId: appt.id, note: note.trim() || undefined } });
       if (!r.success) { toast.error(r.error || "Failed"); return; }
       if (!r.emailSent) toast.warning("Marked, but email notification failed");
@@ -1031,7 +1035,6 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   const openSummary = async (mode: "show" | "proceeded") => {
     setBusy(true);
     try {
-      const { checkOutcomeFree } = await import("@/utils/clinic-outcome.functions");
       const check = await checkOutcomeFree({ data: { appointmentId: appt.id } });
       if (!check.success) { toast.error(check.error || "Could not open this consult"); onChange(); return; }
       setSummaryMode(mode);
@@ -1045,7 +1048,6 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   const markNoShow = async () => {
     setBusy(true);
     try {
-      const { recordClinicNoShow } = await import("@/utils/clinic-outcome.functions");
       const result = await recordClinicNoShow({ data: { appointmentId: appt.id } });
       if (!result.success) { toast.error(result.error || "Could not save outcome"); onChange(); return; }
       toast.success("Outcome saved");
@@ -1061,7 +1063,6 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   const resetOutcome = async () => {
     setBusy(true);
     try {
-      const { resetClinicOutcome } = await import("@/utils/clinic-outcome.functions");
       const result = await resetClinicOutcome({ data: { appointmentId: appt.id } });
       if (!result.success) { toast.error(result.error || "Could not reset outcome"); onChange(); return; }
       toast.success("Outcome reset");
@@ -1082,7 +1083,6 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
     const trimmed = reason.trim();
     if (trimmed.length < 5) { toast.error("Reason must be at least 5 characters"); return; }
     try {
-      const { disqualifyAppointment } = await import("@/utils/consult-outcome.functions");
       const r = await disqualifyAppointment({ data: { appointmentId: appt.id, reason: trimmed } });
       if (!r.success) {
         if ("outcomeSaved" in r && r.outcomeSaved) {
@@ -1132,7 +1132,6 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   const markRefundedManually = async () => {
     if (!confirm(`Mark $${depositAmount} deposit as refunded to ${appt.patient_name}?`)) return;
     try {
-      const { markDepositRefundedManually } = await import("@/utils/clinic-outcome.functions");
       const res = await markDepositRefundedManually({ data: { appointmentId: appt.id } });
       if (!res.success) { toast.error(res.error); return; }
       toast.success("Marked as refunded");
@@ -2196,7 +2195,6 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
     let cancelled = false;
     void (async () => {
       try {
-        const { resolveAppointmentDeposit } = await import("@/utils/consult-outcome.functions");
         const r = await resolveAppointmentDeposit({ data: { appointmentId: appt.id } });
         if (cancelled) return;
         if (r.success) {
@@ -2226,7 +2224,6 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
     setSaving(true);
     setErrorMsg(null);
     try {
-      const { processConsultOutcome } = await import("@/utils/consult-outcome.functions");
       const result = await processConsultOutcome({
         data: {
           appointmentId: appt.id,

@@ -2,6 +2,7 @@ import { createRouter, useRouter, type ErrorComponentProps } from "@tanstack/rea
 import { useEffect, useRef } from "react";
 import { routeTree } from "./routeTree.gen";
 import { supabase } from "@/integrations/supabase/client";
+import { isModuleLoadError } from "@/lib/module-load-error";
 
 if (typeof window !== "undefined" && window.location.pathname === "/_dashboard/sales-call") {
   window.history.replaceState(null, "", `/sales-call${window.location.search}${window.location.hash}`);
@@ -11,6 +12,7 @@ function DefaultErrorComponent({ error, reset }: ErrorComponentProps) {
   const err = error as Error | undefined;
   const router = useRouter();
   const logged = useRef(false);
+  const moduleLoadFailed = isModuleLoadError(err);
 
   useEffect(() => {
     if (logged.current) return;
@@ -52,10 +54,12 @@ function DefaultErrorComponent({ error, reset }: ErrorComponentProps) {
           </svg>
         </div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Something went wrong
+          {moduleLoadFailed ? "Reload the portal to continue" : "Something went wrong"}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          An unexpected error occurred. Please try again.
+          {moduleLoadFailed
+            ? "Part of the portal could not load. Copy any unsaved notes, then reload to get the latest version."
+            : "An unexpected error occurred. Please try again."}
         </p>
         {err?.message && (
           <pre className="mt-4 max-h-40 overflow-auto rounded-md bg-muted p-3 text-left font-mono text-xs text-destructive">
@@ -65,12 +69,16 @@ function DefaultErrorComponent({ error, reset }: ErrorComponentProps) {
         <div className="mt-6 flex items-center justify-center gap-3">
           <button
             onClick={() => {
+              if (moduleLoadFailed) {
+                window.location.reload();
+                return;
+              }
               router.invalidate();
               reset();
             }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Try again
+            {moduleLoadFailed ? "Reload portal" : "Try again"}
           </button>
           <a
             href="/"

@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { GlobalCallLayer } from "@/components/GlobalCallLayer";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 
 import appCss from "../styles.css?url";
 import htgLogo from "@/assets/htg-logo.png?url";
@@ -142,6 +143,17 @@ function RootComponent() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    // Vite emits this even when an action catches its import error. Never
+    // reload automatically: a clinic may have unsaved consultation notes.
+    const onPreloadError = () => {
+      toast.error("Part of the portal could not load. Reload to get the latest version.", {
+        id: "portal-module-load-error",
+        duration: Infinity,
+        description: "Copy any unsaved notes before reloading, then try your action again.",
+        action: { label: "Reload portal", onClick: () => window.location.reload() },
+      });
+    };
+
     const onError = (event: ErrorEvent) => {
       const msg = event.message || extractErrorMessage(event.error, "Uncaught error");
       // Filter noisy ResizeObserver / extension warnings
@@ -166,9 +178,11 @@ function RootComponent() {
 
     window.addEventListener("error", onError);
     window.addEventListener("unhandledrejection", onRejection);
+    window.addEventListener("vite:preloadError", onPreloadError);
     return () => {
       window.removeEventListener("error", onError);
       window.removeEventListener("unhandledrejection", onRejection);
+      window.removeEventListener("vite:preloadError", onPreloadError);
     };
   }, []);
 
