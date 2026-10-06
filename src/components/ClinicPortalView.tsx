@@ -23,6 +23,7 @@ import { checkOutcomeFree, recordClinicNoShow, resetClinicOutcome, markDepositRe
 import { disqualifyAppointment, resolveAppointmentDeposit, processConsultOutcome } from "@/utils/consult-outcome.functions";
 import { requestChase } from "@/utils/chase.functions";
 import { ClinicTrialSettings } from "@/components/ClinicTrialSettings";
+import { useAuth } from "@/hooks/useAuth";
 
 export type ChaseStatus = "requested" | "rebooked" | "not_proceeding" | "no_answer" | "voicemail";
 
@@ -246,6 +247,8 @@ export function ClinicPortalView({
   clinicName: string;
   isAdmin?: boolean;
 }) {
+  const { role, userType } = useAuth();
+  const showBilling = role === "admin" || userType === "clinic";
   const [tab, setTab] = useState<"appointments" | "availability" | "clinicflow">("appointments");
   const [appts, setAppts] = useState<ClinicAppointment[]>([]);
   const [tradingHours, setTradingHours] = useState<TradingHours[]>([]);
@@ -282,7 +285,7 @@ export function ClinicPortalView({
         const trialCutoff = freeTrialCutoff((pk ?? []) as FreeTrialPack[], sydneyTodayISO());
         setAppts(((a ?? []) as ClinicAppointment[]).map((ap) => ({
           ...ap,
-          is_free_trial: ap.is_free_trial || isFreeTrialBooking(ap.booked_at, trialCutoff),
+          is_free_trial: showBilling && (ap.is_free_trial || isFreeTrialBooking(ap.booked_at, trialCutoff)),
         })));
         setTradingHours((th ?? []) as TradingHours[]);
         setBlockedSlots((bs ?? []) as BlockedSlot[]);
@@ -299,7 +302,7 @@ export function ClinicPortalView({
       }
     })();
     return () => { cancelled = true; };
-  }, [clinicId, refresh]);
+  }, [clinicId, refresh, showBilling]);
 
 
   const reload = () => setRefresh((n) => n + 1);
@@ -324,8 +327,8 @@ export function ClinicPortalView({
 
   return (
     <div className="clinic-portal" style={{ background: "#f0f2f5", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      <ClinicPackBalanceCard clinicId={clinicId} isAdmin={isAdmin} refreshKey={refresh} />
-      {isAdmin && <ClinicTrialSettings clinicId={clinicId} onChange={reload} />}
+      {showBilling && <ClinicPackBalanceCard clinicId={clinicId} isAdmin={isAdmin && role === "admin"} refreshKey={refresh} />}
+      {isAdmin && role === "admin" && <ClinicTrialSettings clinicId={clinicId} onChange={reload} />}
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec", marginTop: 16 }}>
         <div className="clinic-portal-tabs" style={{ display: "flex", gap: 0, padding: "0 24px" }}>
           <TabBtn active={tab === "appointments"} onClick={() => setTab("appointments")} icon={<ClipboardList size={16} />}>Appointments</TabBtn>
