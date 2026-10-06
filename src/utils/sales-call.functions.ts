@@ -12,6 +12,7 @@ import { logError } from "./error-logger.functions";
 import { APP_TIMEZONE } from "@/lib/timezone";
 import { norwoodNeedsExpectations } from "@/lib/norwood";
 import { abandonedLeadIds } from "@/components/sales-call/abandoned";
+import { dateInBookingWindow, trialBookingWindow } from "@/lib/clinic-booking-window";
 
 // Gate helper: ensures the calling user is an admin in sales_reps.
 // Uses email matching (case-insensitive).
@@ -302,6 +303,16 @@ export const saveBooking = createServerFn({ method: "POST" })
     if (actor.role !== "admin") data.repId = actor.id;
     if (!data.leadId || !data.clinicId || !data.doctorId || !data.date || !data.time) {
       return { success: false as const, error: "Lead, clinic, consultation team member, date and time are required" };
+    }
+    // Check before touching the lead; the database trigger is the final guard
+    // for other writers and changes made while this form was open.
+    const [{ data: terms, error: termsError }, { data: prior, error: priorError }] = await Promise.all([
+      supabaseAdmin.from("clinic_trials").select("*").eq("clinic_id", data.clinicId).maybeSingle(),
+      supabaseAdmin.from("clinic_appointments").select("clinic_id, is_free_trial").eq("lead_id", data.leadId).maybeSingle(),
+    ]);
+    if (termsError || priorError) return { success: false as const, error: "Could not check clinic availability. Please try again." };
+    if (!(prior?.is_free_trial && prior.clinic_id === data.clinicId) && !dateInBookingWindow(trialBookingWindow(terms), data.date, sydneyTodayISO())) {
+      return { success: false as const, error: "This clinic is not accepting new bookings for that date. Choose another available date or contact Admin." };
     }
     const norwood = data.norwoodLevel;
     if (norwood == null || !Number.isFinite(norwood) || norwood < 1 || norwood > 7) {

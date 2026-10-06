@@ -69,7 +69,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin, refreshKey = 0 }: Pro
         .order("purchased_at", { ascending: true }),
       supabase
         .from("clinic_appointments")
-        .select("appointment_date, outcome, disqualified_at, booked_at")
+        .select("appointment_date, outcome, disqualified_at, booked_at, is_free_trial")
         .eq("clinic_id", clinicId)
         .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%"),
     ]);
@@ -87,7 +87,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin, refreshKey = 0 }: Pro
       const bookedAt = (a as { booked_at: string | null }).booked_at;
       if (d || o === "disqualified" || o === "noshow") continue;
       // Free-trial bookings cost nothing and don't touch the paid pack.
-      if (isFreeTrialBooking(bookedAt, cutoff)) continue;
+      if (a.is_free_trial || isFreeTrialBooking(bookedAt, cutoff)) continue;
       if (o === "show" || o === "proceeded") {
         showed += 1;
       } else if (!o && date < todayStr) {

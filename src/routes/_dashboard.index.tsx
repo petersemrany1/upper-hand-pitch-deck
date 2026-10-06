@@ -246,6 +246,7 @@ type PackRow = {
 };
 
 type ApptRow = {
+  is_free_trial?: boolean;
   clinic_id: string | null;
   outcome: string | null;
   disqualified_at: string | null;
@@ -329,13 +330,13 @@ function DashboardHome() {
     const bookingsMonthQ = scopeId
       ? supabase
           .from("clinic_appointments")
-          .select("id, clinic_id, patient_name")
+          .select("id, clinic_id, patient_name, is_free_trial")
           .gte("booked_at", monthIso)
           .eq("booking_rep_id", scopeId)
           .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%")
       : supabase
           .from("clinic_appointments")
-          .select("id, clinic_id, patient_name")
+          .select("id, clinic_id, patient_name, is_free_trial")
           .gte("booked_at", monthIso)
           .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%");
 
@@ -369,7 +370,7 @@ function DashboardHome() {
     const apptsAllQ = isAdmin
       ? supabase
           .from("clinic_appointments")
-          .select("clinic_id, outcome, disqualified_at, appointment_date, booked_at")
+          .select("clinic_id, outcome, disqualified_at, appointment_date, booked_at, is_free_trial")
           .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%")
       : Promise.resolve({ data: [] as ApptRow[], error: null });
 
@@ -397,7 +398,7 @@ function DashboardHome() {
 
     setBookingsToday(bookingsTodayRes.count ?? 0);
 
-    const monthBookings = (bookingsMonthRes.data ?? []) as { id: string; clinic_id: string | null }[];
+    const monthBookings = (bookingsMonthRes.data ?? []) as { id: string; clinic_id: string | null; is_free_trial?: boolean }[];
     setBookingsMonth(monthBookings.length);
 
     const clinicsList = (clinicsRes.data ?? []) as Array<{ id: string; clinic_name: string | null; city: string | null; price_per_booking: number | null }>;
@@ -410,7 +411,7 @@ function DashboardHome() {
     }
     setClinicMap(cMap);
     const revenue = monthBookings.reduce(
-      (sum, b) => sum + (b.clinic_id ? (priceMap.get(b.clinic_id) ?? defaultPrice) : defaultPrice),
+      (sum, b) => sum + (b.is_free_trial ? 0 : b.clinic_id ? (priceMap.get(b.clinic_id) ?? defaultPrice) : defaultPrice),
       0
     );
     setRevenueMonth(revenue);
@@ -443,7 +444,7 @@ function DashboardHome() {
       for (const a of apptsRows) {
         if (!a.clinic_id) continue;
         if (a.disqualified_at || a.outcome === "disqualified" || a.outcome === "noshow") continue;
-        if (isFreeTrialBooking(a.booked_at, cutoffByClinic.get(a.clinic_id) ?? null)) continue;
+        if (a.is_free_trial || isFreeTrialBooking(a.booked_at, cutoffByClinic.get(a.clinic_id) ?? null)) continue;
         // Once a patient is sent through the slot is consumed, even if the
         // clinic never marked an outcome. Only an explicit no-show or a
         // disqualification (handled above) hands the slot back.

@@ -36,6 +36,10 @@ import { useConversation } from "@elevenlabs/react";
 import { savePracticeCallRecording, enqueuePracticeCallSave } from "@/lib/practice-recordings.functions";
 import { useCurrentRepId } from "@/hooks/useCurrentRepId";
 import NorwoodPricingCalculator from "@/components/NorwoodPricingCalculator";
+import { GRO_SYDNEY_SELLING_POINTS, isGroSydney } from "@/lib/gro-sydney";
+import { getClinicBookingWindow } from "@/utils/clinic-booking-window.functions";
+import { dateInBookingWindow, type ClinicBookingWindow } from "@/lib/clinic-booking-window";
+import { sydneyTodayISO } from "@/lib/timezone";
 
 const PRACTICE_AGENT_ID = "agent_1301kt5fgx3ye9krpyc25900fy60";
 
@@ -7070,6 +7074,7 @@ function RightPanel({
   const [panelClinicsError, setPanelClinicsError] = useState(false);
   const [panelClinicsRetryTick, setPanelClinicsRetryTick] = useState(0);
   const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
+  const groSydneySelected = isGroSydney(panelClinic);
   const [panelDoctor, setPanelDoctor] = useState<PartnerDoctor | null>(null);
   const [panelSurgeons, setPanelSurgeons] = useState<PartnerDoctor[]>([]);
   const panelTeamRequest = useRef(0);
@@ -8219,7 +8224,7 @@ function RightPanel({
       )}
 
       {/* Section 3b — Consultation Talking Points (collapsible, between Clinic & Objections) */}
-      {panelDoctor && (
+      {(groSydneySelected || panelDoctor) && (
         <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
           <button
             type="button"
@@ -8228,6 +8233,7 @@ function RightPanel({
               setShowSellingPoints(next);
               if (
                 next &&
+                !groSydneySelected &&
                 panelDoctor &&
                 (sellingPointsForDoctorId !== panelDoctor.id || !sellingPoints)
               ) {
@@ -8275,7 +8281,7 @@ function RightPanel({
             aria-expanded={showSellingPoints}
           >
             <span style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
-              Consultation Talking Points
+              {groSydneySelected ? "GRO Sydney Selling Points" : "Consultation Talking Points"}
             </span>
             <span style={{ fontSize: 12, color: COLORS.coral, fontWeight: 600 }}>
               {showSellingPoints ? "Hide ▲" : "Show ▼"}
@@ -8292,12 +8298,18 @@ function RightPanel({
                 padding: "10px 12px",
               }}
             >
-              {panelDoctor?.name && (
+              {!groSydneySelected && panelDoctor?.name && (
                 <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#666", marginBottom: 6 }}>
                   {consultationMemberLabel(panelDoctor)}
                 </div>
               )}
-              {loadingSellingPoints ? (
+              {groSydneySelected ? (
+                <ul style={{ fontSize: 13, color: "#111", lineHeight: 1.55, listStyle: "none", padding: 0, margin: 0 }}>
+                  {GRO_SYDNEY_SELLING_POINTS.map((point) => (
+                    <li key={point} style={{ marginBottom: 6 }}>· {point}</li>
+                  ))}
+                </ul>
+              ) : loadingSellingPoints ? (
                 <div style={{ fontSize: 13, color: "#666" }}>Generating…</div>
               ) : sellingPoints && sellingPoints.length > 0 ? (
                 <ul style={{ fontSize: 13, color: "#111", lineHeight: 1.55, listStyle: "none", padding: 0, margin: 0 }}>
@@ -8369,7 +8381,7 @@ function RightPanel({
       </div>
 
       {/* Section 4b — Norwood pricing calculator */}
-      <NorwoodPricingCalculator />
+      <NorwoodPricingCalculator key={panelClinic?.id ?? "no-clinic"} defaultClinic={groSydneySelected ? "gro" : "nitai"} />
 
       {/* Section 5 — Send a photo */}
       <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
@@ -9485,7 +9497,10 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
   const [overrides, setOverrides] = useState<AvailabilityOverride[]>([]);
   const [clinicState, setClinicState] = useState<string | null>(null);
   const [minGapMins, setMinGapMins] = useState<number>(0);
+  const [bookingWindow, setBookingWindow] = useState<ClinicBookingWindow | undefined>(undefined);
   useEffect(() => {
+    let cancelled = false;
+    setBookingWindow(undefined);
     if (!clinicId) { setTrading([]); setBlocks([]); setAppts([]); setOverrides([]); setClinicState(null); setMinGapMins(0); return; }
     void Promise.all([
       supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
@@ -9493,22 +9508,28 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
       (supabase as any).rpc("booking_busy_times", { p_clinic: clinicId }),
       supabase.from("clinic_availability").select("override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
       supabase.from("partner_clinics").select("state, min_appointment_gap_mins").eq("id", clinicId).maybeSingle(),
-    ]).then(([a, b, c, d, e]) => {
+      getClinicBookingWindow({ data: { clinicId } }),
+    ]).then(([a, b, c, d, e, window]) => {
+      if (cancelled) return;
+      const error = a.error || b.error || c.error || d.error || e.error;
+      if (error) throw error;
+      setBookingWindow(window);
       setTrading((a.data ?? []) as TradingHours[]);
       setBlocks((b.data ?? []) as BlockedSlot[]);
       setAppts((c.data ?? []) as ExistingAppt[]);
       setOverrides((d.data ?? []) as AvailabilityOverride[]);
       setClinicState((e.data as { state?: string | null } | null)?.state ?? null);
       setMinGapMins(Number((e.data as { min_appointment_gap_mins?: number | null } | null)?.min_appointment_gap_mins ?? 0) || 0);
-    });
+    }).catch(() => { if (!cancelled) toast.error("Could not load clinic availability. Select the clinic again to retry."); });
+    return () => { cancelled = true; };
   }, [clinicId]);
 
   const slots = useMemo(() => {
-    if (!date) return [];
+    if (!date || bookingWindow === undefined || !dateInBookingWindow(bookingWindow, date, sydneyTodayISO())) return [];
     const [y, m, d] = date.split("-").map(Number);
     if (!y || !m || !d) return [];
     return generateSlots(new Date(y, m - 1, d), trading, blocks, appts, overrides, clinicState, minGapMins);
-  }, [date, trading, blocks, appts, overrides, clinicState, minGapMins]);
+  }, [date, trading, blocks, appts, overrides, clinicState, minGapMins, bookingWindow]);
 
   const available = slots.filter((s) => s.available);
 
@@ -9527,11 +9548,11 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
     for (let i = 0; i < 120; i++) {
       const d = new Date(today); d.setDate(today.getDate() + i);
       const s = summarizeDay(d, trading, blocks, appts, overrides, clinicState, minGapMins);
-      const hasOpenSlot = !s.closed && s.total - s.bookedCount > 0 && !s.allBlocked;
+      const hasOpenSlot = bookingWindow !== undefined && dateInBookingWindow(bookingWindow, ymdLocal(d), sydneyTodayISO()) && !s.closed && s.total - s.bookedCount > 0 && !s.allBlocked;
       if (hasOpenSlot) avail.push(d); else unavail.push(d);
     }
     return { availableDays: avail, unavailableDays: unavail };
-  }, [trading, blocks, appts, overrides, clinicState, minGapMins]);
+  }, [trading, blocks, appts, overrides, clinicState, minGapMins, bookingWindow]);
 
 
   const selectedDate = useMemo(() => {
@@ -9566,7 +9587,7 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
               onSelect={(d) => {
                 if (d) { onDate(ymdLocal(d)); onTime(""); setCalOpen(false); }
               }}
-              disabled={{ before: new Date() }}
+              disabled={(day) => ymdLocal(day) < sydneyTodayISO() || bookingWindow === undefined || !dateInBookingWindow(bookingWindow, ymdLocal(day), sydneyTodayISO())}
               modifiers={{ hasSlots: availableDays, noSlots: unavailableDays }}
               modifiersClassNames={{
                 hasSlots: "bg-emerald-100 text-emerald-700 font-semibold hover:bg-emerald-200",

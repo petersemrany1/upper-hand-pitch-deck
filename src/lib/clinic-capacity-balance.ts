@@ -1,12 +1,14 @@
 import { freeTrialCutoff, isFreeTrialBooking, type FreeTrialPack } from "./clinic-free-trial";
+import type { ClinicTrial } from "./clinic-booking-window";
 
 export type CapacityPack = FreeTrialPack & { clinic_id: string; pack_size: number };
 export type CapacityAppointment = {
   clinic_id: string | null; outcome: string | null; disqualified_at: string | null; booked_at: string | null;
+  is_free_trial?: boolean;
 };
 
 /** Includes every rep's bookings, preserves negative balances and excludes trials. */
-export function clinicRemainingBalances(packs: CapacityPack[], appts: CapacityAppointment[], todayStr: string): Record<string, number> {
+export function clinicRemainingBalances(packs: CapacityPack[], appts: CapacityAppointment[], todayStr: string, trials: ClinicTrial[] = []): Record<string, number> {
   const packsByClinic: Record<string, FreeTrialPack[]> = {};
   const remaining: Record<string, number> = {};
   for (const p of packs) {
@@ -24,8 +26,13 @@ export function clinicRemainingBalances(packs: CapacityPack[], appts: CapacityAp
   for (const a of appts) {
     if (a.disqualified_at || a.outcome === "disqualified" || a.outcome === "noshow") continue;
     if (!a.clinic_id) continue;
-    if (isFreeTrialBooking(a.booked_at, cutoffs[a.clinic_id] ?? null)) continue;
+    if (a.is_free_trial || isFreeTrialBooking(a.booked_at, cutoffs[a.clinic_id] ?? null)) continue;
     remaining[a.clinic_id] = (remaining[a.clinic_id] ?? 0) - 1;
+  }
+  for (const trial of trials) {
+    if (trial.paid_started_at) continue;
+    // Scheduling admission, not paid credit: reps get no trial label/count.
+    remaining[trial.clinic_id] = todayStr >= trial.booking_opens && todayStr <= trial.appointment_end ? 1 : 0;
   }
   return remaining;
 }

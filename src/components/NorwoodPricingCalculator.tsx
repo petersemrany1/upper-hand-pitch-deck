@@ -94,11 +94,13 @@ function financeWeeklyText(lo: number, hi: number): string | null {
   return `≈ $${w}/week on 5-yr finance (partial range)`;
 }
 
-export default function NorwoodPricingCalculator() {
+type PricingClinic = "nitai" | "byron" | "bijan" | "boss" | "gro";
+
+export default function NorwoodPricingCalculator({ defaultClinic = "nitai" }: { defaultClinic?: PricingClinic }) {
   const [open, setOpen] = useState(false);
-  const [clinic, setClinic] = useState<"nitai" | "byron" | "bijan" | "boss">("nitai");
+  const [clinic, setClinic] = useState<PricingClinic>(defaultClinic);
   const clinicLabel = (c: string) =>
-    c === "nitai" ? "Nitai" : c === "byron" ? "Byron" : c === "bijan" ? "Bijan" : "Boss";
+    c === "gro" ? "GRO Sydney" : c === "nitai" ? "Nitai" : c === "byron" ? "Byron" : c === "bijan" ? "Bijan" : "Boss";
   const [pricePerGraft, setPricePerGraft] = useState<number>(5);
 
   return (
@@ -123,8 +125,8 @@ export default function NorwoodPricingCalculator() {
       {open && (
         <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
           {/* Clinic selector */}
-          <div style={{ display: "flex", gap: 6 }}>
-            {(["nitai", "byron", "bijan", "boss"] as const).map((c) => {
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {(["nitai", "byron", "bijan", "boss", "gro"] as const).map((c) => {
               const active = clinic === c;
               return (
                 <button
@@ -215,64 +217,77 @@ export default function NorwoodPricingCalculator() {
           )}
 
           {/* Price rows */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {ROWS.map((r) => {
-              let lo: number;
-              let hi: number;
-              if (clinic === "nitai" || clinic === "boss") {
-                const np = clinic === "boss" ? BOSS_PRICES[r.label] : NITAI_PRICES[r.label];
-                lo = np.min;
-                hi = np.max;
-              } else if (clinic === "bijan") {
-                const bp = BIJAN_PRICES[r.label];
-                lo = bp.min;
-                hi = bp.max;
-              } else if (clinic === "byron") {
-                const byp = BYRON_PRICES[r.label];
-                lo = byp.min;
-                hi = byp.max;
-              } else {
-                lo = r.min * pricePerGraft;
-                hi = r.max * pricePerGraft;
-              }
-              const priceText = lo === hi ? fmt(lo) : `${fmt(lo)} – ${fmt(hi)}`;
-              const weeklyText =
-                financeWeeklyText(lo, hi) ??
-                "Outside standard finance range ($8k–$30k)";
-              return (
-                <div
-                  key={r.label}
-                  style={{
-                    background: "#fff",
-                    border: `0.5px solid ${COLORS.line}`,
-                    borderRadius: 8,
-                    padding: "8px 10px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 2,
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#111" }}>{r.label}</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.coral, whiteSpace: "nowrap" }}>
-                      {priceText}
+          {clinic === "gro" ? (
+            <div style={{ background: "#fafaf9", border: `0.5px solid ${COLORS.line}`, borderRadius: 8, padding: "12px 10px" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#111" }}>GRO Sydney — indicative pricing</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: COLORS.coral, marginTop: 6 }}>$15,000–$25,000</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.coral, marginTop: 4 }}>Approximately $40–$130/week on a payment plan</div>
+              <p style={{ fontSize: 12, color: COLORS.muted, lineHeight: 1.55, margin: "8px 0 0" }}>
+                Give this ballpark to each person, depending on what they need. Weekly payments depend on the treatment and finance terms. The consultation confirms their personalised quote.
+              </p>
+            </div>
+          ) : (
+            <>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {ROWS.map((r) => {
+                let lo: number;
+                let hi: number;
+                if (clinic === "nitai" || clinic === "boss") {
+                  const np = clinic === "boss" ? BOSS_PRICES[r.label] : NITAI_PRICES[r.label];
+                  lo = np.min;
+                  hi = np.max;
+                } else if (clinic === "bijan") {
+                  const bp = BIJAN_PRICES[r.label];
+                  lo = bp.min;
+                  hi = bp.max;
+                } else if (clinic === "byron") {
+                  const byp = BYRON_PRICES[r.label];
+                  lo = byp.min;
+                  hi = byp.max;
+                } else {
+                  lo = r.min * pricePerGraft;
+                  hi = r.max * pricePerGraft;
+                }
+                const priceText = lo === hi ? fmt(lo) : `${fmt(lo)} – ${fmt(hi)}`;
+                const weeklyText =
+                  financeWeeklyText(lo, hi) ??
+                  "Outside standard finance range ($8k–$30k)";
+                return (
+                  <div
+                    key={r.label}
+                    style={{
+                      background: "#fff",
+                      border: `0.5px solid ${COLORS.line}`,
+                      borderRadius: 8,
+                      padding: "8px 10px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 2,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#111" }}>{r.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.coral, whiteSpace: "nowrap" }}>
+                        {priceText}
+                      </div>
                     </div>
+                    <div style={{ fontSize: 11, color: COLORS.muted }}>{fmtGrafts(r.min, r.max)}</div>
+                    <div style={{ fontSize: 11, color: COLORS.coral, fontWeight: 500 }}>{weeklyText}</div>
+                    {r.note && (
+                      <div style={{ fontSize: 10, color: "#9a6b00", fontStyle: "italic", marginTop: 2 }}>
+                        ⚠ {r.note}
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontSize: 11, color: COLORS.muted }}>{fmtGrafts(r.min, r.max)}</div>
-                  <div style={{ fontSize: 11, color: COLORS.coral, fontWeight: 500 }}>{weeklyText}</div>
-                  {r.note && (
-                    <div style={{ fontSize: 10, color: "#9a6b00", fontStyle: "italic", marginTop: 2 }}>
-                      ⚠ {r.note}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
 
-          <div style={{ fontSize: 10, color: COLORS.muted, textAlign: "center" }}>
-            Finance estimates use Shailandra's 5-year plan (fortnightly payments shown as weekly)
-          </div>
+            <div style={{ fontSize: 10, color: COLORS.muted, textAlign: "center" }}>
+              Finance estimates use Shailandra's 5-year plan (fortnightly payments shown as weekly)
+            </div>
+            </>
+          )}
         </div>
       )}
     </div>

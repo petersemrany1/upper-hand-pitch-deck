@@ -15,7 +15,7 @@ export const getClinicRemainingSlots = createServerFn({ method: "GET" })
     await bookingActor(context.supabase);
     const signal = AbortSignal.timeout(6_000);
     const pageSize = 1000;
-    const [packs, appts] = await Promise.all([
+    const [packs, appts, trials] = await Promise.all([
       (async () => {
         const rows: CapacityPack[] = [];
         for (let offset = 0; ; offset += pageSize) {
@@ -31,7 +31,7 @@ export const getClinicRemainingSlots = createServerFn({ method: "GET" })
         const rows: CapacityAppointment[] = [];
         for (let offset = 0; ; offset += pageSize) {
           const { data, error } = await supabaseAdmin.from("clinic_appointments")
-            .select("clinic_id, outcome, disqualified_at, booked_at")
+            .select("clinic_id, outcome, disqualified_at, booked_at, is_free_trial")
             .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%")
             .order("id").range(offset, offset + pageSize - 1).abortSignal(signal);
           if (error) throw error;
@@ -39,6 +39,8 @@ export const getClinicRemainingSlots = createServerFn({ method: "GET" })
           if ((data?.length ?? 0) < pageSize) return rows;
         }
       })(),
+      supabaseAdmin.from("clinic_trials").select("*").abortSignal(signal),
     ]);
-    return clinicRemainingBalances(packs, appts, sydneyTodayISO());
+    if (trials.error) throw trials.error;
+    return clinicRemainingBalances(packs, appts, sydneyTodayISO(), trials.data ?? []);
   });

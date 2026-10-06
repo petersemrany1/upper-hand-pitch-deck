@@ -22,6 +22,7 @@ import { freeTrialCutoff, isFreeTrialBooking, type FreeTrialPack } from "@/lib/c
 import { checkOutcomeFree, recordClinicNoShow, resetClinicOutcome, markDepositRefundedManually } from "@/utils/clinic-outcome.functions";
 import { disqualifyAppointment, resolveAppointmentDeposit, processConsultOutcome } from "@/utils/consult-outcome.functions";
 import { requestChase } from "@/utils/chase.functions";
+import { ClinicTrialSettings } from "@/components/ClinicTrialSettings";
 
 export type ChaseStatus = "requested" | "rebooked" | "not_proceeding" | "no_answer" | "voicemail";
 
@@ -281,7 +282,7 @@ export function ClinicPortalView({
         const trialCutoff = freeTrialCutoff((pk ?? []) as FreeTrialPack[], sydneyTodayISO());
         setAppts(((a ?? []) as ClinicAppointment[]).map((ap) => ({
           ...ap,
-          is_free_trial: isFreeTrialBooking(ap.booked_at, trialCutoff),
+          is_free_trial: ap.is_free_trial || isFreeTrialBooking(ap.booked_at, trialCutoff),
         })));
         setTradingHours((th ?? []) as TradingHours[]);
         setBlockedSlots((bs ?? []) as BlockedSlot[]);
@@ -324,6 +325,7 @@ export function ClinicPortalView({
   return (
     <div className="clinic-portal" style={{ background: "#f0f2f5", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
       <ClinicPackBalanceCard clinicId={clinicId} isAdmin={isAdmin} refreshKey={refresh} />
+      {isAdmin && <ClinicTrialSettings clinicId={clinicId} onChange={reload} />}
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec", marginTop: 16 }}>
         <div className="clinic-portal-tabs" style={{ display: "flex", gap: 0, padding: "0 24px" }}>
           <TabBtn active={tab === "appointments"} onClick={() => setTab("appointments")} icon={<ClipboardList size={16} />}>Appointments</TabBtn>

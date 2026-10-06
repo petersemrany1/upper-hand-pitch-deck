@@ -538,8 +538,15 @@ export type Database = {
           },
         ]
       }
+      clinic_trials: {
+        Row: { clinic_id: string; booking_opens: string; appointment_start: string; appointment_end: string; paid_started_at: string | null }
+        Insert: { clinic_id: string; booking_opens: string; appointment_start: string; appointment_end: string; paid_started_at?: string | null }
+        Update: { booking_opens?: string; appointment_start?: string; appointment_end?: string; paid_started_at?: string | null }
+        Relationships: []
+      }
       clinic_appointments: {
         Row: {
+          is_free_trial: boolean
           appointment_date: string
           appointment_time: string
           booked_at: string
@@ -578,6 +585,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          is_free_trial?: boolean
           appointment_date: string
           appointment_time: string
           booked_at?: string
@@ -616,6 +624,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          is_free_trial?: boolean
           appointment_date?: string
           appointment_time?: string
           booked_at?: string
@@ -3301,6 +3310,7 @@ export type Database = {
       }
     }
     Functions: {
+      start_clinic_paid_pack: { Args: { p_clinic: string }; Returns: undefined }
       ad_cost_per_show_monthly: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
