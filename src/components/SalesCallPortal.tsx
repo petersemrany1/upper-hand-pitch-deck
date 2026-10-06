@@ -319,6 +319,7 @@ function isRingBackEligible(lead: Lead): boolean {
   return !(
     normStatus === "booked_deposit_paid" ||
     normStatus === "booked_no_deposit" ||
+    normStatus === "on_hold" ||
     normStatus === "not_interested" ||
     normStatus === "had_convo_no_sale" ||
     rawStatus === "dropped" ||
@@ -1374,6 +1375,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         });
       return;
     }
+    if (normaliseStatus(found.status, found) === "on_hold") return;
     if (activeId !== found.id) {
       // Explicit "Open in Sales Call" deeplinks should ALWAYS jump to the
       // requested lead — never get silently blocked by a stale outcome gate
@@ -1422,7 +1424,13 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     return () => { cancelled = true; };
   }, [search.phone, search.leadId, navigate]);
 
-  const active = useMemo(() => leads.find((l) => l.id === activeId) ?? null, [leads, activeId]);
+  // Held leads remain in the data for queue checks, but are never shown to reps.
+  const active = useMemo(() => leads.find((l) => l.id === activeId && normaliseStatus(l.status, l) !== "on_hold") ?? null, [leads, activeId]);
+  useEffect(() => {
+    const lead = leads.find((l) => l.id === activeId);
+    if (!lead || normaliseStatus(lead.status, lead) !== "on_hold") return;
+    setActiveId(null);
+  }, [leads, activeId]);
   const activeLeadIndex = useMemo(() => leads.findIndex((l) => l.id === activeId), [leads, activeId]);
 
   const updateLocalLead = useCallback((id: string, patch: Partial<Lead>) => {
@@ -1455,7 +1463,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       if (!l.callback_scheduled_at) return false;
       if (isLeadUnavailable(l)) return false;
       const s = normaliseStatus(l.status, l);
-      if (s === "not_interested" || s === "booked_deposit_paid" || s === "had_convo_no_sale") return false;
+      if (s === "on_hold" || s === "not_interested" || s === "booked_deposit_paid" || s === "had_convo_no_sale") return false;
       const raw = (l.status ?? "").toLowerCase();
       if (raw === "cancelled" || raw === "no_show" || raw === "dropped") return false;
       const t = new Date(l.callback_scheduled_at).getTime();
@@ -1833,7 +1841,12 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       </>
     );
     if (nextId) {
-      const leadLoaded = leads.some((l) => l.id === nextId);
+      const queuedLead = leads.find((l) => l.id === nextId);
+      if (queuedLead && normaliseStatus(queuedLead.status, queuedLead) === "on_hold") {
+        queueMicrotask(() => setSessionIndex((i) => i === sessionIndex ? i + 1 : i));
+        return holding;
+      }
+      const leadLoaded = !!queuedLead;
       if (leadLoaded && activeId !== nextId) {
         queueMicrotask(() => {
           setActiveId(nextId);
@@ -2095,7 +2108,12 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           }}
           onPreviousLead={() => {
             if (sessionActive) {
-              const previousIndex = sessionIndex - 1;
+              let previousIndex = sessionIndex - 1;
+              while (previousIndex >= 0) {
+                const previousLead = leads.find((l) => l.id === sessionQueue[previousIndex]);
+                if (!previousLead || normaliseStatus(previousLead.status, previousLead) !== "on_hold") break;
+                previousIndex -= 1;
+              }
               const previousId = sessionQueue[previousIndex];
               if (previousId) {
                 setSessionIndex(previousIndex);
@@ -2106,7 +2124,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               }
               return;
             }
-            const previous = activeLeadIndex > 0 ? leads[activeLeadIndex - 1] : null;
+            const previous = leads.slice(0, activeLeadIndex).reverse().find((l) => normaliseStatus(l.status, l) !== "on_hold");
             if (previous) {
               setActiveId(previous.id);
               setStep("mindset");
@@ -5610,10 +5628,11 @@ function getTimeSlot(lead: Lead): "9am" | "12pm" | "3pm" {
 const fmtShort = (s: string) =>
   new Date(s).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
 
-/* The 7 statuses the rep can cycle through inline. Keeping them here so the
+/* The statuses the rep can cycle through inline. Keeping them here so the
  * card and the popover stay in sync. */
 const STATUS_OPTIONS: { key: StatusKey; label: string; emoji: string; color: string; bg: string }[] = [
   { key: "new",                  label: "New",                  emoji: "🔵", color: "#1d4ed8", bg: "#dbeafe" },
+  { key: "on_hold",              label: "On hold",              emoji: "⏸", color: "#92400e", bg: "#fef3c7" },
   { key: "no_answer",            label: "No Answer",            emoji: "🟡", color: "#a16207", bg: "#fef9c3" },
   { key: "callback_scheduled",   label: "Callback Scheduled",   emoji: "🟠", color: "#c2410c", bg: "#ffedd5" },
   { key: "had_convo_chase_up",   label: "Had Convo — Chase Up", emoji: "🟤", color: "#92400e", bg: "#fde68a" },
@@ -5627,7 +5646,7 @@ const STATUS_OPTIONS: { key: StatusKey; label: string; emoji: string; color: str
 /* Statuses a rep is allowed to pick on a call. "Booked — No Deposit" is NOT
  * one of them: a booking only exists once the $75 deposit is taken. It stays in
  * STATUS_OPTIONS purely so historic leads still render with the right label. */
-const SELECTABLE_STATUS_OPTIONS = STATUS_OPTIONS.filter((o) => o.key !== "booked_no_deposit");
+const SELECTABLE_STATUS_OPTIONS = STATUS_OPTIONS.filter((o) => o.key !== "booked_no_deposit" && o.key !== "on_hold");
 
 /* A call record's outcome/status now carries the outcome the rep logged
  * (no_answer, had_convo_no_sale, not_interested, …) as well as the raw Twilio
@@ -5783,6 +5802,7 @@ function LeadChooser({
     const list = leads.filter((l) => {
       // Hide closed-out leads (not interested / had convo no sale) from the main pipeline.
       const ns = normaliseStatus(l.status, l);
+      if (ns === "on_hold") return false;
       if (ns === "not_interested" || ns === "had_convo_no_sale") return false;
       // Hide leads from admin-paused locations (Settings → Paused lead locations).
       if (isLeadLocationPaused(l)) return false;
@@ -7452,12 +7472,18 @@ function RightPanel({
   // Reset open objection when switching leads
   useEffect(() => { setOpenObjection(null); }, [active.id]);
 
+  const [savingHold, setSavingHold] = useState(false);
+  const savingHoldRef = useRef(false);
+  const onHold = normaliseStatus(active.status, active) === "on_hold";
+  const onHoldRef = useRef(onHold);
+  onHoldRef.current = onHold;
   const preparingCallRef = useRef(false);
   const dialLeadRef = useRef(active.id);
   dialLeadRef.current = active.id;
   const callNow = async () => {
     console.log("[callNow] click", { phone: active.phone, leadId: active.id, deviceStatus });
-    if (inCall || preparingCallRef.current) return;
+    if (inCall || preparingCallRef.current || savingHoldRef.current) return;
+    if (onHoldRef.current) { toast.error("This client is on hold and cannot be called."); return; }
     if (!active.phone) { toast.error("No phone number"); return; }
     // Backstop: even if this lead somehow surfaced in the queue, never let a rep
     // cold call someone who already has an upcoming appointment.
@@ -7483,7 +7509,7 @@ function RightPanel({
           fetchClinicRemainingSlots({ fresh: true }),
         ]);
         if (error) throw error;
-        if (dialLeadRef.current !== active.id) {
+        if (dialLeadRef.current !== active.id || savingHoldRef.current || onHoldRef.current) {
           preparingCallRef.current = false;
           return;
         }
@@ -7553,6 +7579,29 @@ function RightPanel({
     setAutoDialWaiting(false);
     if (reason) setAutoDialNote(reason);
   }, []);
+  const putOnHold = async () => {
+    if (onHold || savingHoldRef.current || inCall || outcomePending || outcomeRequired) return;
+    savingHoldRef.current = true;
+    setSavingHold(true);
+    cancelAutoDial("Auto-dial paused — client on hold");
+    const patch = { status: "on_hold", callback_scheduled_at: null };
+    try {
+      const { data, error } = await supabase.from("meta_leads")
+        .update({ ...patch, updated_at: new Date().toISOString() }).eq("id", active.id).select("id").single();
+      if (error || !data) throw error ?? new Error("Lead was not updated");
+      if (dialLeadRef.current === active.id) onHoldRef.current = true;
+      onLocalLeadUpdate?.(active.id, patch);
+      toast.success("Moved to the On hold folder in Leads");
+    } catch {
+      toast.error("Couldn't update client. Please try again.");
+    } finally {
+      savingHoldRef.current = false;
+      setSavingHold(false);
+    }
+  };
+  useEffect(() => {
+    if (onHold) cancelAutoDial("Client is on hold");
+  }, [onHold, cancelAutoDial]);
   useEffect(() => {
     // Any change of lead cancels a running countdown.
     cancelAutoDial();
@@ -7561,6 +7610,7 @@ function RightPanel({
     if (autoDialArmToken <= autoDialHandledTokenRef.current) return;
     autoDialHandledTokenRef.current = autoDialArmToken;
     if (practiceMode) return;
+    if (onHold || savingHoldRef.current) return;
     if (!autoDialEnabled) { setAutoDialNote("Auto-dial only runs inside a calling session"); return; }
     if (!active.phone) { setAutoDialNote("Auto-dial skipped — no phone number"); return; }
     if (active.lead_class === "booked_active") { setAutoDialNote("Auto-dial skipped — this person already has a booking"); return; }
@@ -7967,6 +8017,7 @@ function RightPanel({
           ) : (
           <button
             onClick={() => void callNow()}
+            disabled={onHold || savingHold}
             className="w-full rounded-[8px] flex items-center justify-center gap-2"
             style={{
               background: COLORS.coral,
@@ -7976,7 +8027,7 @@ function RightPanel({
               padding: "14px 16px",
             }}
           >
-            📞 Call Now
+            {onHold ? "⏸ Client on hold" : "📞 Call Now"}
           </button>
           )
         ) : (
@@ -8054,6 +8105,16 @@ function RightPanel({
         <div style={{ marginTop: 10, fontSize: 12, color: COLORS.amberDark, fontWeight: 500 }}>
           🚫 Do not leave a voicemail
         </div>
+        )}
+        {!practiceMode && !inCall && !outcomePending && !outcomeRequired && !leadHasBookedSale(active) && (
+          <button
+            onClick={() => void putOnHold()}
+            disabled={savingHold}
+            className="mt-2 w-full rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 disabled:opacity-50"
+            title="Pause calling this client, for example if you know them personally"
+          >
+            {savingHold ? "Saving…" : "⏸ On hold"}
+          </button>
         )}
         {!practiceMode && autoDialNote && (
           <div style={{ marginTop: 6, fontSize: 11.5, color: "#777" }}>⚡ {autoDialNote}</div>

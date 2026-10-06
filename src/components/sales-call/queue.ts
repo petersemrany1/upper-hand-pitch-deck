@@ -56,6 +56,7 @@ const isAfternoon = (d: Date) => d.getHours() >= NOON_HOUR;
 
 /** Statuses that never enter the queue. */
 const NEVER_CALLED: ReadonlySet<StatusKey> = new Set<StatusKey>([
+  "on_hold",
   "not_interested",
   "booked_deposit_paid",
   "booked_no_deposit",

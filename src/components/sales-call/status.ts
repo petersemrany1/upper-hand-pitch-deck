@@ -3,6 +3,7 @@
 // "no_answer", "contacted", "" …); everything funnels into one of these keys.
 
 export type StatusKey =
+  | "on_hold"
   | "new"
   | "no_answer"
   | "callback_scheduled"
@@ -20,7 +21,8 @@ export type StatusLead = {
 };
 
 export function normaliseStatus(s: string | null | undefined, l?: StatusLead): StatusKey {
-  const raw = (s ?? "").toLowerCase().replace(/\s+/g, "_");
+  const raw = (s ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  if (raw === "on_hold") return "on_hold";
   if (raw.includes("deposit_paid")) return "booked_deposit_paid";
   if (raw.includes("booked")) return "booked_no_deposit";
   if (raw.includes("callback")) return "callback_scheduled";

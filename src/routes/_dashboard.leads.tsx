@@ -1,4 +1,4 @@
-import { isReturningLead } from "@/components/sales-call/status";
+import { isReturningLead, normaliseStatus } from "@/components/sales-call/status";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus, UserCheck, ChevronDown, ChevronRight, MapPin, Filter } from "lucide-react";
@@ -59,6 +59,7 @@ type RepOption = { id: string; name: string; email: string | null };
 
 const DEFAULT_STATUSES = [
   "New",
+  "On hold",
   "No Answer",
   "Callback Scheduled",
   "Spoke — No Sale",
@@ -71,6 +72,7 @@ const DEFAULT_STATUSES = [
 const STATUS_STORAGE_KEY = "custom_lead_statuses";
 
 const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
+  "On hold": { bg: "#fef3c7", fg: "#92400e" },
   "New": { bg: "#ebebeb", fg: "#111111" },
   "No Answer": { bg: "#fffbeb", fg: "#92400e" },
   "Callback Scheduled": { bg: "#eff6ff", fg: "#3b82f6" },
@@ -83,8 +85,11 @@ const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
 
 const CUSTOM_STATUS_COLOR = { bg: "#fff5f3", fg: "#f4522d" };
 
+const leadStatusLabel = (status: string | null | undefined) =>
+  normaliseStatus(status) === "on_hold" ? "On hold" : (status ?? "").trim() || "New";
+
 function statusBadge(s: string | null | undefined) {
-  const value = (s ?? "").trim() || "New";
+  const value = leadStatusLabel(s);
   return STATUS_COLORS[value] ?? CUSTOM_STATUS_COLOR;
 }
 
@@ -141,7 +146,7 @@ const toForm = (r: Lead): EditableFields => ({
   email: r.email ?? "",
   phone: r.phone ?? "",
   funding_preference: r.funding_preference ?? "",
-  status: r.status ?? "New",
+  status: leadStatusLabel(r.status),
   call_notes: r.call_notes ?? "",
 });
 
@@ -221,7 +226,7 @@ function LeadsPage() {
   const purgingRef = useRef<Set<string>>(new Set());
 
 
-  const [collapsedStatuses, setCollapsedStatuses] = useState<Set<string>>(new Set());
+  const [collapsedStatuses, setCollapsedStatuses] = useState<Set<string>>(new Set(["On hold"]));
 
   const toggleStatusGroup = (s: string) => {
     setCollapsedStatuses((prev) => {
@@ -366,7 +371,7 @@ function LeadsPage() {
 
   const matchesStatus = (r: Lead) => {
     if (statusFilter.size === 0) return true;
-    const s = (r.status ?? "").trim() || "New";
+    const s = leadStatusLabel(r.status);
     return statusFilter.has(s);
   };
 
@@ -759,7 +764,7 @@ function LeadsPage() {
                     const colSpan = 9;
                     const groups = new Map<string, Lead[]>();
                     for (const r of filtered) {
-                      const key = (r.status ?? "").trim() || "New";
+                      const key = leadStatusLabel(r.status);
                       const arr = groups.get(key) ?? [];
                       arr.push(r);
                       groups.set(key, arr);
@@ -859,7 +864,7 @@ function LeadsPage() {
                                 className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold"
                                 style={{ background: badge.bg, color: badge.fg }}
                               >
-                                {(r.status ?? "").trim() || "New"}
+                                {leadStatusLabel(r.status)}
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap relative">

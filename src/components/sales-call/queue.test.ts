@@ -238,3 +238,28 @@ test("chase-ups and scheduled callbacks are dialled manually", () => {
   expect(requiresManualDial({ status: "no_answer" })).toBe(false);
   expect(requiresManualDial({ status: null })).toBe(false);
 });
+
+
+describe("on hold", () => {
+  test("normalises the saved status and display label before callback fallback", () => {
+    for (const status of ["on_hold", "On hold", " On Hold "]) {
+      expect(normaliseStatus(status, { status, callback_scheduled_at: iso(TODAY, "09:00") })).toBe("on_hold");
+    }
+  });
+
+  test("held leads never enter a calling queue, including due and expired callbacks", () => {
+    const held = [
+      lead({ id: "held", status: "on_hold" }),
+      lead({ id: "held-callback", status: "On hold", callback_scheduled_at: iso(TODAY, "09:00") }),
+      lead({ id: "held-expired", status: "on_hold", callback_scheduled_at: iso(TODAY, "07:00") }),
+    ];
+    for (const item of held) expect(isExcluded(item, MORNING)).toBe(true);
+    expect(buildQueue({ leads: held, history: {}, now: MORNING }).order).toEqual([]);
+    expect(dueCallbackIds(held, {}, MORNING)).toEqual([]);
+  });
+
+  test("returning a held lead to new makes it eligible again", () => {
+    const restored = lead({ id: "restored", status: "new" });
+    expect(buildQueue({ leads: [restored], history: {}, now: MORNING }).order).toEqual(["restored"]);
+  });
+});
