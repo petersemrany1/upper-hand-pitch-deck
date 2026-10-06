@@ -1,6 +1,7 @@
 import { sendLovableEmail } from '@lovable.dev/email-js'
 import { createClient } from '@supabase/supabase-js'
 import { createFileRoute } from '@tanstack/react-router'
+import { paymentBookingAlertState } from '@/utils/payment-booking-alert.server'
 
 const MAX_RETRIES = 5
 const DEFAULT_BATCH_SIZE = 10
@@ -170,10 +171,42 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
                 ? (failedAttemptsByMessageId.get(payload.message_id) ?? 0)
                 : msg.read_ct ?? 0
 
+            let alertDueAt: string | undefined
+            if (payload.label === 'payment-received') {
+              const alert = payload.payment_booking_alert
+              // Legacy queued alerts lack a lead reference; never send an unchecked alert.
+              if (!alert?.lead_id) {
+                await moveToDlq(supabase, queue, msg, 'Payment alert missing lead reference')
+                continue
+              }
+              try {
+                const state = await paymentBookingAlertState(supabase, alert.lead_id)
+                if (state.action === 'cancel') {
+                  const { error } = await supabase.rpc('delete_email', { queue_name: queue, message_id: msg.msg_id })
+                  if (error) throw error
+                  await supabase.from('email_send_log').insert({
+                    message_id: payload.message_id, template_name: payload.label,
+                    recipient_email: payload.to, status: 'suppressed',
+                    error_message: 'Booking completed or deposit no longer paid',
+                  })
+                  continue
+                }
+                if (state.action === 'wait') continue
+                alertDueAt = state.notBefore
+              } catch (error) {
+                // Leave queued for retry; a failed lookup must never trigger an alert.
+                console.error('Payment alert status check failed', { msg_id: msg.msg_id, error })
+                continue
+              }
+            }
+
             // Drop expired messages (TTL exceeded).
             // Prefer payload.queued_at when present; fall back to PGMQ's enqueued_at
             // which is always set by the queue.
-            const queuedAt = payload.queued_at ?? msg.enqueued_at
+            // The grace period must not consume the email's delivery/retry TTL.
+            const queuedAt = alertDueAt
+              ? new Date(Math.max(Date.parse(alertDueAt), Date.parse(payload.queued_at || alertDueAt))).toISOString()
+              : payload.queued_at ?? msg.enqueued_at
             if (queuedAt) {
               const ageMs = Date.now() - new Date(queuedAt).getTime()
               const maxAgeMs = ttlMinutes[queue] * 60 * 1000

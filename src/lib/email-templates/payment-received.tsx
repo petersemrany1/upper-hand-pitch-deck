@@ -27,8 +27,8 @@ const PaymentReceivedEmail = ({
       <Container style={container}>
         <Heading style={h1}>URGENT: Paid but not marked booked</Heading>
         <Text style={text}>
-          {patientName || 'A patient'} has paid their consultation deposit but has not
-          been put into the <strong>Booked — Deposit Paid</strong> status yet.
+          {patientName || 'A patient'} paid their consultation deposit more than 45 minutes ago
+          and has still not been put into the <strong>Booked — Deposit Paid</strong> status.
           Please follow up with the assigned rep to confirm the booking and update the status.
         </Text>
 

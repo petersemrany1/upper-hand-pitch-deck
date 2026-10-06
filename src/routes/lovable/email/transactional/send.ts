@@ -3,6 +3,7 @@ import { render } from '@react-email/components'
 import { createClient } from '@supabase/supabase-js'
 import { createFileRoute } from '@tanstack/react-router'
 import { TEMPLATES } from '@/lib/email-templates/registry'
+import { paymentBookingAlertState } from '@/utils/payment-booking-alert.server'
 
 // Configuration baked in at scaffold time
 const SITE_NAME = "hairtransplantgroup"
@@ -116,6 +117,24 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
             },
             { status: 400 }
           )
+        }
+
+        // Persist the lead and due time so all Stripe/Square callers get the same grace period.
+        let paymentAlert: { lead_id: string; not_before: string } | undefined
+        if (templateName === 'payment-received') {
+          if (typeof templateData.leadId !== 'string' || !templateData.leadId) {
+            return Response.json({ error: 'leadId is required for payment alerts' }, { status: 400 })
+          }
+          try {
+            const state = await paymentBookingAlertState(supabase, templateData.leadId)
+            if (state.action === 'cancel') {
+              return Response.json({ success: true, queued: false, reason: 'booking_alert_not_needed' })
+            }
+            paymentAlert = { lead_id: templateData.leadId, not_before: state.notBefore }
+          } catch (error) {
+            console.error('Payment alert eligibility check failed', error)
+            return Response.json({ error: 'Could not check payment alert eligibility' }, { status: 500 })
+          }
         }
 
         // 2. Check suppression list (fail-closed: if we can't verify, don't send)
@@ -291,6 +310,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
             idempotency_key: idempotencyKey,
             unsubscribe_token: unsubscribeToken,
             queued_at: new Date().toISOString(),
+            ...(paymentAlert ? { payment_booking_alert: paymentAlert } : {}),
           },
         })
 
