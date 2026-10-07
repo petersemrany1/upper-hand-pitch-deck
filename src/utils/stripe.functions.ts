@@ -141,10 +141,11 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
       console.warn("createHtgDepositSession: token lookup failed", e);
     }
 
+    if (data.clinicId) url += `&c=${encodeURIComponent(data.clinicId)}`;
+
     return {
       success: true as const,
       url,
       id: `managed_${data.leadId}`,
     };
   });
-

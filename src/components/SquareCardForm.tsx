@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { createElement, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { loadSquareSdk } from "@/lib/square";
+import { loadApplePaySdk } from "@/lib/apple-pay";
 import { createSquarePaymentSubmitter } from "@/lib/square-payment-submission";
 import type { CardMethod, DigitalWalletMethod } from "@/lib/square";
 import { getSquareConfig, type SquareConfig } from "@/utils/square-config.functions";
@@ -23,18 +24,16 @@ type Props = {
 const CHECKOUT_STEP_TIMEOUT_MS = 12_000;
 
 function withCheckoutTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => {
-      window.setTimeout(() => reject(new Error(message)), CHECKOUT_STEP_TIMEOUT_MS);
-    }),
-  ]);
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), CHECKOUT_STEP_TIMEOUT_MS);
+    promise.then(resolve, reject).finally(() => window.clearTimeout(timer));
+  });
 }
 
 export function SquareCardForm({ reference, clinicId, onPaid, onConfig, onClinic }: Props) {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const applePayRef = useRef<HTMLButtonElement | null>(null);
+  const applePayRef = useRef<HTMLElement | null>(null);
   const googlePayRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<CardMethod | null>(null);
   const submitRef = useRef<ReturnType<typeof createSquarePaymentSubmitter> | null>(null);
@@ -45,25 +44,23 @@ export function SquareCardForm({ reference, clinicId, onPaid, onConfig, onClinic
   const [done, setDone] = useState(false);
   const [applePayReady, setApplePayReady] = useState(false);
   const [googlePayReady, setGooglePayReady] = useState(false);
+  const [cardReady, setCardReady] = useState(false);
 
   const start = useServerFn(startDepositPayment);
   const pay = useServerFn(paySquareDeposit);
   const config = useServerFn(getSquareConfig);
 
   async function charge(sourceId: string, verificationToken?: string) {
-    try {
-      const result = await pay({ data: { ref: reference, sourceId, ...(verificationToken ? { verificationToken } : {}) } });
-      if (!result.ok) {
-        setError(result.error);
-        return false;
-      }
-      setDone(true);
-      onPaid?.({ paymentId: result.paymentId, amount: result.amount });
-      return true;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Payment failed. Please try again.");
-      return false;
+    // Keep an interrupted charge as an exception so the submission controller
+    // retries the same token/idempotency key rather than creating a new charge.
+    const result = await pay({ data: { ref: reference, sourceId, ...(clinicId ? { clinicId } : {}), ...(verificationToken ? { verificationToken } : {}) } });
+    if (!result.ok) {
+      setError(result.error);
+      return result.retryable ? null : false;
     }
+    setDone(true);
+    onPaid?.({ paymentId: result.paymentId, amount: result.amount });
+    return true;
   }
 
   useEffect(() => {
@@ -82,6 +79,7 @@ export function SquareCardForm({ reference, clinicId, onPaid, onConfig, onClinic
     setSubmitting(false);
     setApplePayReady(false);
     setGooglePayReady(false);
+    setCardReady(false);
 
     function bindWallet(button: HTMLElement, wallet: DigitalWalletMethod) {
       const onClick = (event: Event) => {
@@ -98,6 +96,11 @@ export function SquareCardForm({ reference, clinicId, onPaid, onConfig, onClinic
         // overlaps its download with both server calls and removes the previous
         // serial network waterfall on payment-link opens.
         const productionSdk = loadSquareSdk("production");
+        // Wallet setup is independent of the card fields and Google Pay.
+        const appleSdk = loadApplePaySdk().then(() => true).catch((e) => {
+          console.warn("Apple Pay SDK unavailable", e);
+          return false;
+        });
         const [cfgResult, begin, prefetchedSdk] = await Promise.all([
           withCheckoutTimeout(
             config({}) as Promise<SquareConfig>,
@@ -144,9 +147,7 @@ export function SquareCardForm({ reference, clinicId, onPaid, onConfig, onClinic
         if (cancelled) return;
         const payments = sdk.payments(cfg.applicationId, cfg.locationId);
 
-        const postalCode = cfg.environment === "production" ? "2000" : "94103";
-
-        const card = await payments.card({ postalCode });
+        const card = await payments.card();
 
         if (cancelled) {
           await card.destroy().catch(() => {});
@@ -163,6 +164,7 @@ export function SquareCardForm({ reference, clinicId, onPaid, onConfig, onClinic
           return;
         }
         cardRef.current = card;
+        setCardReady(true);
 
         setLoading(false);
 
@@ -182,15 +184,21 @@ export function SquareCardForm({ reference, clinicId, onPaid, onConfig, onClinic
             countryCode: "AU",
             currencyCode: "AUD",
             total: {
-              label: "Refundable booking fee",
+              label: begin.clinic?.clinicName ?? "Hair Transplant Group booking fee",
               amount: begin.amount.toFixed(2),
               pending: false,
             },
           });
 
           const [applePay, googlePay] = await Promise.all([
-            payments.applePay(paymentRequest).catch(() => null),
-            payments.googlePay(paymentRequest).catch(() => null),
+            appleSdk.then((loaded) => loaded ? payments.applePay(paymentRequest) : null).catch((e) => {
+              console.warn("Apple Pay unavailable", e);
+              return null;
+            }),
+            payments.googlePay(paymentRequest).catch((e) => {
+              console.warn("Google Pay unavailable", e);
+              return null;
+            }),
           ]);
 
           if (cancelled) {
@@ -253,23 +261,25 @@ export function SquareCardForm({ reference, clinicId, onPaid, onConfig, onClinic
 
   if (done) {
     return (
-      <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-foreground">
-        Payment processed. You can close this payment window and continue the call.
+      <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+        <p className="font-semibold">Payment confirmed</p>
+        <p className="mt-1">Your ${amount.toFixed(2)} AUD booking fee has been received. Keep this page for your records and continue with your consultant.</p>
       </div>
     );
   }
 
   return (
     <div className="square-card-form">
-      <div className={`square-wallet-slot ${submitting ? "pointer-events-none opacity-60" : ""}`} aria-busy={submitting}>
-        <button
-          type="button"
-          aria-label="Pay with Apple Pay"
-          disabled={submitting}
-          id="sq-apple-pay"
-          ref={applePayRef}
-          className={applePayReady ? "square-apple-pay-button h-10 w-full" : "hidden"}
-        />
+      <div className={`square-wallet-slot ${submitting ? "pointer-events-none opacity-60" : ""}`} aria-busy={submitting} inert={submitting}>
+        {createElement("apple-pay-button", {
+          id: "sq-apple-pay",
+          ref: applePayRef,
+          buttonstyle: "black",
+          type: "pay",
+          locale: "en-AU",
+          "aria-label": "Pay with Apple Pay",
+          className: applePayReady ? "square-apple-pay-button" : "hidden",
+        })}
         <div
           id="sq-google-pay"
           ref={googlePayRef}
@@ -280,7 +290,7 @@ export function SquareCardForm({ reference, clinicId, onPaid, onConfig, onClinic
 
       <div className="relative flex h-7 items-center">
         <div className="flex-1 border-t border-[#e0e2e5]" />
-        <span className="px-2 text-[11px] text-[#8c8c8c]">Or pay with card</span>
+        <span className="px-2 text-xs text-[#656565]">{applePayReady || googlePayReady ? "Or pay with card" : "Pay securely by card"}</span>
         <div className="flex-1 border-t border-[#e0e2e5]" />
       </div>
 
@@ -296,18 +306,18 @@ export function SquareCardForm({ reference, clinicId, onPaid, onConfig, onClinic
         </p>
       ) : null}
 
-      {!loading ? (
+      {!loading && cardReady ? (
         <Button
           type="button"
           className="h-11 w-full rounded-lg bg-[#1b1b1b] text-[15px] font-medium text-white hover:bg-[#333333]"
           onClick={handleSubmit}
-          disabled={submitting || !cardRef.current}
+          disabled={submitting || !cardReady}
         >
           {submitting ? "Processing…" : `Pay $${amount.toFixed(2)} AUD`}
         </Button>
-      ) : (
+      ) : loading ? (
         <div className="square-loading-block h-11 w-full" aria-hidden="true" />
-      )}
+      ) : null}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import { consultationMemberLabel } from "@/lib/consultation-team";
 import { createServerFn } from "@tanstack/react-start";
+import { DEPOSIT_AMOUNT_CENTS, isCompletedSquareDeposit } from "@/lib/square-deposit-validation";
 
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-const DEPOSIT_AMOUNT_CENTS = 7500;
 
 export type DepositClinicInfo = {
   clinicName: string;
@@ -50,8 +50,14 @@ async function lookupLead(ref: string) {
  * generic branding in that case.
  */
 async function lookupClinic(leadId: string, clinicId: string | null): Promise<DepositClinicInfo | null> {
-  if (!clinicId) return null;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  if (!clinicId) {
+    const { data: appointment } = await supabaseAdmin.from("clinic_appointments")
+      .select("clinic_id").eq("lead_id", leadId).is("disqualified_at", null)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    clinicId = appointment?.clinic_id ?? null;
+  }
+  if (!clinicId) return null;
 
   const { data: clinic } = await supabaseAdmin
     .from("partner_clinics")
@@ -101,6 +107,13 @@ export const startDepositPayment = createServerFn({ method: "POST" })
       const lead = await lookupLead(data.ref);
       if (!lead) return { ok: false, error: NOT_FOUND };
 
+      // The saved clinic is authoritative. A legacy URL hint must not replace
+      // an existing clinic with another merchant's branding.
+      const clinic = await lookupClinic(lead.id, lead.clinic_id ?? data.clinicId ?? null);
+      if (!lead.deposit_paid_at && (!clinic?.clinicName || !clinic.address?.trim())) {
+        return { ok: false, error: "Your clinic details need to be confirmed before payment. Please ask your consultant for an updated payment link." };
+      }
+
       return {
         ok: true,
         leadId: lead.id,
@@ -111,7 +124,7 @@ export const startDepositPayment = createServerFn({ method: "POST" })
             process.env["SQUARE_APPLICATION_ID"],
         ),
         alreadyPaid: Boolean(lead.deposit_paid_at),
-        clinic: await lookupClinic(lead.id, data.clinicId ?? lead.clinic_id),
+        clinic,
       };
     } catch {
       return { ok: false, error: NOT_FOUND };
@@ -120,7 +133,7 @@ export const startDepositPayment = createServerFn({ method: "POST" })
 
 export type SquarePayResult =
   | { ok: true; paymentId: string; amount: number }
-  | { ok: false; error: string };
+  | { ok: false; error: string; retryable?: boolean };
 
 async function idempotencyKey(leadId: string, sourceId: string): Promise<string> {
   const digest = await crypto.subtle.digest(
@@ -139,9 +152,10 @@ async function idempotencyKey(leadId: string, sourceId: string): Promise<string>
  * server-side, so a tampered client cannot redirect funds.
  */
 export const paySquareDeposit = createServerFn({ method: "POST" })
-  .inputValidator((data: { ref: string; sourceId: string; verificationToken?: string }) => {
+  .inputValidator((data: { ref: string; sourceId: string; verificationToken?: string; clinicId?: string }) => {
     if (!UUID_RE.test(data.ref)) throw new Error("Invalid reference");
     if (!data.sourceId || data.sourceId.length > 512) throw new Error("Invalid card token");
+    if (data.clinicId && !UUID_RE.test(data.clinicId)) throw new Error("Invalid clinic reference");
     return data;
   })
   .handler(async ({ data }): Promise<SquarePayResult> => {
@@ -150,6 +164,11 @@ export const paySquareDeposit = createServerFn({ method: "POST" })
 
     if (lead.deposit_paid_at) {
       return { ok: true, paymentId: "already-paid", amount: DEPOSIT_AMOUNT_CENTS / 100 };
+    }
+
+    const clinic = await lookupClinic(lead.id, lead.clinic_id ?? data.clinicId ?? null);
+    if (!clinic?.clinicName || !clinic.address?.trim()) {
+      return { ok: false, error: "Your clinic details need to be confirmed before payment. Please contact your consultant." };
     }
 
     const { createSquarePayment } = await import("@/lib/square.server");
@@ -167,6 +186,14 @@ export const paySquareDeposit = createServerFn({ method: "POST" })
     });
 
     if ("error" in result) return { ok: false, error: result.error };
+
+    if (!isCompletedSquareDeposit(result.payment, lead.id)) {
+      return {
+        ok: false,
+        retryable: true,
+        error: "Your payment has not been confirmed yet. Please try again here to check its status, or contact your consultant.",
+      };
+    }
 
     // Credit immediately so the rep/patient sees it without waiting on the
     // webhook; the webhook replay is idempotent.

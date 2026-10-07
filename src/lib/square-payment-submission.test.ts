@@ -3,7 +3,7 @@ import { createSquarePaymentSubmitter } from "./square-payment-submission";
 import type { TokenResult } from "./square";
 
 function setup() {
-  const charge = mock(async (_token: string, _verification?: string) => true);
+  const charge = mock(async (_token: string, _verification?: string): Promise<boolean | null> => true);
   const onBusy = mock((_busy: boolean) => {});
   const onError = mock((_message: string | null) => {});
   return { charge, onBusy, onError, ...createSquarePaymentSubmitter({ charge, onBusy, onError }) };
@@ -96,5 +96,16 @@ describe("Square card and wallet submission", () => {
     token.resolve({ status: "OK", token: "late-token" });
     await submission;
     expect(checkout.charge).not.toHaveBeenCalled();
+  });
+
+  test.each(["lost-response", "pending"])("reuses the payment token when the result is %s", async (state) => {
+    const checkout = setup();
+    if (state === "pending") checkout.charge.mockResolvedValueOnce(null);
+    else checkout.charge.mockRejectedValueOnce(new Error("Response lost after charge"));
+    const method = { tokenize: mock(async () => ({ status: "OK", token: "same-attempt" })) };
+    await checkout.submit(method);
+    await checkout.submit(method);
+    expect(method.tokenize).toHaveBeenCalledTimes(1);
+    expect(checkout.charge.mock.calls).toEqual([["same-attempt", undefined], ["same-attempt", undefined]]);
   });
 });

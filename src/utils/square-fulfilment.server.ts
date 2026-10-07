@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { SquarePayment } from "@/lib/square.server";
 import { opsAlertEmail } from "@/utils/ops-alert.server";
 import { needsPaymentBookingAlert } from "./payment-booking-alert.server";
+import { isCompletedSquareDeposit } from "@/lib/square-deposit-validation";
 
 /**
  * Business logic for a paid $75 booking fee taken on Square.
@@ -17,6 +18,9 @@ export async function fulfilSquareDeposit(
 ): Promise<{ ok: boolean; detail: string }> {
   const leadId = payment.reference_id;
   if (!leadId) return { ok: false, detail: "no reference_id on payment" };
+  if (!isCompletedSquareDeposit(payment, leadId)) {
+    return { ok: false, detail: "payment is not a completed $75 AUD deposit" };
+  }
 
   const supabaseUrl = process.env["SUPABASE_URL"];
   const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
