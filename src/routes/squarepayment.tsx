@@ -3,6 +3,7 @@ import { useLayoutEffect, useState } from "react";
 import { SquareCardForm } from "@/components/SquareCardForm";
 import { SquareTestModeBanner } from "@/components/SquareTestModeBanner";
 import type { DepositClinicInfo } from "@/utils/square-deposit.functions";
+import { checkoutClinicAddress } from "@/lib/checkout-clinic";
 
 export const Route = createFileRoute("/squarepayment")({
   head: () => ({
@@ -47,8 +48,8 @@ function SquarePayment() {
   const reference = raw && UUID_RE.test(raw) ? raw : undefined;
   const clinicId = c && UUID_RE.test(c) ? c : undefined;
 
-  const merchant = clinic?.clinicName ?? "Your clinic";
-  const location = [clinic?.address, clinic?.city, clinic?.state].filter(Boolean).join(", ");
+  const merchant = clinic?.clinicName ?? "Hair Transplant Group";
+  const location = checkoutClinicAddress(clinic);
 
   useLayoutEffect(() => {
     if ("scrollRestoration" in window.history) {
@@ -81,11 +82,12 @@ function SquarePayment() {
         <div data-checkout-card className="square-checkout-card w-full rounded-xl border border-[#e0e2e5] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
           {/* Merchant */}
           <div className="square-checkout-merchant mt-1 flex flex-col items-center justify-center text-center">
-            <h2 className="max-w-full truncate text-[15px] font-semibold leading-tight text-[#1b1b1b]">{merchant}</h2>
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-[#656565]">Secure consultation booking</p>
+            <h2 className="max-w-full break-words text-[18px] font-semibold leading-snug text-[#1b1b1b]">{merchant}</h2>
             {clinic?.doctorName ? (
-              <p className="max-w-full truncate text-[12px] text-[#6a6a6a]">{clinic.doctorName}</p>
+              <p className="mt-1 max-w-full break-words text-[13px] text-[#5a5a5a]">{clinic.doctorName}</p>
             ) : null}
-            {location ? <p className="max-w-full break-words text-[11px] text-[#8c8c8c]">{location}</p> : null}
+            {location ? <address className="mt-1 max-w-full break-words text-[13px] not-italic leading-relaxed text-[#5a5a5a]">{location}</address> : null}
           </div>
 
           {/* Headline: refundable booking fee */}

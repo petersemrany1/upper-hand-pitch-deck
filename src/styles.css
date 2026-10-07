@@ -27,13 +27,18 @@
 }
 
 .square-wallet-slot {
-  min-height: 40px;
+  display: grid;
+  gap: 8px;
 }
 
 .square-apple-pay-button {
-  -webkit-appearance: -apple-pay-button;
-  -apple-pay-button-type: pay;
-  -apple-pay-button-style: black;
+  display: block;
+  width: 100%;
+  height: 44px;
+  --apple-pay-button-width: 100%;
+  --apple-pay-button-height: 44px;
+  --apple-pay-button-border-radius: 6px;
+  --apple-pay-button-box-sizing: border-box;
 }
 
 /* Square adds its secure iframe asynchronously. Reserve its final footprint
@@ -471,4 +476,3 @@ body :not(.pitch-deck-root):not(.pitch-deck-root *) > [data-state="open"][data-r
     animation: none !important;
   }
 }
-
