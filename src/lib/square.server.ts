@@ -78,11 +78,11 @@ export async function createSquarePayment(params: {
   referenceId: string;
   note?: string;
   verificationToken?: string;
-}): Promise<{ payment: SquarePayment } | { error: string }> {
+}): Promise<{ payment: SquarePayment } | { error: string; retryable?: boolean }> {
   const locationId = process.env["SQUARE_LOCATION_ID"];
   if (!locationId) return { error: "Square location is not configured" };
 
-  const { ok, json } = await squareFetch("/v2/payments", {
+  const { ok, status, json } = await squareFetch("/v2/payments", {
     method: "POST",
     body: {
       source_id: params.sourceId,
@@ -96,9 +96,19 @@ export async function createSquarePayment(params: {
     },
   });
 
-  if (!ok) return { error: getSquareErrorMessage(json["errors"]) };
+  if (!ok) {
+    // These responses do not prove that no charge occurred. Keep the same
+    // source token and idempotency key when the patient retries.
+    const retryable = status >= 500 || status === 408 || status === 429;
+    return {
+      error: retryable
+        ? "We couldn't confirm your payment yet. Please try again here to check the same payment safely."
+        : getSquareErrorMessage(json["errors"]),
+      retryable,
+    };
+  }
   const payment = json["payment"] as SquarePayment | undefined;
-  if (!payment?.id) return { error: "Square returned no payment" };
+  if (!payment?.id) return { error: "We couldn't confirm your payment yet. Please try again here to check the same payment safely.", retryable: true };
   return { payment };
 }
 

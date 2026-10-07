@@ -1,4 +1,4 @@
-import { consultationMemberLabel } from "@/lib/consultation-team";
+import { checkoutDoctorName } from "@/lib/checkout-doctor";
 import { createServerFn } from "@tanstack/react-start";
 import { DEPOSIT_AMOUNT_CENTS, isCompletedSquareDeposit } from "@/lib/square-deposit-validation";
 
@@ -46,17 +46,19 @@ async function lookupLead(ref: string) {
 /**
  * Resolves the clinic the patient is booked with so the payment page is
  * branded to that clinic (name, doctor, address) rather than to us.
- * Returns null when the lead has no clinic yet — the page falls back to
- * generic branding in that case.
+ * A saved clinic or booking takes priority over a legacy payment-link hint.
+ * Returns null if the clinic is unknown, so an unpaid checkout can stop safely.
  */
-async function lookupClinic(leadId: string, clinicId: string | null): Promise<DepositClinicInfo | null> {
+async function lookupClinic(leadId: string, savedClinicId: string | null, clinicHint?: string): Promise<DepositClinicInfo | null> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  if (!clinicId) {
-    const { data: appointment } = await supabaseAdmin.from("clinic_appointments")
-      .select("clinic_id").eq("lead_id", leadId).is("disqualified_at", null)
-      .order("created_at", { ascending: false }).limit(1).maybeSingle();
-    clinicId = appointment?.clinic_id ?? null;
-  }
+  let bookingQuery = supabaseAdmin.from("clinic_appointments")
+    .select("clinic_id, doctor_id, doctor_name").eq("lead_id", leadId).is("disqualified_at", null);
+  if (savedClinicId) bookingQuery = bookingQuery.eq("clinic_id", savedClinicId);
+  const { data: appointment, error: bookingError } = await bookingQuery
+    .order("updated_at", { ascending: false }).order("created_at", { ascending: false })
+    .limit(1).maybeSingle();
+  if (bookingError) throw bookingError;
+  const clinicId = savedClinicId ?? appointment?.clinic_id ?? clinicHint ?? null;
   if (!clinicId) return null;
 
   const { data: clinic } = await supabaseAdmin
@@ -66,20 +68,12 @@ async function lookupClinic(leadId: string, clinicId: string | null): Promise<De
     .maybeSingle();
   if (!clinic) return null;
 
-  // Doctor comes from the clinic's active doctor roster (first active doctor).
-  let doctorName: string | null = null;
-  const { data: doctor } = await supabaseAdmin
+  const { data: doctors, error: doctorError } = await supabaseAdmin
     .from("partner_doctors")
-    .select("name, title")
-    .eq("clinic_id", clinicId)
-    .eq("is_active", true)
-    .eq("conducts_consultations", true)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (doctor?.name) {
-    doctorName = consultationMemberLabel(doctor);
-  }
+    .select("id, name, title, is_active, conducts_consultations")
+    .eq("clinic_id", clinicId);
+  if (doctorError) throw doctorError;
+  const doctorName = checkoutDoctorName(appointment, doctors ?? []);
 
   return {
     clinicName: clinic.clinic_name,
@@ -109,7 +103,7 @@ export const startDepositPayment = createServerFn({ method: "POST" })
 
       // The saved clinic is authoritative. A legacy URL hint must not replace
       // an existing clinic with another merchant's branding.
-      const clinic = await lookupClinic(lead.id, lead.clinic_id ?? data.clinicId ?? null);
+      const clinic = await lookupClinic(lead.id, lead.clinic_id, data.clinicId);
       if (!lead.deposit_paid_at && (!clinic?.clinicName || !clinic.address?.trim())) {
         return { ok: false, error: "Your clinic details need to be confirmed before payment. Please ask your consultant for an updated payment link." };
       }
@@ -166,7 +160,7 @@ export const paySquareDeposit = createServerFn({ method: "POST" })
       return { ok: true, paymentId: "already-paid", amount: DEPOSIT_AMOUNT_CENTS / 100 };
     }
 
-    const clinic = await lookupClinic(lead.id, lead.clinic_id ?? data.clinicId ?? null);
+    const clinic = await lookupClinic(lead.id, lead.clinic_id, data.clinicId);
     if (!clinic?.clinicName || !clinic.address?.trim()) {
       return { ok: false, error: "Your clinic details need to be confirmed before payment. Please contact your consultant." };
     }
@@ -185,7 +179,7 @@ export const paySquareDeposit = createServerFn({ method: "POST" })
       ...(data.verificationToken ? { verificationToken: data.verificationToken } : {}),
     });
 
-    if ("error" in result) return { ok: false, error: result.error };
+    if ("error" in result) return { ok: false, error: result.error, retryable: result.retryable };
 
     if (!isCompletedSquareDeposit(result.payment, lead.id)) {
       return {
