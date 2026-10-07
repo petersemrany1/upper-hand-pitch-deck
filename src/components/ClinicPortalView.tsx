@@ -1,5 +1,6 @@
 import "./clinic-portal.css";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuietRefresh } from "@/hooks/useQuietRefresh";
 import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock, Sparkles } from "lucide-react";
 import { ClinicFlowSetup } from "@/components/ClinicFlowSetup";
 import { ClinicFlowToday } from "@/components/ClinicFlowToday";
@@ -238,71 +239,54 @@ function fmtTime(t: string) {
   return `${h}:${min}${ampm}`;
 }
 
-export function ClinicPortalView({
-  clinicId,
-  clinicName,
-  isAdmin = false,
-}: {
-  clinicId: string;
-  clinicName: string;
-  isAdmin?: boolean;
-}) {
+type ClinicPortalProps = { clinicId: string; clinicName: string; isAdmin?: boolean };
+
+export function ClinicPortalView(props: ClinicPortalProps) {
+  return <ClinicPortalContent key={props.clinicId} {...props} />;
+}
+
+function ClinicPortalContent({ clinicId, clinicName, isAdmin = false }: ClinicPortalProps) {
   const { role, userType } = useAuth();
   const showBilling = role === "admin" || userType === "clinic";
   const [tab, setTab] = useState<"appointments" | "availability" | "clinicflow">("appointments");
-  const [appts, setAppts] = useState<ClinicAppointment[]>([]);
-  const [tradingHours, setTradingHours] = useState<TradingHours[]>([]);
-  const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
-  const [overrides, setOverrides] = useState<AvailabilityOverride[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [selected, setSelected] = useState<ClinicAppointment | null>(null);
-  const [clinicDefaultDeposit, setClinicDefaultDeposit] = useState<number>(75);
-  const [clinicState, setClinicState] = useState<string | null>(null);
-  const [minGapMins, setMinGapMins] = useState<number>(0);
-
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      // Only show the full-screen loader on the very first fetch.
-      if (refresh === 0) setLoading(true);
-      setLoadError(null);
-      try {
-        const results = await Promise.all([
-          supabase.from("clinic_appointments").select("*").eq("clinic_id", clinicId).not("patient_name", "ilike", "%test%").order("appointment_date"),
-          supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
-          supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
-          supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
-          supabase.from("partner_clinics").select("consult_price_deposit, state, min_appointment_gap_mins").eq("id", clinicId).maybeSingle(),
-          supabase.from("clinic_packs").select("pack_type, date_paid, purchased_at").eq("clinic_id", clinicId),
-        ]);
-        if (cancelled) return;
-        const [{ data: a, error: aErr }, { data: th, error: thErr }, { data: bs, error: bsErr }, { data: ov, error: ovErr }, { data: pc, error: pcErr }, { data: pk }] = results;
-        const firstErr = aErr || thErr || bsErr || ovErr || pcErr;
-        if (firstErr) throw new Error(firstErr.message);
-        const trialCutoff = freeTrialCutoff((pk ?? []) as FreeTrialPack[], sydneyTodayISO());
-        setAppts(((a ?? []) as ClinicAppointment[]).map((ap) => ({
-          ...ap,
-          is_free_trial: showBilling && (ap.is_free_trial || isFreeTrialBooking(ap.booked_at, trialCutoff)),
-        })));
-        setTradingHours((th ?? []) as TradingHours[]);
-        setBlockedSlots((bs ?? []) as BlockedSlot[]);
-        setOverrides((ov ?? []) as AvailabilityOverride[]);
-        if (pc?.consult_price_deposit != null) setClinicDefaultDeposit(Number(pc.consult_price_deposit));
-        setClinicState((pc as { state?: string | null } | null)?.state ?? null);
-        setMinGapMins(Number((pc as { min_appointment_gap_mins?: number | null } | null)?.min_appointment_gap_mins ?? 0) || 0);
-
-        setLoading(false);
-      } catch (e) {
-        if (cancelled) return;
-        setLoadError(e instanceof Error ? e.message : "Something went wrong loading your portal.");
-        setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [clinicId, refresh, showBilling]);
+  const fetchPortal = useCallback(async () => {
+    const results = await Promise.all([
+      supabase.from("clinic_appointments").select("*").eq("clinic_id", clinicId).not("patient_name", "ilike", "%test%").order("appointment_date"),
+      supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
+      supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
+      supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
+      supabase.from("partner_clinics").select("consult_price_deposit, state, min_appointment_gap_mins").eq("id", clinicId).maybeSingle(),
+      supabase.from("clinic_packs").select("pack_type, date_paid, purchased_at").eq("clinic_id", clinicId),
+    ]);
+    const [{ data: a, error: aErr }, { data: th, error: thErr }, { data: bs, error: bsErr }, { data: ov, error: ovErr }, { data: pc, error: pcErr }, { data: pk, error: pkErr }] = results;
+    const firstErr = aErr || thErr || bsErr || ovErr || pcErr || pkErr;
+    if (firstErr) throw new Error(firstErr.message);
+    const trialCutoff = freeTrialCutoff((pk ?? []) as FreeTrialPack[], sydneyTodayISO());
+    return {
+      appts: ((a ?? []) as ClinicAppointment[]).map((ap) => ({
+        ...ap,
+        is_free_trial: showBilling && (ap.is_free_trial || isFreeTrialBooking(ap.booked_at, trialCutoff)),
+      })),
+      tradingHours: (th ?? []) as TradingHours[],
+      blockedSlots: (bs ?? []) as BlockedSlot[],
+      overrides: (ov ?? []) as AvailabilityOverride[],
+      clinicDefaultDeposit: Number(pc?.consult_price_deposit ?? 75),
+      clinicState: (pc as { state?: string | null } | null)?.state ?? null,
+      minGapMins: Number((pc as { min_appointment_gap_mins?: number | null } | null)?.min_appointment_gap_mins ?? 0) || 0,
+    };
+  }, [clinicId, showBilling]);
+  const { data: portal, loading, error: loadError } = useQuietRefresh({
+    queryKey: JSON.stringify([clinicId, showBilling]), load: fetchPortal, refreshKey: refresh,
+  });
+  const appts = portal?.appts ?? [];
+  const tradingHours = portal?.tradingHours ?? [];
+  const blockedSlots = portal?.blockedSlots ?? [];
+  const overrides = portal?.overrides ?? [];
+  const clinicDefaultDeposit = portal?.clinicDefaultDeposit ?? 75;
+  const clinicState = portal?.clinicState ?? null;
+  const minGapMins = portal?.minGapMins ?? 0;
 
 
   const reload = () => setRefresh((n) => n + 1);
@@ -337,10 +321,16 @@ export function ClinicPortalView({
         </div>
       </div>
 
+      {loadError && portal && (
+        <p role="status" style={{ margin: "12px 24px", fontSize: 12, color: "#9a6700" }}>
+          Updates are temporarily unavailable. Your last loaded appointments are still shown.
+          {" "}<button onClick={reload} style={{ textDecoration: "underline" }}>Retry</button>
+        </p>
+      )}
       {loading ? (
         <PortalSkeleton />
-      ) : loadError ? (
-        <PortalErrorCard message={loadError} onRetry={reload} />
+      ) : loadError && !portal ? (
+        <PortalErrorCard message={loadError.message} onRetry={reload} />
       ) : tab === "appointments" ? (
         <AppointmentsTab
           appts={appts}

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useQuietRefresh } from "@/hooks/useQuietRefresh";
 import { Plus, Trash2, Pencil, ChevronDown, ChevronUp, Info } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +43,8 @@ type Pack = {
   pack_type: "paid" | "free_trial" | "guarantee_credit" | "goodwill";
 };
 
+const EMPTY_PACKS: Pack[] = [];
+
 type Props = {
   clinicId: string;
   isAdmin: boolean;
@@ -49,19 +52,13 @@ type Props = {
 };
 
 export function ClinicPackBalanceCard({ clinicId, isAdmin, refreshKey = 0 }: Props) {
-  const [packs, setPacks] = useState<Pack[]>([]);
-  const [showedUp, setShowedUp] = useState(0);
-  const [upcoming, setUpcoming] = useState(0);
-
-  const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [editingPack, setEditingPack] = useState<Pack | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const fetchBalance = useCallback(async () => {
     const todayStr = sydneyTodayISO();
-    const [{ data: packRows }, { data: apptRows }] = await Promise.all([
+    const [{ data: packRows, error: packError }, { data: apptRows, error: apptError }] = await Promise.all([
       supabase
         .from("clinic_packs")
         .select("*")
@@ -73,8 +70,8 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin, refreshKey = 0 }: Pro
         .eq("clinic_id", clinicId)
         .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%"),
     ]);
+    if (packError || apptError) throw new Error((packError || apptError)!.message);
     const allPacks = (packRows ?? []) as Pack[];
-    setPacks(allPacks);
     const appts = apptRows ?? [];
     const cutoff = freeTrialCutoff(allPacks, todayStr);
 
@@ -99,13 +96,16 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin, refreshKey = 0 }: Pro
         up += 1;
       }
     }
-    setShowedUp(showed);
-    setUpcoming(up);
-    setLoading(false);
+    return { packs: allPacks, showedUp: showed, upcoming: up };
   }, [clinicId]);
 
   // Follow saved outcomes, realtime appointment changes and portal refreshes.
-  useEffect(() => { void load(); }, [load, refreshKey]);
+  const { data, loading, error, reload: load } = useQuietRefresh({
+    queryKey: clinicId, load: fetchBalance, refreshKey,
+  });
+  const packs = data?.packs ?? EMPTY_PACKS;
+  const showedUp = data?.showedUp ?? 0;
+  const upcoming = data?.upcoming ?? 0;
 
   // A balance, not a progress bar: a delivered show uses a credit, a booking
   // reserves one, a no-show does neither, a pack adds them. Packs themselves
@@ -170,9 +170,15 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin, refreshKey = 0 }: Pro
         </div>
       </div>
 
+      {error && (
+        <p role="status" style={{ marginTop: SPACE_12, fontSize: 12, color: AMBER }}>
+          {data ? "Credits could not update. Showing the last saved balance." : "Credits could not be loaded."}
+          {" "}<button onClick={load} style={{ textDecoration: "underline" }}>Retry</button>
+        </p>
+      )}
       {loading ? (
         <div style={{ marginTop: SPACE_16, height: 96, background: GREY_BG, borderRadius: 8 }} />
-      ) : noPacks ? (
+      ) : !data ? null : noPacks ? (
         <div style={{
           marginTop: SPACE_16, padding: "14px 16px", background: "#fef9e7", borderRadius: 8,
           border: "1px solid #f4d97a", fontSize: 13, color: "#7a5a00",

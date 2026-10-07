@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChevronDown, AlertTriangle, Info } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuietRefresh } from "@/hooks/useQuietRefresh";
 import { PickupRateCard } from "@/components/PickupRateCard";
 import { APP_TIMEZONE, sydneyTodayISO } from "@/lib/timezone";
 import { freeTrialCutoff, isFreeTrialBooking } from "@/lib/clinic-free-trial";
@@ -286,17 +287,9 @@ function DashboardHome() {
   const [convPeriod, setConvPeriod] = useState<ConvPeriod>("month");
   const [convStart, setConvStart] = useState(sydneyTodayISO());
   const [convEnd, setConvEnd] = useState(sydneyTodayISO());
-  const [convError, setConvError] = useState("");
-  const [convLoading, setConvLoading] = useState(true);
   const [convRefresh, setConvRefresh] = useState(0);
-  useEffect(() => { const refresh = () => setConvRefresh(n => n + 1); const t = setInterval(refresh, 60000); window.addEventListener("focus", refresh); return () => { clearInterval(t); window.removeEventListener("focus", refresh); }; }, []);
+  useEffect(() => { const refresh = () => { if (document.visibilityState === "visible") setConvRefresh(n => n + 1); }; const t = setInterval(refresh, 60000); window.addEventListener("focus", refresh); return () => { clearInterval(t); window.removeEventListener("focus", refresh); }; }, []);
   const [convCity, setConvCity] = useState<string>("");
-  const [convLeadsTotal, setConvLeadsTotal] = useState(0);     // unique leads dialled, matching leaderboard Calls
-  const [convLeadsBooked, setConvLeadsBooked] = useState(0);   // bookings made in the selected period
-  const [convConnectedUnique, setConvConnectedUnique] = useState(0); // unique leads we got through to (completed calls)
-  const [convConnectedBooked, setConvConnectedBooked] = useState(0); // leaderboard Booked
-  const [convConvosUnique, setConvConvosUnique] = useState(0);       // unique leads with a 2min+ conversation
-  const [convConvosBooked, setConvConvosBooked] = useState(0);       // leaderboard Booked
 
   const loadData = useCallback(async () => {
     const todayIso = startOfToday().toISOString();
@@ -304,11 +297,12 @@ function DashboardHome() {
 
     let repId: string | null = null;
     if (session?.user?.email) {
-      const { data: repRow } = await supabase
+      const { data: repRow, error: repError } = await supabase
         .from("sales_reps")
         .select("id, name")
         .ilike("email", session.user.email)
         .maybeSingle();
+      if (repError) { console.warn("Dashboard refresh failed", repError); return; }
       repId = repRow?.id ?? null;
       if (repRow?.name) setRepName(repRow.name);
     }
@@ -390,6 +384,12 @@ function DashboardHome() {
         apptsAllQ,
       ]);
 
+    const refreshError = [bookingsTodayRes, bookingsMonthRes, newLeadsRes, newLeadsCountRes, clinicsRes, settingsRes, targetRes, repsRes, packsRes, apptsRes].find((result) => result.error)?.error;
+    if (refreshError) {
+      console.warn("Dashboard refresh failed; keeping previous figures", refreshError);
+      return;
+    }
+
     const targetRows = (targetRes.data ?? []) as Array<{ rep_id: string; target: number }>;
     setTarget(targetRows.reduce((sum, r) => sum + (Number(r.target) || 0), 0));
     if (isAdmin) {
@@ -468,13 +468,13 @@ function DashboardHome() {
   }, [isAdmin, session?.user?.email]);
 
   useEffect(() => {
-    if (!authReady || !session) return;
+    if (!authReady || !session?.user?.id) return;
     void loadData();
     // Auto-refresh so new leads/bookings that arrive via webhooks show up
     // without needing a manual page reload.
-    const interval = setInterval(() => { void loadData(); }, 60_000);
-    const onFocus = () => { void loadData(); };
     const onVisible = () => { if (document.visibilityState === "visible") void loadData(); };
+    const interval = setInterval(onVisible, 60_000);
+    const onFocus = onVisible;
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
@@ -482,30 +482,32 @@ function DashboardHome() {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [authReady, session, loadData]);
+  }, [authReady, session?.user?.id, loadData]);
 
-  // Conversion widget data
-  useEffect(() => {
-    if (!authReady || !session) return;
-    let cancelled = false;
-    (async () => {
-      setConvLoading(true); setConvError("");
-      const range = periodInstants(convPeriod, convStart, convEnd);
-      if (!range) { setConvError("Choose a valid start and end date."); setConvLoading(false); return; }
-      try {
-        const dates = periodDates(convPeriod,convStart,convEnd);
-        const stats = await getDashboardConversion({ data: { range: "custom", from: dates?.start || "1900-01-01", to: dates?.end || sydneyTodayISO(), city: convCity || null } });
-        if(cancelled) return;
-        setConvLeadsTotal(stats.calls); setConvLeadsBooked(stats.bookings);
-        setConvConnectedUnique(stats.connected); setConvConnectedBooked(stats.bookings);
-        setConvConvosUnique(stats.convos); setConvConvosBooked(stats.bookings);
-      } catch { if(!cancelled) setConvError("Conversion rates could not be loaded. Please refresh."); }
-      finally { if(!cancelled) setConvLoading(false); }
-
-
-    })();
-    return () => { cancelled = true; };
-  }, [authReady, session, isAdmin, convPeriod, convCity, convStart, convEnd, convRefresh]);
+  // Quietly replace conversion figures after a successful background fetch.
+  const loadConversion = useCallback(async () => {
+    const range = periodInstants(convPeriod, convStart, convEnd);
+    if (!range) throw new Error("Choose a valid start and end date.");
+    const dates = periodDates(convPeriod, convStart, convEnd);
+    return getDashboardConversion({ data: { range: "custom", from: dates?.start || "1900-01-01", to: dates?.end || sydneyTodayISO(), city: convCity || null } });
+  }, [convPeriod, convStart, convEnd, convCity]);
+  const { data: conversion, loading: convLoading, error: conversionError, reload: reloadConversion } = useQuietRefresh({
+    queryKey: JSON.stringify([session?.user?.id, isAdmin, convPeriod, convStart, convEnd, convCity]),
+    load: loadConversion, refreshKey: convRefresh, enabled: authReady && !!session,
+  });
+  const convError = !conversion && conversionError ? "Conversion rates could not be loaded." : "";
+  const convLeadsTotal = conversion?.calls ?? 0;
+  const convLeadsBooked = conversion?.bookings ?? 0;
+  const convConnectedUnique = conversion?.connected ?? 0;
+  const convConnectedBooked = conversion?.bookings ?? 0;
+  const convConvosUnique = conversion?.convos ?? 0;
+  const convConvosBooked = conversion?.bookings ?? 0;
+  const conversionNotice = conversionError && (
+    <p role="status" style={{ margin: "8px 20px", fontSize: 12, color: "#9a6700" }}>
+      {conversion ? "Conversion rates could not update. Showing the last saved results." : "Conversion rates could not be loaded. Check the selected dates and try again."}
+      {" "}<button onClick={reloadConversion} style={{ textDecoration: "underline" }}>Retry</button>
+    </p>
+  );
 
   // Campaign cities for the conversion filter (ad campaigns, not clinic cities).
   const cityOptions = ["Byron Bay", "Melbourne", "Perth", "Sydney"];
@@ -615,6 +617,7 @@ function DashboardHome() {
                 <ReportingPeriodSelect value={convPeriod} onChange={setConvPeriod} start={convStart} end={convEnd} onStart={setConvStart} onEnd={setConvEnd} />
               </div>
             </div>
+            {conversionNotice}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0 }}>
               <div style={{ padding: 20, borderRight: "0.5px solid #f0f0ee" }}>
                 <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Leads called → Bookings<InfoTip text={LEADS_CONV_TOOLTIP} /></div>
@@ -717,6 +720,7 @@ function DashboardHome() {
               </div>
             </div>
           </div>
+          {conversionNotice}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
             <div style={{ padding: "20px", textAlign: "center", borderRight: "0.5px solid #f0f0ee" }}>
               <div style={{ fontSize: 32, fontWeight: 600, color: convLeadsTotal > 0 ? leadsConvColor(leadsPct) : "#999", letterSpacing: "-0.03em", lineHeight: 1 }}>
