@@ -25,12 +25,15 @@ export type BlockedSlot = {
   recur_day_of_month?: number | null;   // for monthly_date (1-31)
   recur_nth_week?: number | null;       // for monthly_nth_dow (1-4, or 5 = last)
   recur_until?: string | null;          // YYYY-MM-DD optional end date
+  excluded_dates?: string[] | null;     // a single occurrence edited or removed
 };
 
 export type ExistingAppt = {
   appointment_date: string;
   appointment_time: string; // "HH:MM" or "HH:MM:SS" or "9:00am"
   patient_name?: string | null;
+  id?: string;
+  consultation_duration_minutes?: number | null;
 };
 
 export type Slot = {
@@ -40,26 +43,29 @@ export type Slot = {
   blocked: boolean;
   booked: boolean;
   patientName?: string | null;
+  buffer?: boolean;
 };
 
-const hhmmToMin = (t: string): number => {
+export const hhmmToMin = (t: string): number => {
   // accepts "9:00am" or "13:30" or "13:30:00"
   if (/am|pm/i.test(t)) {
     const m = /^(\d{1,2}):(\d{2})\s*(am|pm)/i.exec(t);
-    if (!m) return 0;
+    if (!m) return NaN;
     let h = parseInt(m[1], 10);
     const min = parseInt(m[2], 10);
     const ap = m[3].toLowerCase();
+    if (h < 1 || h > 12 || min > 59) return NaN;
     if (ap === "pm" && h !== 12) h += 12;
     if (ap === "am" && h === 12) h = 0;
     return h * 60 + min;
   }
   const m = /^(\d{1,2}):(\d{2})/.exec(t);
-  if (!m) return 0;
-  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  if (!m) return NaN;
+  const h = Number(m[1]), minutes = Number(m[2]);
+  return h <= 24 && minutes < 60 && (h < 24 || minutes === 0) ? h * 60 + minutes : NaN;
 };
 
-const minToHHMM = (m: number): string =>
+export const minToHHMM = (m: number): string =>
   `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
 export const minToLabel = (m: number): string => {
@@ -93,6 +99,8 @@ export const ymdLocal = (d: Date): string => {
 export function recurrenceMatches(b: BlockedSlot, date: Date, dow?: number): boolean {
   if (!b.is_recurring) return false;
   const d = dow ?? dayOfWeekMonFirst(date);
+  const dateStr = ymdLocal(date);
+  if (b.excluded_dates?.includes(dateStr) || (b.slot_date && dateStr < b.slot_date)) return false;
 
   // Optional end date
   if (b.recur_until) {
@@ -163,7 +171,7 @@ export function effectiveHoursFor(
       consult_duration_mins: baseTh?.consult_duration_mins || 15,
     };
   }
-  if (ov?.override_type === "closed") {
+  if ((ov?.override_type === "closed" || ov?.override_type === "blocked")) {
     return baseTh ? { ...baseTh, is_closed: true } : null;
   }
   // Public holiday → closed (no explicit override above means honour the holiday)
@@ -193,6 +201,15 @@ export function holidayLabelFor(
  *  9:15 (and doesn't let us offer a slot that would run past close time). */
 export const CONSULT_LENGTH_MIN = 30;
 
+export function appointmentDuration(a: ExistingAppt): number {
+  return a.consultation_duration_minutes ?? CONSULT_LENGTH_MIN;
+}
+
+export function blocksForDate(date: Date, blocks: BlockedSlot[]): BlockedSlot[] {
+  const day = ymdLocal(date);
+  return blocks.filter(b => b.is_recurring ? recurrenceMatches(b, date) : b.slot_date === day);
+}
+
 export function generateSlots(
   date: Date,
   tradingHours: TradingHours[],
@@ -201,6 +218,7 @@ export function generateSlots(
   overrides: AvailabilityOverride[] = [],
   clinicState?: string | null,
   minGapMins: number = 0,
+  consultationMinutes: number = CONSULT_LENGTH_MIN,
 ): Slot[] {
   const dow = dayOfWeekMonFirst(date);
   const dateStr = ymdLocal(date);
@@ -209,9 +227,13 @@ export function generateSlots(
 
   const openMin = hhmmToMin(th.open_time);
   const closeMin = hhmmToMin(th.close_time);
-  const step = th.consult_duration_mins || 15;
-  const consultLen = CONSULT_LENGTH_MIN;
-  const gap = Math.max(0, minGapMins | 0);
+  const step = th.consult_duration_mins ?? 15;
+  const consultLen = consultationMinutes;
+  const gap = minGapMins;
+  if (![step, consultLen, gap, openMin, closeMin].every(Number.isFinite)
+    || !Number.isInteger(step) || step < 1 || step > 240
+    || !Number.isInteger(consultLen) || consultLen < 5 || consultLen > 240
+    || !Number.isInteger(gap) || gap < 0 || gap > 180 || closeMin <= openMin) return [];
 
   // Build set of blocked minute-ranges that apply to this date
   const blocks: Array<[number, number]> = [];
@@ -224,6 +246,8 @@ export function generateSlots(
       blocks.push([hhmmToMin(b.slot_start), hhmmToMin(b.slot_end)]);
     }
   }
+
+  if (blocks.some(([start, end]) => !Number.isFinite(start) || !Number.isFinite(end) || end <= start)) return [];
 
   // Index existing appointments for this date — both an exact-start map (for
   // showing the patient name on the "booked" chip) and a range list (for
@@ -238,8 +262,11 @@ export function generateSlots(
     if (a.appointment_date !== dateStr) continue;
     const start = hhmmToMin(a.appointment_time);
     apptByMin.set(start, a.patient_name);
-    apptRanges.push([start, start + consultLen]);
-    gapRanges.push([start - gap, start + consultLen + gap]);
+    const duration = appointmentDuration(a);
+    // Unknown/corrupt busy-time data must never expose apparently free slots.
+    if (!Number.isFinite(start) || !Number.isFinite(duration) || duration <= 0) return [];
+    apptRanges.push([start, start + duration]);
+    gapRanges.push([start - gap, start + duration + gap]);
   }
 
 
@@ -262,6 +289,7 @@ export function generateSlots(
       blocked,
       booked,
       patientName: apptMatch ? apptByMin.get(m) : undefined,
+      buffer: withinGap,
     });
   }
   return slots;
@@ -278,15 +306,16 @@ export function summarizeDay(
   overrides: AvailabilityOverride[] = [],
   clinicState?: string | null,
   minGapMins: number = 0,
+  consultationMinutes: number = CONSULT_LENGTH_MIN,
 
-): { closed: boolean; allBlocked: boolean; someBlocked: boolean; total: number; bookedCount: number; openedOverride: boolean; holidayName: string | null } {
+): { closed: boolean; allBlocked: boolean; someBlocked: boolean; total: number; bookedCount: number; availableCount: number; openedOverride: boolean; holidayName: string | null } {
   const th = effectiveHoursFor(date, tradingHours, overrides, clinicState);
   const dateStr = ymdLocal(date);
   const ov = overrides.find((o) => o.override_date === dateStr);
   const openedOverride = ov?.override_type === "open";
   const holidayName = holidayLabelFor(date, overrides, clinicState);
-  if (!th || th.is_closed) return { closed: true, allBlocked: false, someBlocked: false, total: 0, bookedCount: 0, openedOverride: false, holidayName };
-  const slots = generateSlots(date, tradingHours, blockedSlots, existingAppts, overrides, clinicState, minGapMins);
+  if (!th || th.is_closed) return { closed: true, allBlocked: false, someBlocked: false, total: 0, bookedCount: 0, availableCount: 0, openedOverride: false, holidayName };
+  const slots = generateSlots(date, tradingHours, blockedSlots, existingAppts, overrides, clinicState, minGapMins, consultationMinutes);
   const blockedCount = slots.filter((s) => s.blocked).length;
   const bookedCount = slots.filter((s) => s.booked).length;
   return {
@@ -295,6 +324,7 @@ export function summarizeDay(
     someBlocked: blockedCount > 0 && blockedCount < slots.length,
     total: slots.length,
     bookedCount,
+    availableCount: slots.filter(s => s.available).length,
     openedOverride,
     holidayName,
   };

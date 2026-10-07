@@ -25,6 +25,10 @@ import { disqualifyAppointment, resolveAppointmentDeposit, processConsultOutcome
 import { requestChase } from "@/utils/chase.functions";
 import { ClinicTrialSettings } from "@/components/ClinicTrialSettings";
 import { useAuth } from "@/hooks/useAuth";
+import { addPreviewAppointment, loadApprovalSchedule, reschedulePreviewAppointment } from "@/lib/clinic-schedule-api";
+import { ClinicAvailabilityPanel } from "./ClinicAvailabilityPanel";
+import { CALENDAR_APPROVAL_ONLY, isCalendarApprovalHost } from "@/lib/calendar-release";
+import { ConnectedScheduleSlotPicker } from "./ConnectedScheduleSlotPicker";
 
 export type ChaseStatus = "requested" | "rebooked" | "not_proceeding" | "no_answer" | "voicemail";
 
@@ -37,6 +41,7 @@ export type ClinicAppointment = {
   patient_email: string | null;
   appointment_date: string; // YYYY-MM-DD
   appointment_time: string;
+  consultation_duration_minutes?: number;
   intel_notes: string | null;
   outcome: "show" | "noshow" | "proceeded" | "disqualified" | null;
   consult_summary: string | null;
@@ -344,7 +349,7 @@ function ClinicPortalContent({ clinicId, clinicName, isAdmin = false }: ClinicPo
           onSelect={setSelected}
         />
       ) : tab === "availability" ? (
-        <AvailabilityTab
+        !CALENDAR_APPROVAL_ONLY || isCalendarApprovalHost() ? <ClinicAvailabilityPanel clinicId={clinicId} appointments={appts} /> : <AvailabilityTab
           tradingHours={tradingHours}
           blockedSlots={blockedSlots}
           overrides={overrides}
@@ -1323,6 +1328,11 @@ function RescheduleModal({ appt: liveAppt, onClose, onSaved }: {
       toast.error("That's the same date and time");
       return;
     }
+    if (isCalendarApprovalHost()) {
+      try { await loadApprovalSchedule(appt.clinic_id); reschedulePreviewAppointment(appt.clinic_id, appt.id, date, time); toast.success("Preview appointment moved. No real booking was changed."); onSaved(); }
+      catch (error) { toast.error((error as Error).message); }
+      return;
+    }
     setSaving(true);
     const newLabel = `${new Date(date).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })} ${fmtTime(time)}`;
     const stamp = new Date().toLocaleString("en-AU", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
@@ -1347,6 +1357,7 @@ function RescheduleModal({ appt: liveAppt, onClose, onSaved }: {
       <div style={{ fontSize: 12, color: "#6b7785", marginBottom: 14 }}>{appt.patient_name} · currently {oldLabel}</div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {!CALENDAR_APPROVAL_ONLY || isCalendarApprovalHost() ? <ConnectedScheduleSlotPicker clinicId={appt.clinic_id} date={date} time={time} onDate={setDate} onTime={setTime} excludeAppointmentId={appt.id} consultationMinutes={appt.consultation_duration_minutes ?? (isCalendarApprovalHost() && appt.clinic_id === "9ac8fa05-c4b0-4faa-b519-f6a347956fb1" ? 90 : 30)} enforceBookingWindow={false} /> : <>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: NAVY, textTransform: "uppercase", letterSpacing: 0.5 }}>New date</span>
           <input
@@ -1367,6 +1378,7 @@ function RescheduleModal({ appt: liveAppt, onClose, onSaved }: {
             style={{ padding: "8px 10px", fontSize: 14, border: "1px solid #d4dae3", borderRadius: 6 }}
           />
         </label>
+        </>}
       </div>
 
       <div style={{ fontSize: 11, color: "#6b7785", marginTop: 12, lineHeight: 1.5 }}>
@@ -2323,6 +2335,11 @@ function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string;
       toast.error("Please enter a valid appointment date");
       return;
     }
+    if (isCalendarApprovalHost()) {
+      try { await loadApprovalSchedule(clinicId); addPreviewAppointment(clinicId, date, time); toast.success("Preview appointment added. No real patient was booked or contacted."); onSaved(); }
+      catch (error) { toast.error((error as Error).message); }
+      return;
+    }
     setSaving(true);
     const { error } = await supabase.from("clinic_appointments").insert({
       clinic_id: clinicId,
@@ -2347,11 +2364,11 @@ function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string;
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Patient name" style={inp} />
       <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" style={inp} />
       <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" style={inp} />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      {!CALENDAR_APPROVAL_ONLY || isCalendarApprovalHost() ? <ConnectedScheduleSlotPicker clinicId={clinicId} date={date} time={time} onDate={setDate} onTime={setTime} /> : <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <input type="date" value={date} min="2024-01-01" max="2100-01-01" onChange={(e) => setDate(e.target.value)} style={inp} />
         <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={inp} />
 
-      </div>
+      </div>}
       <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Intel notes (visible to clinic)" rows={3} style={{ ...inp, resize: "vertical" }} />
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <button onClick={onClose} style={{ ...navBtn, fontSize: 13 }}>Cancel</button>

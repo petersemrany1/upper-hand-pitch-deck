@@ -40,6 +40,10 @@ import { GRO_SYDNEY_SELLING_POINTS, isGroSydney } from "@/lib/gro-sydney";
 import { getClinicBookingWindow } from "@/utils/clinic-booking-window.functions";
 import { dateInBookingWindow, type ClinicBookingWindow } from "@/lib/clinic-booking-window";
 import { sydneyTodayISO } from "@/lib/timezone";
+import { CALENDAR_APPROVAL_ONLY, isCalendarApprovalHost } from "@/lib/calendar-release";
+import { addPreviewAppointment, fetchClinicSchedule, loadApprovalSchedule } from "@/lib/clinic-schedule-api";
+import { futureScheduleSlots } from "@/lib/clinic-schedule";
+import { ConnectedScheduleSlotPicker } from "./ConnectedScheduleSlotPicker";
 
 const PRACTICE_AGENT_ID = "agent_1301kt5fgx3ye9krpyc25900fy60";
 
@@ -4177,12 +4181,25 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     if (!form.clinicId || !clinicExplicitlySelected) { toast.error("Select a clinic before booking"); return; }
     if (!form.doctorId) { toast.error("Select a consultation team member before booking"); return; }
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
+    if (isCalendarApprovalHost()) {
+      try {
+        await loadApprovalSchedule(form.clinicId);
+        addPreviewAppointment(form.clinicId, form.date, form.time);
+        toast.success("Preview appointment added. No real patient was booked or contacted.");
+      } catch (error) { toast.error((error as Error).message); }
+      return;
+    }
     if (norwood == null) { toast.error("Select the patient's Norwood level (1–7) before booking"); return; }
     if (norwoodNeedsExpectations && expectationsAnswer !== "yes") {
       toast.error("Set expectations with the patient before booking the appointment");
       return;
     }
-    if (form.clinicId) {
+    if (!CALENDAR_APPROVAL_ONLY) {
+      try {
+        const schedule = await fetchClinicSchedule(form.clinicId);
+        if (!futureScheduleSlots(schedule, form.date).some(slot => slot.time === form.time.slice(0, 5))) { toast.error("That time is no longer available. Choose another time."); return; }
+      } catch { toast.error("Could not check availability. Please try again."); return; }
+    } else if (form.clinicId) {
       // Validate against new trading hours + blocked slots system
       const [{ data: th }, { data: bs }, { data: ex }, { data: ov }, { data: pc }] = await Promise.all([
         supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", form.clinicId),
@@ -9484,7 +9501,11 @@ function CallbacksTodayButton({ callbacks, onPick }: { callbacks: Lead[]; onPick
   );
 }
 
-function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
+function BookingSlotPicker(props: { clinicId: string; date: string; time: string; onDate: (v: string) => void; onTime: (v: string) => void }) {
+  return !CALENDAR_APPROVAL_ONLY || isCalendarApprovalHost() ? <ConnectedScheduleSlotPicker {...props} /> : <LegacyBookingSlotPicker {...props} />;
+}
+
+function LegacyBookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
   clinicId: string;
   date: string;
   time: string;
@@ -9548,7 +9569,7 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
     for (let i = 0; i < 120; i++) {
       const d = new Date(today); d.setDate(today.getDate() + i);
       const s = summarizeDay(d, trading, blocks, appts, overrides, clinicState, minGapMins);
-      const hasOpenSlot = bookingWindow !== undefined && dateInBookingWindow(bookingWindow, ymdLocal(d), sydneyTodayISO()) && !s.closed && s.total - s.bookedCount > 0 && !s.allBlocked;
+      const hasOpenSlot = bookingWindow !== undefined && dateInBookingWindow(bookingWindow, ymdLocal(d), sydneyTodayISO()) && s.availableCount > 0;
       if (hasOpenSlot) avail.push(d); else unavail.push(d);
     }
     return { availableDays: avail, unavailableDays: unavail };

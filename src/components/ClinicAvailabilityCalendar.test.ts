@@ -1,0 +1,67 @@
+import { afterAll, afterEach, beforeEach, expect, test } from "bun:test";
+import { Window } from "happy-dom";
+import { act, createElement as h } from "react";
+import { calendarPreviewFixture } from "@/lib/calendar-preview-fixture";
+import type { ClinicSchedule, ScheduleCommand } from "@/lib/clinic-schedule";
+
+const browser = new Window({ url: "http://localhost" });
+const environment = {
+  window: browser, document: browser.document, navigator: browser.navigator,
+  HTMLElement: browser.HTMLElement, HTMLInputElement: browser.HTMLInputElement, Element: browser.Element, Node: browser.Node,
+  NodeFilter: browser.NodeFilter, MutationObserver: browser.MutationObserver,
+  ResizeObserver: browser.ResizeObserver, CustomEvent: browser.CustomEvent,
+  getComputedStyle: browser.getComputedStyle.bind(browser),
+  requestAnimationFrame: browser.requestAnimationFrame.bind(browser),
+  cancelAnimationFrame: browser.cancelAnimationFrame.bind(browser),
+  IS_REACT_ACT_ENVIRONMENT: true,
+};
+const previous = new Map(Object.keys(environment).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+for (const [key, value] of Object.entries(environment)) Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+const { createRoot } = await import("react-dom/client");
+const { ClinicAvailabilityCalendar } = await import("./ClinicAvailabilityCalendar");
+let host: HTMLDivElement, root: ReturnType<typeof createRoot>;
+beforeEach(() => { host = document.createElement("div"); document.body.append(host); root = createRoot(host); });
+afterEach(async () => {
+  await act(async () => root.unmount());
+  // Radix restores focus on the next task; keep this DOM alive until it finishes.
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 5)); });
+  host.remove();
+});
+afterAll(() => {
+  browser.happyDOM.abort();
+  for (const [key, descriptor] of previous) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key); }
+});
+const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find(b => b.textContent === text)!;
+const click = async (element: HTMLElement) => { await act(async () => element.click()); };
+const render = async (schedule: ClinicSchedule, onSave: (command: ScheduleCommand, version: string) => Promise<ClinicSchedule>) => {
+  await act(async () => root.render(h(ClinicAvailabilityCalendar, { schedule, onSave, initialDate: schedule.blocks[0].slot_date! })));
+};
+
+test("a failed save keeps the editor and draft visible instead of showing success", async () => {
+  const schedule = calendarPreviewFixture(); let attempts = 0;
+  await render(schedule, async () => { attempts++; throw new Error("Connection interrupted. Try again."); });
+  await click(host.querySelector<HTMLButtonElement>('[aria-label^="Edit working hours"]')!);
+  await click(button("Save working hours"));
+  expect(attempts).toBe(1); expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain("Connection interrupted");
+  expect(document.querySelector('[role="status"]')?.textContent ?? "").not.toContain("saved");
+  expect(document.querySelector<HTMLInputElement>('input[type="time"]')?.value).toBe("09:00");
+});
+test("background updates do not silently replace an open editor's version", async () => {
+  const schedule = calendarPreviewFixture(); let submittedVersion = "";
+  const save = async (_command: ScheduleCommand, version: string) => { submittedVersion = version; throw new Error("This calendar changed while you were editing. Refresh and try again."); };
+  await render(schedule, save);
+  await click(host.querySelector<HTMLButtonElement>('[aria-label^="Edit working hours"]')!);
+  await render({ ...schedule, version: "newer-version" }, save);
+  await click(button("Save working hours"));
+  expect(submittedVersion).toBe(schedule.version);
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain("changed while you were editing");
+});
+test("blocking a booked patient's time disables saving before any request", async () => {
+  const schedule = calendarPreviewFixture(); let attempts = 0;
+  await render(schedule, async () => { attempts++; return schedule; });
+  await click(host.querySelectorAll<HTMLButtonElement>('[aria-label^="Edit working hours"]')[1]);
+  await click(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!);
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain("patient is booked");
+  expect(button("Save working hours").disabled).toBe(true); expect(attempts).toBe(0);
+});

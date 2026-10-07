@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
+import { Route as CalendarPreviewRouteImport } from './routes/calendar-preview'
 import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PayDepositRouteImport } from './routes/pay-deposit'
@@ -79,6 +80,11 @@ import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lova
 
 const DashboardRoute = DashboardRouteImport.update({
   id: '/_dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarPreviewRoute = CalendarPreviewRouteImport.update({
+  id: '/calendar-preview',
+  path: '/calendar-preview',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClinicPortalRoute = ClinicPortalRouteImport.update({
@@ -452,6 +458,7 @@ const LovableEmailTransactionalSendRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
+  '/calendar-preview': typeof CalendarPreviewRoute
   '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
   '/pay-deposit': typeof PayDepositRoute
@@ -519,6 +526,7 @@ export interface FileRoutesByFullPath {
   '/training/sales-framework/': typeof DashboardTrainingSalesFrameworkIndexRoute
 }
 export interface FileRoutesByTo {
+  '/calendar-preview': typeof CalendarPreviewRoute
   '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
   '/pay-deposit': typeof PayDepositRoute
@@ -588,6 +596,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_dashboard': typeof DashboardRouteWithChildren
+  '/calendar-preview': typeof CalendarPreviewRoute
   '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
   '/pay-deposit': typeof PayDepositRoute
@@ -659,6 +668,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/calendar-preview'
     | '/clinic-portal'
     | '/login'
     | '/pay-deposit'
@@ -726,6 +736,7 @@ export interface FileRouteTypes {
     | '/training/sales-framework/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/calendar-preview'
     | '/clinic-portal'
     | '/login'
     | '/pay-deposit'
@@ -794,6 +805,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_dashboard'
+    | '/calendar-preview'
     | '/clinic-portal'
     | '/login'
     | '/pay-deposit'
@@ -864,6 +876,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
+  CalendarPreviewRoute: typeof CalendarPreviewRoute
   ClinicPortalRoute: typeof ClinicPortalRoute
   LoginRoute: typeof LoginRoute
   PayDepositRoute: typeof PayDepositRoute
@@ -901,6 +914,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendar-preview': {
+      id: '/calendar-preview'
+      path: '/calendar-preview'
+      fullPath: '/calendar-preview'
+      preLoaderRoute: typeof CalendarPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/clinic-portal': {
@@ -1469,6 +1489,7 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
+  CalendarPreviewRoute: CalendarPreviewRoute,
   ClinicPortalRoute: ClinicPortalRoute,
   LoginRoute: LoginRoute,
   PayDepositRoute: PayDepositRoute,
