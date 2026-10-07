@@ -30,6 +30,12 @@
   min-height: 40px;
 }
 
+.square-apple-pay-button {
+  -webkit-appearance: -apple-pay-button;
+  -apple-pay-button-type: pay;
+  -apple-pay-button-style: black;
+}
+
 /* Square adds its secure iframe asynchronously. Reserve its final footprint
    before the SDK arrives so the checkout never re-centres or jumps on load. */
 .square-card-fields {
@@ -465,5 +471,4 @@ body :not(.pitch-deck-root):not(.pitch-deck-root *) > [data-state="open"][data-r
     animation: none !important;
   }
 }
-
 

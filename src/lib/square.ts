@@ -25,23 +25,21 @@ type PaymentRequestOptions = {
   total: { label: string; amount: string; pending?: boolean };
 };
 
+// Apple Pay supplies no DOM attachment API; Google Pay renders its own button.
 type DigitalWalletMethod = {
-  attach: (selector: string, options?: Record<string, unknown>) => Promise<void>;
+  tokenize: () => Promise<TokenResult>;
   destroy: () => Promise<void>;
-  addEventListener: (
-    event: "ontokenization",
-    listener: (event: {
-      detail: { tokenResult: TokenResult };
-      complete?: (status: "success" | "failure" | string) => void;
-    }) => void | Promise<void>,
-  ) => void;
+};
+
+type GooglePayMethod = DigitalWalletMethod & {
+  attach: (selector: string | HTMLElement, options?: Record<string, unknown>) => Promise<void>;
 };
 
 type SquarePayments = {
   card: (options?: Record<string, unknown>) => Promise<CardMethod>;
   paymentRequest: (options: PaymentRequestOptions) => PaymentRequestOptions & { __type?: "paymentRequest" };
   applePay: (request: ReturnType<SquarePayments["paymentRequest"]>) => Promise<DigitalWalletMethod>;
-  googlePay: (request: ReturnType<SquarePayments["paymentRequest"]>) => Promise<DigitalWalletMethod>;
+  googlePay: (request: ReturnType<SquarePayments["paymentRequest"]>) => Promise<GooglePayMethod>;
 };
 
 type SquareSdk = {
