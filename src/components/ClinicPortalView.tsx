@@ -1,12 +1,7 @@
 import "./clinic-portal.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuietRefresh } from "@/hooks/useQuietRefresh";
-import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock, Sparkles } from "lucide-react";
-import { ClinicFlowSetup } from "@/components/ClinicFlowSetup";
-import { ClinicFlowToday } from "@/components/ClinicFlowToday";
-import { ClinicFlowQuotesList } from "@/components/ClinicFlowQuotesList";
-import { ClinicFlowFollowups } from "@/components/ClinicFlowFollowups";
-import { ClinicFlowTraining } from "@/components/ClinicFlowTraining";
+import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock } from "lucide-react";
 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -253,7 +248,7 @@ export function ClinicPortalView(props: ClinicPortalProps) {
 function ClinicPortalContent({ clinicId, clinicName, isAdmin = false }: ClinicPortalProps) {
   const { role, userType } = useAuth();
   const showBilling = role === "admin" || userType === "clinic";
-  const [tab, setTab] = useState<"appointments" | "availability" | "clinicflow">("appointments");
+  const [tab, setTab] = useState<"appointments" | "availability">("appointments");
   const [refresh, setRefresh] = useState(0);
   const [selected, setSelected] = useState<ClinicAppointment | null>(null);
   const fetchPortal = useCallback(async () => {
@@ -322,7 +317,6 @@ function ClinicPortalContent({ clinicId, clinicName, isAdmin = false }: ClinicPo
         <div className="clinic-portal-tabs" style={{ display: "flex", gap: 0, padding: "0 24px" }}>
           <TabBtn active={tab === "appointments"} onClick={() => setTab("appointments")} icon={<ClipboardList size={16} />}>Appointments</TabBtn>
           <TabBtn active={tab === "availability"} onClick={() => setTab("availability")} icon={<CalendarDays size={16} />}>Availability</TabBtn>
-          <TabBtn active={tab === "clinicflow"} onClick={() => setTab("clinicflow")} icon={<Sparkles size={16} />}>ClinicFlow</TabBtn>
         </div>
       </div>
 
@@ -348,7 +342,7 @@ function ClinicPortalContent({ clinicId, clinicName, isAdmin = false }: ClinicPo
           onChange={reload}
           onSelect={setSelected}
         />
-      ) : tab === "availability" ? (
+      ) : (
         !CALENDAR_APPROVAL_ONLY || isCalendarApprovalHost() ? <ClinicAvailabilityPanel clinicId={clinicId} appointments={appts} /> : <AvailabilityTab
           tradingHours={tradingHours}
           blockedSlots={blockedSlots}
@@ -359,9 +353,6 @@ function ClinicPortalContent({ clinicId, clinicName, isAdmin = false }: ClinicPo
           minGapMins={minGapMins}
           onChange={reload}
         />
-
-      ) : (
-        <ClinicFlowPane clinicId={clinicId} isAdmin={isAdmin} />
       )}
 
 
@@ -2461,53 +2452,5 @@ function OpenDayModal({
         </button>
       </div>
     </ModalShell>
-  );
-}
-
-function ClinicFlowPane({ clinicId, isAdmin }: { clinicId: string; isAdmin: boolean }) {
-  const [sub, setSub] = useState<"today" | "quotes" | "followups" | "training" | "setup">("today");
-  if (!isAdmin) {
-    return (
-      <div style={{ padding: 60, textAlign: "center", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 10 }}>ClinicFlow is coming soon</div>
-        <div style={{ fontSize: 13, color: "#6b7785", maxWidth: 420, margin: "0 auto", lineHeight: 1.55 }}>
-          The clinic consult tools are being finalised. You'll be able to take patient check-ins, build quotes, and collect deposits right here.
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div>
-      <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec" }}>
-        <div style={{ display: "flex", gap: 0, padding: "0 24px", flexWrap: "wrap" }}>
-          <SubTabBtn active={sub === "today"} onClick={() => setSub("today")}>Today</SubTabBtn>
-          <SubTabBtn active={sub === "quotes"} onClick={() => setSub("quotes")}>Quotes</SubTabBtn>
-          <SubTabBtn active={sub === "followups"} onClick={() => setSub("followups")}>Follow-ups</SubTabBtn>
-          <SubTabBtn active={sub === "training"} onClick={() => setSub("training")}>Training</SubTabBtn>
-          <SubTabBtn active={sub === "setup"} onClick={() => setSub("setup")}>Setup</SubTabBtn>
-        </div>
-      </div>
-      {sub === "today" ? <ClinicFlowToday clinicId={clinicId} />
-        : sub === "quotes" ? <ClinicFlowQuotesList clinicId={clinicId} />
-        : sub === "followups" ? <ClinicFlowFollowups clinicId={clinicId} />
-        : sub === "training" ? <ClinicFlowTraining clinicId={clinicId} />
-        : <ClinicFlowSetup clinicId={clinicId} />}
-    </div>
-  );
-}
-
-function SubTabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: "12px 18px", background: "transparent", border: "none",
-        borderBottom: `2px solid ${active ? "#1a3a6b" : "transparent"}`,
-        color: active ? "#1a3a6b" : "#6b7785",
-        fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-      }}
-    >
-      {children}
-    </button>
   );
 }

@@ -45,9 +45,7 @@ import { Route as DashboardSentLinksRouteImport } from './routes/_dashboard.sent
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
 import { Route as DashboardTrainingRouteImport } from './routes/_dashboard.training'
 import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
-import { Route as ClinicQuoteQuoteIdRouteImport } from './routes/clinic-quote.$quoteId'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
-import { Route as KioskAppointmentIdRouteImport } from './routes/kiosk.$appointmentId'
 import { Route as DashboardTrainingIndexRouteImport } from './routes/_dashboard.training.index'
 import { Route as DashboardTrainingAiRouteImport } from './routes/_dashboard.training.ai'
 import { Route as DashboardTrainingAudienceRouteImport } from './routes/_dashboard.training.audience'
@@ -271,19 +269,9 @@ const ApiCoachStreamRoute = ApiCoachStreamRouteImport.update({
   path: '/api/coach-stream',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ClinicQuoteQuoteIdRoute = ClinicQuoteQuoteIdRouteImport.update({
-  id: '/clinic-quote/$quoteId',
-  path: '/clinic-quote/$quoteId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
   id: '/email/unsubscribe',
   path: '/email/unsubscribe',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const KioskAppointmentIdRoute = KioskAppointmentIdRouteImport.update({
-  id: '/kiosk/$appointmentId',
-  path: '/kiosk/$appointmentId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardTrainingIndexRoute = DashboardTrainingIndexRouteImport.update({
@@ -492,9 +480,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof DashboardSettingsRoute
   '/training': typeof DashboardTrainingRouteWithChildren
   '/api/coach-stream': typeof ApiCoachStreamRoute
-  '/clinic-quote/$quoteId': typeof ClinicQuoteQuoteIdRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
-  '/kiosk/$appointmentId': typeof KioskAppointmentIdRoute
   '/training/ai': typeof DashboardTrainingAiRoute
   '/training/audience': typeof DashboardTrainingAudienceRoute
   '/training/call-coaching': typeof DashboardTrainingCallCoachingRoute
@@ -559,9 +545,7 @@ export interface FileRoutesByTo {
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
   '/api/coach-stream': typeof ApiCoachStreamRoute
-  '/clinic-quote/$quoteId': typeof ClinicQuoteQuoteIdRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
-  '/kiosk/$appointmentId': typeof KioskAppointmentIdRoute
   '/': typeof DashboardIndexRoute
   '/training/ai': typeof DashboardTrainingAiRoute
   '/training/audience': typeof DashboardTrainingAudienceRoute
@@ -630,9 +614,7 @@ export interface FileRoutesById {
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/_dashboard/training': typeof DashboardTrainingRouteWithChildren
   '/api/coach-stream': typeof ApiCoachStreamRoute
-  '/clinic-quote/$quoteId': typeof ClinicQuoteQuoteIdRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
-  '/kiosk/$appointmentId': typeof KioskAppointmentIdRoute
   '/_dashboard/': typeof DashboardIndexRoute
   '/_dashboard/training/ai': typeof DashboardTrainingAiRoute
   '/_dashboard/training/audience': typeof DashboardTrainingAudienceRoute
@@ -702,9 +684,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/training'
     | '/api/coach-stream'
-    | '/clinic-quote/$quoteId'
     | '/email/unsubscribe'
-    | '/kiosk/$appointmentId'
     | '/training/ai'
     | '/training/audience'
     | '/training/call-coaching'
@@ -769,9 +749,7 @@ export interface FileRouteTypes {
     | '/sent-links'
     | '/settings'
     | '/api/coach-stream'
-    | '/clinic-quote/$quoteId'
     | '/email/unsubscribe'
-    | '/kiosk/$appointmentId'
     | '/'
     | '/training/ai'
     | '/training/audience'
@@ -839,9 +817,7 @@ export interface FileRouteTypes {
     | '/_dashboard/settings'
     | '/_dashboard/training'
     | '/api/coach-stream'
-    | '/clinic-quote/$quoteId'
     | '/email/unsubscribe'
-    | '/kiosk/$appointmentId'
     | '/_dashboard/'
     | '/_dashboard/training/ai'
     | '/_dashboard/training/audience'
@@ -885,9 +861,7 @@ export interface RootRouteChildren {
   ThankYouRoute: typeof ThankYouRoute
   DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute: typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   ApiCoachStreamRoute: typeof ApiCoachStreamRoute
-  ClinicQuoteQuoteIdRoute: typeof ClinicQuoteQuoteIdRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
-  KioskAppointmentIdRoute: typeof KioskAppointmentIdRoute
   ApiPublicClinicLeadsRoute: typeof ApiPublicClinicLeadsRoute
   ApiPublicMetaAdSpendRoute: typeof ApiPublicMetaAdSpendRoute
   ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
@@ -1161,25 +1135,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCoachStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/clinic-quote/$quoteId': {
-      id: '/clinic-quote/$quoteId'
-      path: '/clinic-quote/$quoteId'
-      fullPath: '/clinic-quote/$quoteId'
-      preLoaderRoute: typeof ClinicQuoteQuoteIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/email/unsubscribe': {
       id: '/email/unsubscribe'
       path: '/email/unsubscribe'
       fullPath: '/email/unsubscribe'
       preLoaderRoute: typeof EmailUnsubscribeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/kiosk/$appointmentId': {
-      id: '/kiosk/$appointmentId'
-      path: '/kiosk/$appointmentId'
-      fullPath: '/kiosk/$appointmentId'
-      preLoaderRoute: typeof KioskAppointmentIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_dashboard/training/': {
@@ -1499,9 +1459,7 @@ const rootRouteChildren: RootRouteChildren = {
   DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute:
     DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute,
   ApiCoachStreamRoute: ApiCoachStreamRoute,
-  ClinicQuoteQuoteIdRoute: ClinicQuoteQuoteIdRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
-  KioskAppointmentIdRoute: KioskAppointmentIdRoute,
   ApiPublicClinicLeadsRoute: ApiPublicClinicLeadsRoute,
   ApiPublicMetaAdSpendRoute: ApiPublicMetaAdSpendRoute,
   ApiPublicMetaLeadsRoute: ApiPublicMetaLeadsRoute,

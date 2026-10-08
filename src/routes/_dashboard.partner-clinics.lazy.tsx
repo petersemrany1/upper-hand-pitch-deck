@@ -1,14 +1,12 @@
 import { isCalendarApprovalHost } from "@/lib/calendar-release";
 import { createLazyFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, X, Pencil, UserPlus, Building2, ArrowLeft, KeyRound, Sparkles } from "lucide-react";
+import { Plus, X, Pencil, UserPlus, Building2, ArrowLeft, KeyRound } from "lucide-react";
 import { toast } from "sonner";
-import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { ClinicPortalView } from "@/components/ClinicPortalView";
 import { useAuth } from "@/hooks/useAuth";
 import { DAY_NAMES } from "@/lib/slot-generation";
-import { listClinicflowStatuses } from "@/utils/clinicflow.functions";
 
 export const Route = createLazyFileRoute("/_dashboard/partner-clinics")({
   component: PartnerClinicsPage,
@@ -104,10 +102,6 @@ function PartnerClinicsPage() {
   const [clinicPanel, setClinicPanel] = useState<{ mode: "create" | "edit"; data: Partial<PartnerClinic> } | null>(null);
   const [doctorPanel, setDoctorPanel] = useState<{ mode: "create" | "edit"; clinicId: string; data: Partial<PartnerDoctor> } | null>(null);
 
-  type ClinicflowStatus = { clinic_id: string; stripe_account_id: string | null; stripe_details_submitted: boolean; stripe_charges_enabled: boolean };
-  const [clinicflowStatuses, setClinicflowStatuses] = useState<Record<string, ClinicflowStatus>>({});
-  const listStatuses = useServerFn(listClinicflowStatuses);
-
   const load = async () => {
     setLoading(true);
     const [{ data: c }, { data: d }] = await Promise.all([
@@ -116,14 +110,6 @@ function PartnerClinicsPage() {
     ]);
     setClinics((c ?? []) as PartnerClinic[]);
     setDoctors((d ?? []) as PartnerDoctor[]);
-    try {
-      const { rows } = await listStatuses();
-      const map: Record<string, ClinicflowStatus> = {};
-      for (const r of rows as ClinicflowStatus[]) map[r.clinic_id] = r;
-      setClinicflowStatuses(map);
-    } catch {
-      // Non-fatal — badges just won't show.
-    }
     setLoading(false);
   };
 
@@ -257,20 +243,6 @@ function PartnerClinicsPage() {
                           Inactive
                         </span>
                       )}
-                      {(() => {
-                        const cf = clinicflowStatuses[clinic.id];
-                        let label = "ClinicFlow: Not started";
-                        let bg = "#f3f3f3"; let fg = "#666";
-                        if (cf) {
-                          if (cf.stripe_charges_enabled) { label = "ClinicFlow: Ready"; bg = "#dcfce7"; fg = "#15803d"; }
-                          else if (cf.stripe_account_id) { label = "ClinicFlow: Bank pending"; bg = "#fff7ed"; fg = "#9a3412"; }
-                        }
-                        return (
-                          <span title={label} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: fg, background: bg, padding: "2px 8px", borderRadius: 20 }}>
-                            <Sparkles className="h-3 w-3" /> {label.replace("ClinicFlow: ", "")}
-                          </span>
-                        );
-                      })()}
                     </div>
                     <div style={{ fontSize: 13, color: "#111" }}>
                       {[clinic.address, clinic.city, clinic.state].filter(Boolean).join(", ") || "—"}
@@ -550,7 +522,7 @@ const TIME_OPTIONS: { value: string; label: string }[] = (() => {
     const h24 = Math.floor(m / 60);
     const mm = m % 60;
     const value = `${String(h24).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-    let h = h24 % 12 || 12;
+    const h = h24 % 12 || 12;
     const ap = h24 >= 12 ? "pm" : "am";
     out.push({ value, label: `${h}:${String(mm).padStart(2, "0")}${ap}` });
   }

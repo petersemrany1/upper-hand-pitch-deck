@@ -21,6 +21,8 @@ The calendar focuses on each week's working hours while retaining out-of-hours a
 
 Settings includes an admin-only **View as partner** clinic selector. It opens the shared `/clinic-portal` page with partner controls and a persistent return to Settings. The server checks existing admin access before loading the selected clinic; actual partners always use their assigned clinic, regardless of URL parameters. This is a UI view using the administrator's existing session and permissions, not an impersonation token or a test of another account's credentials. Notes written from this view retain admin attribution. The approval environment continues to isolate availability edits; other portal actions still use real data.
 
+ClinicFlow has been retired from the application: its portal tab, clinic status badges, setup, training, quotes, follow-ups, photos, patient check-in pages and dedicated server functions are removed. Old quote/check-in URLs now use the standard not-found page. Existing database records, storage and migration history are retained; this preview does not delete production data. The legacy `CLINICFLOW_CRON_SECRET` fallback remains only for unrelated call-duration and spend-monitoring hooks.
+
 Rollback should restore the previous application release while retaining stored appointment lengths and the database booking guards. Removing those guards can permit overlapping appointments and should not be used as a routine rollback.
 
 ## Verification
