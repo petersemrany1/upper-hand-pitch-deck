@@ -150,6 +150,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
         {dates.map(date => {
           const hours = effectiveHoursFor(asDate(date), schedule.trading, schedule.overrides, schedule.state);
           const working = hours && !hours.is_closed;
+          const lastStart = working ? hhmmToMin(hours.open_time) + Math.floor((hhmmToMin(hours.close_time) - hhmmToMin(hours.open_time) - schedule.consultation_minutes) / (hours.consult_duration_mins || 15)) * (hours.consult_duration_mins || 15) : null;
           const booked = schedule.appointments.filter(a => a.appointment_date === date).sort((a, b) => hhmmToMin(a.appointment_time) - hhmmToMin(b.appointment_time));
           return <div className="availability-day" key={date} aria-label={formatDay(date)} onPointerDown={e => pointerDown(e, date)} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { drag.current = null; setDragPreview(null); }}>
             {working && <div className="availability-work" style={position(hhmmToMin(hours.open_time), hhmmToMin(hours.close_time))} />}
@@ -161,6 +162,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
                 return <button key={minute} className="availability-event availability-empty" style={position(minute, Math.min(minute + 30, end))} data-minute={minute} aria-label={`Block time on ${formatDay(date)} at ${timeLabel(minute)}`} disabled={date < today || busy} onClick={() => { if (!suppressClick.current) open("block", date, minToHHMM(minute), minToHHMM(Math.min(minute + 30, end))); }}><span>+ Block time</span></button>;
               }))}
               {blockedStartBands(schedule, date).map(([start, end]) => <div className="availability-event availability-before-block" key={start} style={position(start, end)} aria-label="Buffer before blocked time">{(end - start) * scale >= 30 && <strong>Buffer before blocked time</strong>}</div>)}
+              {lastStart !== null && <div className="availability-event availability-before-block availability-closing-buffer" style={position(Math.max(hhmmToMin(hours.open_time), lastStart), hhmmToMin(hours.close_time))} aria-label={`No starts after ${timeLabel(lastStart)}: consultation would run past closing`}><strong>{lastStart < hhmmToMin(hours.open_time) ? "No appointment fits" : `No starts after ${timeLabel(lastStart)}`}</strong></div>}
               {hhmmToMin(hours.close_time) < lastMinute && <button className="availability-finish" style={{ top: (hhmmToMin(hours.close_time) - firstMinute) * scale }} onClick={() => hoursEditor(date)} disabled={date < today || busy}>Finish work · {timeLabel(hhmmToMin(hours.close_time))}</button>}
             </>}
             {booked.map(a => {

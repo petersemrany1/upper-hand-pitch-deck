@@ -37,6 +37,16 @@ const render = async (schedule: ClinicSchedule, onSave: (command: ScheduleComman
   await act(async () => root.render(h(ClinicAvailabilityCalendar, { schedule, onSave, initialDate: schedule.blocks[0].slot_date! })));
 };
 
+test("closing shading explains the last start and updates with consultation length", async () => {
+  const schedule = calendarPreviewFixture();
+  schedule.consultation_minutes = 60;
+  schedule.trading = schedule.trading.map(hours => ({ ...hours, close_time: "16:00" }));
+  schedule.overrides = [];
+  await render(schedule, async () => schedule);
+  expect(host.querySelector(".availability-closing-buffer")?.textContent).toBe("No starts after 3pm");
+  await render({ ...schedule, consultation_minutes: 90 }, async () => schedule);
+  expect(host.querySelector(".availability-closing-buffer")?.textContent).toBe("No starts after 2:30pm");
+});
 test("a failed save keeps the editor and draft visible instead of showing success", async () => {
   const schedule = calendarPreviewFixture(); let attempts = 0;
   await render(schedule, async () => { attempts++; throw new Error("Connection interrupted. Try again."); });
