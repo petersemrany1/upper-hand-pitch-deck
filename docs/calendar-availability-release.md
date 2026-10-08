@@ -2,6 +2,8 @@
 
 This change is prepared for approval only. `CALENDAR_APPROVAL_ONLY` remains true. The database migration has not been applied to production.
 
+Lovable's GitHub connection must select `codex/calendar-availability` for review. Confirm the served preview contains the new calendar before sharing it; an older build can remain visible while branch synchronization completes. Switching the preview branch does not publish the application.
+
 The public `/calendar-preview` route uses example data and a shared in-memory schedule. Partner availability edits and sales bookings update the same preview schedule. Reloading resets this data. Preview-host calendar edits never write to the live database. Other portal actions still use real data, as indicated in the portal banner.
 
 ## Release after approval
