@@ -27,7 +27,7 @@ const weekDays = [{ n: 1, label: "Mon" }, { n: 2, label: "Tue" }, { n: 3, label:
 
 export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, preview = false, initialDate }: Props) {
   const root = useRef<HTMLElement>(null);
-  const savedViewport = useRef<{ y: number; top: number; visible: boolean; left: number } | null>(null);
+  const savedViewport = useRef<{ y: number; top: number; visible: boolean; left: number; container: HTMLElement | null } | null>(null);
   const mondayOf = (date: string) => addDays(date, -((asDate(date).getDay() + 6) % 7));
   const [base, setBase] = useState(() => mondayOf(initialDate ?? sydneyTodayISO()));
   const columns = 7;
@@ -61,7 +61,10 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     savedViewport.current = null;
     if (!grid) return;
     grid.scrollLeft = previous.left;
-    window.scrollTo({ top: previous.visible ? window.scrollY + grid.getBoundingClientRect().top - previous.top : previous.y, behavior: "instant" });
+    const currentY = previous.container?.scrollTop ?? window.scrollY;
+    const top = previous.visible ? currentY + grid.getBoundingClientRect().top - previous.top : previous.y;
+    if (previous.container) previous.container.scrollTo({ top, behavior: "instant" });
+    else window.scrollTo({ top, behavior: "instant" });
   }, [schedule, busy, settings]);
   useEffect(() => {
     const element = root.current;
@@ -84,7 +87,12 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
   async function commit(command: ScheduleCommand, version: string, success: string, isUndo = false) {
     if (busy) return;
     const grid = root.current?.querySelector<HTMLElement>(".availability-week-scroll");
-    if (grid) { const rect = grid.getBoundingClientRect(); savedViewport.current = { y: window.scrollY, top: rect.top, visible: rect.top < window.innerHeight && rect.bottom > 0, left: grid.scrollLeft }; }
+    if (grid) {
+      let container = grid.parentElement;
+      while (container && !(/auto|scroll/.test(getComputedStyle(container).overflowY) && container.scrollHeight > container.clientHeight)) container = container.parentElement;
+      const rect = grid.getBoundingClientRect(), viewport = container?.getBoundingClientRect();
+      savedViewport.current = { container, y: container?.scrollTop ?? window.scrollY, top: rect.top, visible: rect.top < (viewport?.bottom ?? window.innerHeight) && rect.bottom > (viewport?.top ?? 0), left: grid.scrollLeft };
+    }
     setBusy(true); setError("");
     try {
       applyScheduleCommand(schedule, command);
