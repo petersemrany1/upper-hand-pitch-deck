@@ -1,6 +1,6 @@
-// The user requested an approval preview, not a production activation.
-// Set false only in the approved release after applying/testing the migration.
-export const CALENDAR_APPROVAL_ONLY = true;
+// Production release: partner availability and sales use the database schedule.
+// The standalone /calendar-preview route remains an isolated example calendar.
+export const CALENDAR_APPROVAL_ONLY = false;
 
 export function isCalendarApprovalHost() {
   if (typeof window === "undefined") return false;

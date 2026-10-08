@@ -1,6 +1,8 @@
-# Calendar approval preview
+# Calendar production release
 
-This change is prepared for approval only. `CALENDAR_APPROVAL_ONLY` remains true. The database migration has not been applied to production.
+The owner has requested production activation. `CALENDAR_APPROVAL_ONLY` is false in this release. Apply and verify `20261008010000_clinic_calendar_scheduling.sql` before publishing this build. Partner and sales portals then read and save the same database schedule on all hosts. The standalone `/calendar-preview` route remains isolated.
+
+Preview drafts are not imported into production. Existing live appointments, blocks, date overrides and weekly hours remain the release baseline; clinics can change consultation lengths and buffers through Calendar settings with the existing confirmation flow.
 
 Lovable's GitHub connection must select `codex/calendar-availability` for review. Confirm the served preview contains the new calendar before sharing it; an older build can remain visible while branch synchronization completes. Switching the preview branch does not publish the application.
 
