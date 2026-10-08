@@ -199,13 +199,6 @@ export type Database = {
             referencedRelation: "clinic_appointments"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "appointment_reminders_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: false
-            referencedRelation: "clinic_show_slots"
-            referencedColumns: ["appointment_id"]
-          },
         ]
       }
       appointment_reschedules: {
@@ -284,13 +277,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clinic_appointments"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointment_reschedules_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: false
-            referencedRelation: "clinic_show_slots"
-            referencedColumns: ["appointment_id"]
           },
         ]
       }
@@ -516,13 +502,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "clinic_appointment_notes_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: false
-            referencedRelation: "clinic_show_slots"
-            referencedColumns: ["appointment_id"]
-          },
-          {
             foreignKeyName: "clinic_appointment_notes_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
@@ -538,15 +517,8 @@ export type Database = {
           },
         ]
       }
-      clinic_trials: {
-        Row: { clinic_id: string; booking_opens: string; appointment_start: string; appointment_end: string; paid_started_at: string | null }
-        Insert: { clinic_id: string; booking_opens: string; appointment_start: string; appointment_end: string; paid_started_at?: string | null }
-        Update: { booking_opens?: string; appointment_start?: string; appointment_end?: string; paid_started_at?: string | null }
-        Relationships: []
-      }
       clinic_appointments: {
         Row: {
-          is_free_trial: boolean
           appointment_date: string
           appointment_time: string
           booked_at: string
@@ -569,6 +541,7 @@ export type Database = {
           expectations_set: boolean | null
           id: string
           intel_notes: string | null
+          is_free_trial: boolean
           lead_id: string | null
           norwood_level: number | null
           outcome: string | null
@@ -585,7 +558,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          is_free_trial?: boolean
           appointment_date: string
           appointment_time: string
           booked_at?: string
@@ -608,6 +580,7 @@ export type Database = {
           expectations_set?: boolean | null
           id?: string
           intel_notes?: string | null
+          is_free_trial?: boolean
           lead_id?: string | null
           norwood_level?: number | null
           outcome?: string | null
@@ -624,7 +597,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          is_free_trial?: boolean
           appointment_date?: string
           appointment_time?: string
           booked_at?: string
@@ -647,6 +619,7 @@ export type Database = {
           expectations_set?: boolean | null
           id?: string
           intel_notes?: string | null
+          is_free_trial?: boolean
           lead_id?: string | null
           norwood_level?: number | null
           outcome?: string | null
@@ -1063,6 +1036,45 @@ export type Database = {
           },
         ]
       }
+      clinic_trials: {
+        Row: {
+          appointment_end: string
+          appointment_start: string
+          booking_opens: string
+          clinic_id: string
+          paid_started_at: string | null
+        }
+        Insert: {
+          appointment_end: string
+          appointment_start: string
+          booking_opens: string
+          clinic_id: string
+          paid_started_at?: string | null
+        }
+        Update: {
+          appointment_end?: string
+          appointment_start?: string
+          booking_opens?: string
+          clinic_id?: string
+          paid_started_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_trials_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: true
+            referencedRelation: "clinic_effective_rate"
+            referencedColumns: ["clinic_id"]
+          },
+          {
+            foreignKeyName: "clinic_trials_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: true
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinicflow_chase_requests: {
         Row: {
           appointment_id: string
@@ -1121,13 +1133,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clinic_appointments"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "clinicflow_chase_requests_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: false
-            referencedRelation: "clinic_show_slots"
-            referencedColumns: ["appointment_id"]
           },
           {
             foreignKeyName: "clinicflow_chase_requests_clinic_id_fkey"
@@ -1381,13 +1386,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "clinicflow_intakes_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: true
-            referencedRelation: "clinic_show_slots"
-            referencedColumns: ["appointment_id"]
-          },
-          {
             foreignKeyName: "clinicflow_intakes_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
@@ -1505,13 +1503,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "clinicflow_pipeline_status_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: true
-            referencedRelation: "clinic_show_slots"
-            referencedColumns: ["appointment_id"]
-          },
-          {
             foreignKeyName: "clinicflow_pipeline_status_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
@@ -1627,13 +1618,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clinic_appointments"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "clinicflow_quotes_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: false
-            referencedRelation: "clinic_show_slots"
-            referencedColumns: ["appointment_id"]
           },
           {
             foreignKeyName: "clinicflow_quotes_clinic_id_fkey"
@@ -3269,22 +3253,7 @@ export type Database = {
           show_no: number | null
           unpurchased: boolean | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "clinic_appointments_clinic_id_fkey"
-            columns: ["clinic_id"]
-            isOneToOne: false
-            referencedRelation: "clinic_effective_rate"
-            referencedColumns: ["clinic_id"]
-          },
-          {
-            foreignKeyName: "clinic_appointments_clinic_id_fkey"
-            columns: ["clinic_id"]
-            isOneToOne: false
-            referencedRelation: "partner_clinics"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       rep_call_days: {
         Row: {
@@ -3310,7 +3279,6 @@ export type Database = {
       }
     }
     Functions: {
-      start_clinic_paid_pack: { Args: { p_clinic: string }; Returns: undefined }
       ad_cost_per_show_monthly: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
@@ -3563,6 +3531,7 @@ export type Database = {
         Args: { p_campaign: string; p_location: string }
         Returns: string
       }
+      start_clinic_paid_pack: { Args: { p_clinic: string }; Returns: undefined }
       submit_rep_invoice: {
         Args: {
           p_claim: Json
