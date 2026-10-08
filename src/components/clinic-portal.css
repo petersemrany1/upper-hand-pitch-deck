@@ -8,6 +8,10 @@
 .clinic-availability > * { min-width: 0; }
 .clinic-appointment-badges { flex-wrap: wrap; }
 .clinic-modal { overscroll-behavior: contain; }
+.partner-view-banner { position:sticky; top:0; z-index:40; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 20px; padding:12px 24px; background:#eaf1f8; color:#203b5c; border-bottom:1px solid #c6d5e5; font-size:13px; }
+.partner-view-banner p { margin:3px 0 0; font-size:12px; }
+.partner-view-banner a { display:inline-flex; align-items:center; min-height:36px; padding:6px 12px; background:#fff; border:1px solid #c6d5e5; border-radius:6px; font-weight:600; white-space:nowrap; }
+.partner-view-banner a:focus-visible { outline:2px solid #2d5fa0; outline-offset:3px; }
 .clinic-portal button:focus-visible,
 .clinic-portal-header button:focus-visible,
 .clinic-calendar-scroll:focus-visible { outline: 2px solid #2d5fa0; outline-offset: 3px; }

@@ -811,6 +811,7 @@ type ApptNote = {
 function NotesTrail({ appointmentId, clinicId, isAdmin }: {
   appointmentId: string; clinicId: string; isAdmin: boolean;
 }) {
+  const { userType } = useAuth();
   const [notes, setNotes] = useState<ApptNote[]>([]);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
@@ -833,7 +834,8 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
     if (!body) return;
     setSaving(true);
     const { data: userRes } = await supabase.auth.getUser();
-    const authorType: "admin" | "clinic" = isAdmin ? "admin" : "clinic";
+    // Viewing the partner UI must not attribute an administrator's note to the clinic.
+    const authorType: "admin" | "clinic" = isAdmin || userType === "admin" ? "admin" : "clinic";
     const authorName = userRes?.user?.user_metadata?.full_name
       ?? userRes?.user?.email
       ?? null;
