@@ -55,6 +55,18 @@ test("closing shading explains the last start and updates with consultation leng
   await render({ ...schedule, consultation_minutes: 90 }, async () => schedule);
   expect(host.querySelector(".availability-closing-buffer")?.textContent).toBe("Last appointment: 2:30pm");
 });
+test("closing-time shading ends before a late patient card instead of covering its label", async () => {
+  const schedule = calendarPreviewFixture();
+  schedule.consultation_minutes = 60; schedule.buffer_minutes = 0;
+  schedule.trading = schedule.trading.map(h => ({ ...h, close_time: "16:00" }));
+  schedule.overrides = [];
+  schedule.appointments = [{ id: "late", patient_name: "Alex Smith", appointment_date: schedule.blocks[0].slot_date!, appointment_time: "15:30", consultation_duration_minutes: 60 }];
+  await render(schedule, async () => schedule);
+  const shading = host.querySelector<HTMLElement>('.availability-closing-buffer')!;
+  const patient = host.querySelector<HTMLElement>('.availability-booked')!;
+  expect(shading.textContent).toBe("Last appointment: 3pm");
+  expect(parseFloat(shading.style.top) + parseFloat(shading.style.height)).toBeLessThanOrEqual(parseFloat(patient.style.top));
+});
 test("a failed save keeps the editor and draft visible instead of showing success", async () => {
   const schedule = calendarPreviewFixture(); let attempts = 0;
   await render(schedule, async () => { attempts++; throw new Error("Connection interrupted. Try again."); });
