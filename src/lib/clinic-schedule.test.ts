@@ -89,3 +89,14 @@ test("undoing settings preserves existing conflicts as warnings, without moving 
   expect(restored.appointments).toEqual(s.appointments); expect(restored.buffer_minutes).toBe(30);
   expect(schedulingWarnings(restored, day)).toHaveLength(1);
 });
+
+test("weekly settings repeat, preserve date overrides and undo restores operating hours", () => {
+  const original = fixture();
+  original.overrides = [{ override_date: day, override_type: "closed", start_time: null, end_time: null }];
+  const trading = original.trading.map(h => ({ ...h, open_time: "10:00", is_closed: h.day_of_week > 4 }));
+  const updated = applyScheduleCommand(original, { action: "settings", consultation_minutes: 60, buffer_minutes: 15, trading });
+  expect(updated.trading[0].open_time).toBe("10:00");
+  expect(updated.overrides).toEqual(original.overrides);
+  expect(applyScheduleCommand(updated, { action: "restore", configuration: configurationOf(original) }).trading).toEqual(original.trading);
+  expect(() => applyScheduleCommand(original, { action: "settings", consultation_minutes: 60, buffer_minutes: 0, trading: trading.slice(1) })).toThrow("seven days");
+});

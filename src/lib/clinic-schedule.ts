@@ -18,9 +18,9 @@ export type ClinicSchedule = {
   appointments: ScheduleAppointment[];
   version: string;
 };
-export type ScheduleConfiguration = Pick<ClinicSchedule, "consultation_minutes" | "buffer_minutes" | "blocks" | "overrides">;
+export type ScheduleConfiguration = Pick<ClinicSchedule, "consultation_minutes" | "buffer_minutes" | "blocks" | "overrides" | "trading">;
 export type ScheduleCommand =
-  | { action: "settings"; consultation_minutes: number; buffer_minutes: number }
+  | { action: "settings"; consultation_minutes: number; buffer_minutes: number; trading?: TradingHours[] }
   | { action: "block"; dates: string[]; start: string; end: string; id?: string; scope?: "date" | "series" }
   | { action: "unblock"; id: string; date: string; scope: "date" | "series" }
   | { action: "hours"; dates: string[]; start: string; end: string; closed: boolean }
@@ -37,7 +37,7 @@ export const timeLabel = (minute: number) => minute === 1440 ? "End of day" : mi
 export const rangeLabel = (start: number, end: number) => `${timeLabel(start)}–${timeLabel(end)}`;
 export const overlap = (a: number, b: number, c: number, d: number) => a < d && b > c;
 export const configurationOf = (s: ClinicSchedule): ScheduleConfiguration => structuredClone({
-  consultation_minutes: s.consultation_minutes, buffer_minutes: s.buffer_minutes, blocks: s.blocks, overrides: s.overrides,
+  consultation_minutes: s.consultation_minutes, buffer_minutes: s.buffer_minutes, blocks: s.blocks, overrides: s.overrides, trading: s.trading,
 });
 export const scheduleSlots = (s: ClinicSchedule, day: string, duration = s.consultation_minutes) => validDate(day)
   ? generateSlots(asDate(day), s.trading, s.blocks, s.appointments, s.overrides, s.state, s.buffer_minutes, duration) : [];
@@ -145,6 +145,17 @@ export function applyScheduleCommand(current: ClinicSchedule, command: ScheduleC
     const { consultation_minutes: duration, buffer_minutes: buffer } = command;
     if (!Number.isInteger(duration) || duration < 5 || duration > 240 || !Number.isInteger(buffer) || buffer < 0 || buffer > 180) throw new Error("Choose a consultation of 5–240 minutes and a buffer of 0–180 minutes.");
     next.consultation_minutes = duration; next.buffer_minutes = buffer;
+    if (command.trading) {
+      if (command.trading.length !== 7 || new Set(command.trading.map(h => h.day_of_week)).size !== 7 || command.trading.some(h => !Number.isInteger(h.day_of_week) || h.day_of_week < 0 || h.day_of_week > 6)) throw new Error("Set operating hours for all seven days.");
+      command.trading.filter(h => !h.is_closed).forEach(h => checkRange(h.open_time, h.close_time));
+      next.trading = structuredClone(command.trading);
+      for (const a of next.appointments.filter(a => a.appointment_date >= sydneyTodayISO())) {
+        const h = effectiveHoursFor(asDate(a.appointment_date), next.trading, next.overrides, next.state);
+        const oldHours = effectiveHoursFor(asDate(a.appointment_date), current.trading, current.overrides, current.state);
+        if (JSON.stringify(h) === JSON.stringify(oldHours)) continue;
+        if (!h || h.is_closed || hhmmToMin(a.appointment_time) < hhmmToMin(h.open_time) || hhmmToMin(a.appointment_time) + appointmentDuration(a) > hhmmToMin(h.close_time)) throw new Error("These hours overlap an existing appointment. Edit that day instead.");
+      }
+    }
   } else if (command.action === "block") {
     checkDates(command.dates);
     const [from, until] = checkRange(command.start, command.end);
@@ -186,8 +197,8 @@ export function applyScheduleCommand(current: ClinicSchedule, command: ScheduleC
       rejectBooked(next, affected, hhmmToMin(b.slot_start), hhmmToMin(b.slot_end));
     }
     const hoursKey = (o?: AvailabilityOverride) => JSON.stringify(o && [o.override_type, o.start_time, o.end_time]);
-    for (const day of new Set([...next.overrides, ...candidate.overrides].map(o => o.override_date))) {
-      if (hoursKey(next.overrides.find(o => o.override_date === day)) === hoursKey(candidate.overrides.find(o => o.override_date === day))) continue;
+    for (const day of new Set([...next.overrides, ...candidate.overrides].map(o => o.override_date).concat(next.appointments.filter(a => JSON.stringify(next.trading) !== JSON.stringify(candidate.trading)).map(a => a.appointment_date)))) {
+      if (JSON.stringify(next.trading) === JSON.stringify(candidate.trading) && hoursKey(next.overrides.find(o => o.override_date === day)) === hoursKey(candidate.overrides.find(o => o.override_date === day))) continue;
       const h = effectiveHoursFor(asDate(day), candidate.trading, candidate.overrides, candidate.state);
       rejectBooked(next, [day], h && !h.is_closed ? hhmmToMin(h.open_time) : 1440, h && !h.is_closed ? hhmmToMin(h.close_time) : 0, true);
     }

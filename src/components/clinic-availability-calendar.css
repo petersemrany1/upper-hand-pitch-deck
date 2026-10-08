@@ -87,3 +87,10 @@
 
 .availability-week-scroll { width:100%; overflow-x:auto; }
 .availability-week-scroll .availability-week { min-width:1120px; }
+.availability-operating-hours { grid-column:1/-1; border:0; padding:0; min-width:0; }
+.availability-operating-hours legend { font-weight:700; margin-bottom:4px; }
+.availability-operating-hours>p { color:var(--ac-muted); font-size:12px; margin-bottom:12px; }
+.availability-operating-day { display:grid; grid-template-columns:minmax(110px,1fr) 1fr 1fr; gap:12px; align-items:center; padding:8px 0; border-bottom:1px solid var(--ac-line); }
+.availability-operating-day>label:first-child { display:flex; align-items:center; gap:8px; }
+.availability-operating-day input[type=checkbox] { width:18px; height:18px; accent-color:var(--ac-navy); }
+@media(max-width:520px) { .availability-operating-day { grid-template-columns:1fr 1fr; }.availability-operating-day>label:first-child { grid-column:1/-1; } }

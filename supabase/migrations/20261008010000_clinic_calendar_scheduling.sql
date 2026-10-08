@@ -204,6 +204,19 @@ BEGIN
    duration:=(p_command->>'consultation_minutes')::integer; buffer:=(p_command->>'buffer_minutes')::integer;
    IF duration IS NULL OR buffer IS NULL OR duration NOT BETWEEN 5 AND 240 OR buffer NOT BETWEEN 0 AND 180 THEN RAISE EXCEPTION 'Choose valid consultation and buffer lengths'; END IF;
    UPDATE public.partner_clinics SET consultation_duration_minutes=duration,buffer_minutes=buffer WHERE id=p_clinic;
+   cfg:=p_command;
+   IF cfg ? 'trading' THEN
+     IF jsonb_typeof(cfg->'trading') IS DISTINCT FROM 'array' OR jsonb_array_length(cfg->'trading')<>7 OR (SELECT count(DISTINCT (value->>'day_of_week')::integer) FROM jsonb_array_elements(cfg->'trading'))<>7 THEN RAISE EXCEPTION 'Set operating hours for all seven days'; END IF;
+     FOR item IN SELECT * FROM jsonb_array_elements(cfg->'trading') LOOP
+       IF (item->>'day_of_week')::integer NOT BETWEEN 0 AND 6 OR item->>'day_of_week' IS NULL OR item->>'is_closed' IS NULL THEN RAISE EXCEPTION 'Invalid operating day'; END IF;
+       starts:=(item->>'open_time')::time; finishes:=(item->>'close_time')::time;
+       IF starts IS NULL OR finishes IS NULL OR (NOT (item->>'is_closed')::boolean AND starts>=finishes) THEN RAISE EXCEPTION 'Choose an end time after the start time'; END IF;
+       INSERT INTO public.clinic_trading_hours(clinic_id,day_of_week,open_time,close_time,is_closed,consult_duration_mins)
+       VALUES(p_clinic,(item->>'day_of_week')::integer,starts,finishes,(item->>'is_closed')::boolean,coalesce((item->>'consult_duration_mins')::integer,30))
+       ON CONFLICT(clinic_id,day_of_week) DO UPDATE SET open_time=excluded.open_time,close_time=excluded.close_time,is_closed=excluded.is_closed
+       WHERE (clinic_trading_hours.open_time,clinic_trading_hours.close_time,clinic_trading_hours.is_closed) IS DISTINCT FROM (excluded.open_time,excluded.close_time,excluded.is_closed);
+     END LOOP;
+   END IF;
  ELSIF action IN ('block','hours') THEN
    dates:=p_command->'dates';
    IF jsonb_typeof(dates) IS DISTINCT FROM 'array' OR jsonb_array_length(dates) NOT BETWEEN 1 AND 366 THEN RAISE EXCEPTION 'Choose valid dates'; END IF;
@@ -247,6 +260,19 @@ BEGIN
    cfg:=p_command->'configuration';
    IF jsonb_typeof(cfg->'blocks') IS DISTINCT FROM 'array' OR jsonb_typeof(cfg->'overrides') IS DISTINCT FROM 'array' OR jsonb_array_length(cfg->'blocks')>5000 OR jsonb_array_length(cfg->'overrides')>5000 THEN RAISE EXCEPTION 'Invalid undo data'; END IF;
    UPDATE public.partner_clinics SET consultation_duration_minutes=(cfg->>'consultation_minutes')::integer,buffer_minutes=(cfg->>'buffer_minutes')::integer WHERE id=p_clinic;
+
+   IF cfg ? 'trading' THEN
+     IF jsonb_typeof(cfg->'trading') IS DISTINCT FROM 'array' OR jsonb_array_length(cfg->'trading')<>7 OR (SELECT count(DISTINCT (value->>'day_of_week')::integer) FROM jsonb_array_elements(cfg->'trading'))<>7 THEN RAISE EXCEPTION 'Set operating hours for all seven days'; END IF;
+     FOR item IN SELECT * FROM jsonb_array_elements(cfg->'trading') LOOP
+       IF (item->>'day_of_week')::integer NOT BETWEEN 0 AND 6 OR item->>'day_of_week' IS NULL OR item->>'is_closed' IS NULL THEN RAISE EXCEPTION 'Invalid operating day'; END IF;
+       starts:=(item->>'open_time')::time; finishes:=(item->>'close_time')::time;
+       IF starts IS NULL OR finishes IS NULL OR (NOT (item->>'is_closed')::boolean AND starts>=finishes) THEN RAISE EXCEPTION 'Choose an end time after the start time'; END IF;
+       INSERT INTO public.clinic_trading_hours(clinic_id,day_of_week,open_time,close_time,is_closed,consult_duration_mins)
+       VALUES(p_clinic,(item->>'day_of_week')::integer,starts,finishes,(item->>'is_closed')::boolean,coalesce((item->>'consult_duration_mins')::integer,30))
+       ON CONFLICT(clinic_id,day_of_week) DO UPDATE SET open_time=excluded.open_time,close_time=excluded.close_time,is_closed=excluded.is_closed
+       WHERE (clinic_trading_hours.open_time,clinic_trading_hours.close_time,clinic_trading_hours.is_closed) IS DISTINCT FROM (excluded.open_time,excluded.close_time,excluded.is_closed);
+     END LOOP;
+   END IF;
    DELETE FROM public.clinic_blocked_slots WHERE clinic_id=p_clinic AND id NOT IN (SELECT (value->>'id')::uuid FROM jsonb_array_elements(cfg->'blocks'));
    FOR item IN SELECT * FROM jsonb_array_elements(cfg->'blocks') LOOP
      INSERT INTO public.clinic_blocked_slots(id,clinic_id,slot_date,slot_start,slot_end,is_recurring,recur_day_of_week,recur_pattern,recur_days_of_week,recur_day_of_month,recur_nth_week,recur_until,excluded_dates)

@@ -30,7 +30,7 @@ CREATE TABLE meta_leads(id uuid PRIMARY KEY,rep_id uuid,booking_date date,bookin
 CREATE TABLE partner_doctors(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),clinic_id uuid,name text,title text,is_active boolean DEFAULT true,what_makes_them_different text);
 CREATE TABLE clinic_appointments(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),clinic_id uuid,doctor_id uuid,doctor_name text,lead_id uuid,patient_name text,patient_phone text,appointment_date date,appointment_time text,booked_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now(),outcome text,disqualified_at timestamptz,deposit_amount numeric);
 CREATE TABLE appointment_reminders(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),lead_id uuid,patient_first_name text,patient_last_name text,patient_phone text,doctor_name text,booking_date date,booking_time time,status text,booked_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now(),three_day_sms_sent boolean DEFAULT false,three_day_sms_sent_at timestamptz,twentyfour_hour_sms_sent boolean DEFAULT false,twentyfour_hour_sms_sent_at timestamptz);
-CREATE TABLE clinic_trading_hours(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),clinic_id uuid,day_of_week integer,open_time time,close_time time,is_closed boolean,consult_duration_mins integer);
+CREATE TABLE clinic_trading_hours(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),clinic_id uuid,day_of_week integer,open_time time,close_time time,is_closed boolean,consult_duration_mins integer,unique(clinic_id,day_of_week));
 CREATE TABLE clinic_blocked_slots(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),clinic_id uuid,slot_date date,slot_start time,slot_end time,is_recurring boolean,recur_day_of_week integer);
 CREATE TABLE clinic_availability(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),clinic_id uuid,override_date date,override_type text CONSTRAINT clinic_availability_override_type_check CHECK(override_type IN ('blocked','open')),start_time time,end_time time);
 CREATE TABLE clinic_appointment_notes(id uuid DEFAULT gen_random_uuid(),appointment_id uuid,clinic_id uuid,author_name text,author_type text CHECK(author_type IN ('admin','clinic')),body text);
@@ -81,6 +81,15 @@ await reject(save({action:'settings',consultation_minutes:90,buffer_minutes:30})
 await actor(5,'clinic@fixture.test');
 await reject(snapshot(uid(11)),/access/);
 let s=await save({action:'settings',consultation_minutes:90,buffer_minutes:30});
+const originalWeekly=JSON.parse(JSON.stringify(s.trading));
+const weekly=Array.from({length:7},(_,day_of_week)=>({day_of_week,open_time:'09:00',close_time:'17:00',is_closed:false,consult_duration_mins:30}));
+await reject(save({action:'settings',consultation_minutes:90,buffer_minutes:30,trading:weekly.map(h=>({...h,open_time:'10:00'}))}),/patient is already booked/);
+s=await save({action:'settings',consultation_minutes:90,buffer_minutes:30,trading:weekly});
+equal(s.trading.find(h=>h.day_of_week===0).open_time,'09:00:00','Weekly hours saved');
+equal(s.trading.length,7,'All seven weekly days saved');
+await reject(save({action:'settings',consultation_minutes:90,buffer_minutes:30,trading:weekly.slice(0,6)}),/seven days/);
+s=await save({action:'settings',consultation_minutes:90,buffer_minutes:30,trading:originalWeekly});
+
 equal(s.consultation_minutes,90);equal(s.buffer_minutes,30);
 equal(s.appointments[0].consultation_duration_minutes,30,'Defaults do not shorten/lengthen existing bookings');
 await reject(save({action:'settings',consultation_minutes:0,buffer_minutes:30}),/valid/);
