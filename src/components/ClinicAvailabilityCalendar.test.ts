@@ -79,3 +79,17 @@ test("weeks begin Monday, end Sunday and arrows move seven days", async () => {
   await click(host.querySelector<HTMLButtonElement>('[aria-label="Previous week"]')!);
   expect(headers()[0]).toContain("Mon, 12 Oct");
 });
+
+test("settings opens a compact dialog and failed saves keep the draft visible", async () => {
+  const schedule = calendarPreviewFixture();
+  await render(schedule, async () => { throw new Error("Connection interrupted. Try again."); });
+  await click(host.querySelector<HTMLButtonElement>('.availability-settings-summary')!);
+  const dialog = document.querySelector('[role="dialog"]')!;
+  expect(dialog.textContent).toContain("Calendar settings");
+  expect(dialog.querySelectorAll('input[type="checkbox"]')).toHaveLength(7);
+  await click(button("Save settings"));
+  expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+  expect(dialog.querySelector('[role="alert"]')?.textContent).toContain("Connection interrupted");
+  await click(button("Cancel"));
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+});
