@@ -142,7 +142,7 @@ test("updating existing consultation lengths requires confirmation and preserves
   expect(button("Yes, update all appointments")).not.toBeUndefined();
 });
 
-test("confirmed settings resize calendar events and expand the named patient conflict list", async () => {
+test("confirmed settings resize events and keep named conflicts in a review popup", async () => {
   const schedule = calendarPreviewFixture();
   const date = "2099-10-12";
   schedule.blocks[0].slot_date = date;
@@ -159,9 +159,13 @@ test("confirmed settings resize calendar events and expand the named patient con
   await click(button("Yes, update all appointments"));
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(host.querySelector('.availability-booked')?.textContent).toContain("9am–10:30am");
-  expect(host.querySelector('.availability-warning')?.hasAttribute('open')).toBe(true);
-  expect(host.querySelector('.availability-warning')?.textContent).toContain("Patient 0");
-  expect(host.querySelector('.availability-warning')?.textContent).toContain("Patient 1");
+  expect(host.querySelector('.availability-warning')?.textContent).toContain("appointments need attention");
+  expect(host.querySelector('.availability-warning')?.textContent).not.toContain("Patient 0");
+  await click(button("Review patients"));
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Patient 0");
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Patient 1");
+  await click(button("Done"));
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
   const booked = host.querySelectorAll<HTMLElement>('.availability-booked');
   expect(booked[0].style.left).not.toBe(booked[1].style.left);
   expect(booked[0].style.width).toBe(booked[1].style.width);

@@ -36,6 +36,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
   const [pendingSettings, setPendingSettings] = useState<Extract<ScheduleCommand, { action: "settings" }> | null>(null);
   const [settings, setSettings] = useState<{ duration: string; buffer: string; version: string; trading: ClinicSchedule["trading"] } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [undo, setUndo] = useState<{ configuration: ScheduleConfiguration; version: string } | null>(null);
@@ -171,7 +172,8 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     <div className="availability-key" aria-label="Calendar key"><span><i className="availability-key-booked" />Booked</span><span><i className="availability-key-blocked" />Blocked</span><span><i className="availability-key-buffer" />Buffer between patients</span></div>
     {message && <div className="availability-message" role="status"><span>{message}</span><button aria-label="Dismiss message" onClick={() => setMessage("")}><X size={14} /></button></div>}
     {error && !editor && !settings && <div className="availability-error" role="alert">{error}{onRefresh && <button onClick={refreshCalendar}>Refresh calendar</button>}</div>}
-    {warnings.length > 0 && <details className="availability-warning" open><summary>{warnings.length} appointment{warnings.length === 1 ? " needs" : "s need"} attention</summary><p>Contact these patients to arrange new times where needed. Appointment start times have not changed.</p><ul>{warnings.map(w => <li key={w.id}>{w.text}</li>)}</ul></details>}
+    {warnings.length > 0 && <div className="availability-warning"><strong>{warnings.length} appointment{warnings.length === 1 ? " needs" : "s need"} attention</strong><button onClick={() => setReviewOpen(true)}>Review patients</button></div>}
+    <Dialog.Root open={reviewOpen} onOpenChange={setReviewOpen}><Dialog.Portal><Dialog.Overlay className="availability-dialog-backdrop" /><Dialog.Content className="availability-dialog availability-review-dialog" onCloseAutoFocus={event => { event.preventDefault(); root.current?.querySelector<HTMLButtonElement>(".availability-warning button")?.focus({ preventScroll: true }); }}><div className="availability-dialog-title"><Dialog.Title>Patients to review</Dialog.Title><Dialog.Close aria-label="Close patient review"><X size={18} /></Dialog.Close></div><Dialog.Description>Contact these patients to arrange new times where needed. Appointment start times have not changed.</Dialog.Description><ul>{warnings.map(w => <li key={w.id}>{w.text}</li>)}</ul><div className="availability-actions"><Dialog.Close className="availability-primary">Done</Dialog.Close></div></Dialog.Content></Dialog.Portal></Dialog.Root>
     <div className="availability-week-scroll"><div className="availability-week" style={{ "--availability-day-columns": `repeat(${columns},minmax(0,1fr))` } as CSSProperties}>
       <div className="availability-day-heads"><div />{dates.map(date => {
         const h = effectiveHoursFor(asDate(date), schedule.trading, schedule.overrides, schedule.state);
