@@ -64,6 +64,7 @@ await db.exec(`
  INSERT INTO clinic_trading_hours(clinic_id,day_of_week,open_time,close_time,is_closed,consult_duration_mins)
  SELECT c.id,n,'09:00','17:00',false,15 FROM partner_clinics c CROSS JOIN generate_series(0,6) n;
 `);
+if (nativePg) await db.exec('CREATE PUBLICATION supabase_realtime FOR TABLE clinic_appointments');
 await db.exec(sql('20261008010000_clinic_calendar_scheduling.sql'));
 await db.exec(sql('20261008010000_clinic_calendar_scheduling.sql'));
 const actor=async(n,email,role='authenticated')=>{await db.exec('RESET ROLE');await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:uid(n),email,role})]);await db.exec('SET ROLE '+role);};
@@ -73,6 +74,7 @@ const book=async(date,time,clinic=uid(10),id=crypto.randomUUID())=>db.query('ins
 let checks=0;
 const equal=(a,b,label)=>{assert.deepEqual(a,b,label);checks++;};
 const reject=async(promise,pattern)=>{await assert.rejects(promise,pattern);checks++;};
+if (nativePg) equal((await db.query("select tablename from pg_publication_tables where pubname='supabase_realtime' order by tablename")).rows.map(row=>row.tablename),['clinic_appointments','clinic_availability','clinic_blocked_slots','clinic_trading_hours','partner_clinics'],'Replayed migration publishes every schedule table without duplicate membership');
 
 await actor(2,'a@fixture.test');
 equal((await snapshot()).consultation_minutes,30,'Legacy clinics retain the 30 minute duration');

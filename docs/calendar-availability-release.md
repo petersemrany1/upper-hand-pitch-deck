@@ -31,6 +31,8 @@ Rollback should restore the previous application release while retaining stored 
 
 ## Verification
 
+Production activation recheck: 312 application tests and 90 native PostgreSQL checks pass, as do TypeScript, focused lint and the production build. The migration includes every schedule table in the existing real-time publication. Deletes invalidate the clinic snapshot without requiring full deleted-row replication, and multi-row notifications are debounced before reloading the authorised schedule.
+
 329 application tests, TypeScript, production build and focused lint checks. The previously completed isolated PostgreSQL suite covers 89 scheduling, ownership, atomicity, recurrence, migration replay and boundary checks, including 820 booking attempts compared against the application slot generator and independent concurrent database connections. Browser checks include moving and resizing blocks, normal clicks after pointer capture, cancellation, Undo, sideways edge scrolling and sales slots updating after a partner block moves. Readability checks verify both fixed axes at desktop and narrow widths, block moving/resizing in the scroll area, and a settings save retaining its scroll position.
 
 Cross-tab preview regression coverage uses independent tab stores and queued events, including the Gro-style 10:30am–1:45pm block, overlapping consultation starts, bidirectional moves/resizes/settings/unblocking, migration and reload, delayed events, account/clinic isolation, stale saves and booking revalidation. Web Locks serialize writes so concurrent tabs cannot overwrite each other or book a just-blocked time. A mounted sales-picker test verifies an invalid selected time is cleared without losing the chosen date.

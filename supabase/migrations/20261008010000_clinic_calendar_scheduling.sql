@@ -1,4 +1,4 @@
--- Approval preview only: apply at the approved release, never to test the UI.
+-- Apply at the approved production release, never just to test the preview UI.
 -- Consultation length is independent of the existing 15-minute start interval.
 ALTER TABLE public.partner_clinics ADD COLUMN IF NOT EXISTS consultation_duration_minutes integer;
 ALTER TABLE public.partner_clinics ADD COLUMN IF NOT EXISTS buffer_minutes integer;
@@ -326,6 +326,20 @@ REVOKE ALL ON FUNCTION public.schedule_minute(text),public.schedule_state(text),
 REVOKE ALL ON FUNCTION public.get_clinic_schedule(uuid),public.save_clinic_schedule(uuid,text,jsonb) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.get_clinic_schedule(uuid),public.save_clinic_schedule(uuid,text,jsonb) TO authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.schedule_minute(text),public.schedule_state(text),public.schedule_block_matches(public.clinic_blocked_slots,date),public.schedule_hours(uuid,date),public.clinic_schedule_snapshot(uuid) TO service_role;
+
+-- Publish availability changes as well as appointments. Existing row-level
+-- access policies continue to authorise reads; no table grants are changed.
+DO $$
+DECLARE schedule_table text;
+BEGIN
+ IF EXISTS(SELECT 1 FROM pg_publication WHERE pubname='supabase_realtime') THEN
+   FOREACH schedule_table IN ARRAY ARRAY['clinic_appointments','clinic_trading_hours','clinic_blocked_slots','clinic_availability','partner_clinics'] LOOP
+     IF NOT EXISTS(SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename=schedule_table) THEN
+       EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I',schedule_table);
+     END IF;
+   END LOOP;
+ END IF;
+END $$;
 
 -- Same holiday calendar as src/data/au-public-holidays.ts.
 INSERT INTO public.clinic_public_holidays(state,holiday_date,name) VALUES
