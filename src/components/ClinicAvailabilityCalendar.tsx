@@ -26,8 +26,10 @@ const weekDays = [{ n: 1, label: "Mon" }, { n: 2, label: "Tue" }, { n: 3, label:
 
 export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, preview = false, initialDate }: Props) {
   const root = useRef<HTMLElement>(null);
-  const [base, setBase] = useState(initialDate ?? sydneyTodayISO());
-  const [columns, setColumns] = useState(3);
+  const mondayOf = (date: string) => addDays(date, -((asDate(date).getDay() + 6) % 7));
+  const [base, setBase] = useState(() => mondayOf(initialDate ?? sydneyTodayISO()));
+  const columns = 7;
+  const [compact, setCompact] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [settings, setSettings] = useState<{ duration: string; buffer: string; version: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -43,7 +45,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
   useEffect(() => {
     const element = root.current;
     if (!element) return;
-    const observer = new ResizeObserver(([entry]) => setColumns(entry.contentRect.width >= 1350 ? 5 : entry.contentRect.width >= 800 ? 3 : 1));
+    const observer = new ResizeObserver(([entry]) => setCompact(entry.contentRect.width < 800));
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
@@ -123,16 +125,16 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
       </form>}
     </div>
     <div className="availability-toolbar">
-      <div className="availability-date-navigation"><button aria-label="Previous dates" onClick={() => setBase(addDays(base, -columns))}><ChevronLeft size={18} /></button><button aria-label="Next dates" onClick={() => setBase(addDays(base, columns))}><ChevronRight size={18} /></button><strong>{columns === 1 ? formatDay(base) : `${formatDay(base)}–${formatDay(dates.at(-1)!)}`}</strong><button className="availability-text-button" onClick={() => setBase(today)}>Today</button></div>
-      <label className="availability-date-jump">Go to date<input type="date" aria-label="Go to date" value={base} onChange={e => { if (validDate(e.target.value)) setBase(e.target.value); }} /></label>
+      <div className="availability-date-navigation"><button aria-label="Previous week" onClick={() => setBase(addDays(base, -columns))}><ChevronLeft size={18} /></button><button aria-label="Next week" onClick={() => setBase(addDays(base, columns))}><ChevronRight size={18} /></button><strong>{`${formatDay(base)}–${formatDay(dates.at(-1)!)}`}</strong><button className="availability-text-button" onClick={() => setBase(mondayOf(today))}>Today</button></div>
+      <label className="availability-date-jump">Go to date<input type="date" aria-label="Go to date" value={base} onChange={e => { if (validDate(e.target.value)) setBase(mondayOf(e.target.value)); }} /></label>
       <div className="availability-toolbar-actions"><button aria-label="Undo last change" disabled={!undo || undo.version !== schedule.version || busy} onClick={() => undo && void commit({ action: "restore", configuration: undo.configuration }, undo.version, "Last change undone.", true)}><RotateCcw size={15} />Undo</button><button className="availability-primary" disabled={busy} onClick={() => open("block", base < today ? today : base, "10:00", "10:30")}>Block time</button></div>
     </div>
-    <p className="availability-hint">{columns === 1 ? "Tap a time to block it." : "Click a time to block it. Drag to select a longer time."}</p>
+    <p className="availability-hint">{compact ? "Tap a time to block it." : "Click a time to block it. Drag to select a longer time."}</p>
     <div className="availability-key" aria-label="Calendar key"><span><i className="availability-key-booked" />Booked</span><span><i className="availability-key-blocked" />Blocked</span><span><i className="availability-key-buffer" />Buffer between patients</span></div>
     {message && <div className="availability-message" role="status"><span>{message}</span><button aria-label="Dismiss message" onClick={() => setMessage("")}><X size={14} /></button></div>}
     {error && !editor && <div className="availability-error" role="alert">{error}{onRefresh && <button onClick={refreshCalendar}>Refresh calendar</button>}</div>}
     {warnings.length > 0 && <details className="availability-warning"><summary>{warnings.length} existing appointment{warnings.length === 1 ? " needs" : "s need"} review</summary><p>These appointments have not moved.</p><ul>{warnings.map(w => <li key={w.id}>{w.text}</li>)}</ul></details>}
-    <div className="availability-week" style={{ "--availability-columns": columns } as CSSProperties}>
+    <div className="availability-week-scroll"><div className="availability-week" style={{ "--availability-columns": columns } as CSSProperties}>
       <div className="availability-day-heads"><div />{dates.map(date => {
         const h = effectiveHoursFor(asDate(date), schedule.trading, schedule.overrides, schedule.state);
         return <button key={date} aria-label={`Edit working hours for ${formatDay(date)}`} disabled={date < today || busy} onClick={() => hoursEditor(date)}><strong>{asDate(date).toLocaleDateString("en-AU", { weekday: "short", day: "numeric" })}</strong><span>{h && !h.is_closed ? rangeLabel(hhmmToMin(h.open_time), hhmmToMin(h.close_time)) : "Blocked"} · Edit hours</span></button>;
@@ -170,6 +172,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
           </div>;
         })}
       </div>
+    </div>
     </div>
     <p className="availability-footer">Appointments must fit within working hours and around blocked time. Times shown in Sydney time.</p>
     <Dialog.Root open={!!editor} onOpenChange={isOpen => { if (!isOpen && !busy) { setEditor(null); setError(""); } }}>

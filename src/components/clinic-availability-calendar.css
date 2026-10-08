@@ -84,3 +84,6 @@
  .availability-calendar .availability-event { min-height:0; }.availability-day-heads,.availability-time-grid { grid-template-columns:44px repeat(var(--availability-columns),minmax(0,1fr)); }.availability-key { gap:8px 12px; }.availability-dialog { padding:16px; }.availability-preview { font-size:11px; }
 }
 @media(max-width:350px) { .availability-time-inputs { grid-template-columns:1fr; gap:0; }.availability-dialog .availability-shortcuts button { font-size:11px; } }
+
+.availability-week-scroll { width:100%; overflow-x:auto; }
+.availability-week-scroll .availability-week { min-width:1120px; }

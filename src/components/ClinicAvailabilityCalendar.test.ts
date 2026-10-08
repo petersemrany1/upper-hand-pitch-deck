@@ -65,3 +65,17 @@ test("blocking a booked patient's time disables saving before any request", asyn
   expect(document.querySelector('[role="alert"]')?.textContent).toContain("patient is booked");
   expect(button("Save working hours").disabled).toBe(true); expect(attempts).toBe(0);
 });
+
+test("weeks begin Monday, end Sunday and arrows move seven days", async () => {
+  const schedule = calendarPreviewFixture();
+  await act(async () => root.render(h(ClinicAvailabilityCalendar, { schedule, onSave: async () => schedule, initialDate: "2026-10-14" })));
+  const headers = () => [...host.querySelectorAll('[aria-label^="Edit working hours"]')].map(el => el.getAttribute('aria-label'));
+  expect(headers()).toHaveLength(7);
+  expect(headers()[0]).toContain("Mon, 12 Oct");
+  expect(headers()[6]).toContain("Sun, 18 Oct");
+  await click(host.querySelector<HTMLButtonElement>('[aria-label="Next week"]')!);
+  expect(headers()[0]).toContain("Mon, 19 Oct");
+  expect(headers()[6]).toContain("Sun, 25 Oct");
+  await click(host.querySelector<HTMLButtonElement>('[aria-label="Previous week"]')!);
+  expect(headers()[0]).toContain("Mon, 12 Oct");
+});
