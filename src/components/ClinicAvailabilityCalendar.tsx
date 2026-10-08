@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { ChevronLeft, ChevronRight, GripVertical, RotateCcw, X } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
@@ -8,7 +8,7 @@ import {
   type ClinicSchedule, type ScheduleCommand, type ScheduleConfiguration,
 } from "@/lib/clinic-schedule";
 import { calendarEventLayout, mergeCalendarBands } from "@/lib/calendar-event-layout";
-import { projectBlockDrag, type BlockDragKind } from "@/lib/calendar-block-drag";
+import { blockDragScrollDelta, projectBlockDrag, type BlockDragKind } from "@/lib/calendar-block-drag";
 import { calendarVisibleHours } from "@/lib/calendar-visible-hours";
 import { sydneyTodayISO } from "@/lib/timezone";
 import "./clinic-availability-calendar.css";
@@ -40,17 +40,20 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
   const [pendingSettings, setPendingSettings] = useState<Extract<ScheduleCommand, { action: "settings" }> | null>(null);
   const [settings, setSettings] = useState<{ duration: string; buffer: string; version: string; trading: ClinicSchedule["trading"] } | null>(null);
   const [busy, setBusy] = useState(false);
+  const saveInFlight = useRef(false);
+  const editorTrigger = useRef<HTMLElement | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [undo, setUndo] = useState<{ configuration: ScheduleConfiguration; version: string } | null>(null);
   const [dragPreview, setDragPreview] = useState<{ date: string; from: number; to: number } | null>(null);
   const drag = useRef<{ date: string; from: number; to: number; y: number; moved: boolean; pointerId: number } | null>(null);
-  const blockDrag = useRef<{ id: string; date: string; from: number; until: number; kind: BlockDragKind; x: number; y: number; anchorMinute: number; moved: boolean; pointerId: number; version: string; recurring: boolean } | null>(null);
-  const blockPointer = useRef<{ x: number; y: number } | null>(null);
+  const blockDrag = useRef<{ id: string; date: string; from: number; until: number; kind: BlockDragKind; x: number; y: number; anchorMinute: number; moved: boolean; pointerId: number; version: string; recurring: boolean; element: HTMLDivElement } | null>(null);
+  const blockPointer = useRef<{ x: number; y: number; directionX: number; directionY: number } | null>(null);
   const blockScrollFrame = useRef<number | null>(null);
   const [blockPreview, setBlockPreview] = useState<{ id: string; sourceDate: string; date: string; from: number; until: number; error: string } | null>(null);
   const suppressClick = useRef(false);
+  const clickResetTimer = useRef<number | null>(null);
   const today = sydneyTodayISO();
   const dates = Array.from({ length: columns }, (_, i) => addDays(base, i));
   const { firstMinute, lastMinute } = calendarVisibleHours(schedule, dates);
@@ -88,11 +91,13 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
   const position = (from: number, to: number): CSSProperties => ({ top: (Math.max(from, firstMinute) - firstMinute) * scale, height: Math.max(0, Math.min(to, lastMinute) - Math.max(from, firstMinute)) * scale });
 
   function open(kind: Editor["kind"], date: string, start: string, end: string, extra: Partial<Editor> = {}) {
+    editorTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setError("");
     setEditor({ kind, date, start, end, version: schedule.version, ...extra });
   }
   async function commit(command: ScheduleCommand, version: string, success: string, isUndo = false) {
-    if (busy) return;
+    if (saveInFlight.current) return;
+    saveInFlight.current = true;
     const grid = root.current?.querySelector<HTMLElement>(".availability-week-scroll");
     if (grid) {
       let container = grid.parentElement;
@@ -108,9 +113,8 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
       setUndo(isUndo || command.action === "settings" && command.apply_to_existing ? null : { configuration: previous, version: updated.version });
       setEditor(null); setSettings(null); setPendingSettings(null); setMessage(success);
     } catch (failure) {
-      savedViewport.current = null;
       setError(failure instanceof Error ? failure.message : "Could not save. Please try again.");
-    } finally { setBusy(false); }
+    } finally { saveInFlight.current = false; setBusy(false); }
   }
   function refreshCalendar() {
     setEditor(null); setSettings(null); setPendingSettings(null); setError(""); onRefresh?.();
@@ -120,8 +124,10 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     open("hours", date, hours?.open_time.slice(0, 5) ?? "09:00", hours?.close_time.slice(0, 5) ?? "15:00");
   }
   function pointerDown(event: PointerEvent<HTMLDivElement>, date: string) {
-    if (event.button !== 0 || event.pointerType === "touch" || busy || date < today || !(event.target as HTMLElement).closest(".availability-empty")) return;
+    if (event.button !== 0 || event.pointerType === "touch" || saveInFlight.current || date < today || !(event.target as HTMLElement).closest(".availability-empty")) return;
     const button = (event.target as HTMLElement).closest<HTMLElement>(".availability-empty")!;
+    event.preventDefault();
+    button.focus({ preventScroll: true });
     const from = Number(button.dataset.minute);
     drag.current = { date, from, to: Number(button.dataset.until), y: event.clientY, moved: false, pointerId: event.pointerId };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -136,21 +142,38 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     setDragPreview({ date: selected.date, from: Math.min(selected.from, selected.to), to: Math.max(selected.from + 15, selected.to) });
   }
   function pointerUp(event: PointerEvent<HTMLDivElement>) {
-    const selected = drag.current; drag.current = null; setDragPreview(null);
-    if (!selected) return;
+    const selected = drag.current;
+    if (!selected || selected.pointerId !== event.pointerId) return;
+    // A fast release can arrive before React handles a continuous move event.
+    pointerMove(event);
+    drag.current = null; setDragPreview(null);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     if (selected) {
-      suppressClick.current = true;
+      suppressNextClick();
       open("block", selected.date, minToHHMM(Math.min(selected.from, selected.to)), minToHHMM(selected.moved ? Math.max(selected.from + 15, selected.to) : selected.to));
-      window.setTimeout(() => { suppressClick.current = false; }, 0);
     }
   }
+  const suppressNextClick = useCallback(() => {
+    if (clickResetTimer.current !== null) window.clearTimeout(clickResetTimer.current);
+    suppressClick.current = true;
+    clickResetTimer.current = window.setTimeout(() => { suppressClick.current = false; clickResetTimer.current = null; }, 0);
+  }, []);
+  const stopBlockAutoScroll = useCallback(() => {
+    if (blockScrollFrame.current !== null) cancelAnimationFrame(blockScrollFrame.current);
+    blockScrollFrame.current = null;
+    blockPointer.current = null;
+  }, []);
   function startBlockDrag(event: PointerEvent<HTMLDivElement>, id: string | undefined, date: string, from: number, until: number, recurring: boolean) {
-    if (!id || event.button !== 0 || busy || date < today) return;
+    if (!id || event.button !== 0 || saveInFlight.current || blockDrag.current || date < today) return;
     event.stopPropagation();
+    event.preventDefault();
+    (event.target as HTMLElement).closest<HTMLElement>("button")?.focus({ preventScroll: true });
     const edge = (event.target as HTMLElement).closest<HTMLElement>("[data-resize]")?.dataset.resize;
     const day = event.currentTarget.closest<HTMLElement>(".availability-day")!;
-    blockDrag.current = { id, date, from, until, kind: edge === "start" || edge === "end" ? edge : "move", x: event.clientX, y: event.clientY, anchorMinute: (event.clientY - day.getBoundingClientRect().top) / scale + firstMinute, moved: false, pointerId: event.pointerId, version: schedule.version, recurring };
+    stopBlockAutoScroll();
+    blockDrag.current = { id, date, from, until, kind: edge === "start" || edge === "end" ? edge : "move", x: event.clientX, y: event.clientY, anchorMinute: (event.clientY - day.getBoundingClientRect().top) / scale + firstMinute, moved: false, pointerId: event.pointerId, version: schedule.version, recurring, element: event.currentTarget };
+    if (clickResetTimer.current !== null) window.clearTimeout(clickResetTimer.current);
+    clickResetTimer.current = null;
     suppressClick.current = false;
     event.currentTarget.setPointerCapture(event.pointerId);
   }
@@ -177,7 +200,8 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     event.stopPropagation();
     if (!selected.moved && Math.hypot(event.clientX - selected.x, event.clientY - selected.y) < 6) return;
     selected.moved = true;
-    blockPointer.current = { x: event.clientX, y: event.clientY };
+    const previous = blockPointer.current;
+    blockPointer.current = { x: event.clientX, y: event.clientY, directionX: Math.sign(event.clientX - (previous?.x ?? selected.x)) || previous?.directionX || 0, directionY: Math.sign(event.clientY - (previous?.y ?? selected.y)) || previous?.directionY || 0 };
     const candidate = blockCandidate(event.clientX, event.clientY);
     setBlockPreview(previous => JSON.stringify(previous) === JSON.stringify(candidate) ? previous : candidate);
     if (blockScrollFrame.current === null) blockScrollFrame.current = requestAnimationFrame(scrollBlockDrag);
@@ -189,46 +213,48 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     const scroll = root.current.querySelector<HTMLElement>(".availability-week-scroll")!;
     const r = scroll.getBoundingClientRect();
     const axis = root.current.querySelector<HTMLElement>(".availability-axis")!.getBoundingClientRect().width;
-    let vertical: HTMLElement | null = scroll;
-    while (vertical && !(/auto|scroll/.test(getComputedStyle(vertical).overflowY) && vertical.scrollHeight > vertical.clientHeight)) vertical = vertical.parentElement;
-    const container = vertical ?? document.scrollingElement!;
-    const viewport = vertical?.getBoundingClientRect();
-    const oldLeft = scroll.scrollLeft, oldTop = container.scrollTop;
-    if (point.x >= r.left && point.x <= r.right) {
-      if (selected.kind === "move") scroll.scrollLeft += point.x > r.right - 36 ? 10 : point.x < r.left + axis + 36 ? -10 : 0;
-      const headerBottom = root.current.querySelector<HTMLElement>(".availability-day-heads")!.getBoundingClientRect().bottom;
-      container.scrollTop += point.y > Math.min(viewport?.bottom ?? window.innerHeight, window.innerHeight) - 40 ? 10 : point.y < Math.max(viewport?.top ?? 0, headerBottom) + 40 ? -10 : 0;
-    }
-    if (oldLeft !== scroll.scrollLeft || oldTop !== container.scrollTop) {
+    const oldLeft = scroll.scrollLeft, oldTop = scroll.scrollTop;
+    const headerBottom = root.current.querySelector<HTMLElement>(".availability-day-heads")!.getBoundingClientRect().bottom;
+    const delta = blockDragScrollDelta(point, { left: Math.max(0, r.left + axis), right: Math.min(r.right, window.innerWidth), top: Math.max(0, r.top, headerBottom), bottom: Math.min(r.bottom, window.innerHeight) }, selected.kind);
+    // Never scroll an ancestor or the page: keep the user's calendar in place.
+    if (scroll.scrollWidth > scroll.clientWidth) scroll.scrollLeft += delta.x;
+    if (scroll.scrollHeight > scroll.clientHeight) scroll.scrollTop += delta.y;
+    if (oldLeft !== scroll.scrollLeft || oldTop !== scroll.scrollTop) {
       const candidate = blockCandidate(point.x, point.y);
       setBlockPreview(previous => JSON.stringify(previous) === JSON.stringify(candidate) ? previous : candidate);
+      blockScrollFrame.current = requestAnimationFrame(scrollBlockDrag);
     }
-    blockScrollFrame.current = requestAnimationFrame(scrollBlockDrag);
   }
   function finishBlockDrag(event: PointerEvent<HTMLDivElement>) {
     const selected = blockDrag.current;
-    if (!selected) { window.setTimeout(() => { suppressClick.current = false; }, 0); return; }
+    if (!selected) { suppressNextClick(); return; }
     if (selected.pointerId !== event.pointerId) return;
     event.stopPropagation();
-    const candidate = selected.moved ? blockCandidate(event.clientX, event.clientY) : null;
+    const moved = selected.moved || Math.hypot(event.clientX - selected.x, event.clientY - selected.y) >= 6;
+    const candidate = moved ? blockCandidate(event.clientX, event.clientY) : null;
+    stopBlockAutoScroll();
     blockDrag.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     if (!candidate) return;
-    suppressClick.current = true;
-    window.setTimeout(() => { suppressClick.current = false; }, 0);
+    suppressNextClick();
     if (candidate.error) { setError(candidate.error); setBlockPreview(null); return; }
     if (candidate.date === selected.date && candidate.from === selected.from && candidate.until === selected.until) { setBlockPreview(null); return; }
+    setBlockPreview(candidate);
     void commit({ action: "block", id: selected.id, source_date: selected.date, scope: "date", dates: [candidate.date], start: minToHHMM(candidate.from), end: minToHHMM(candidate.until) }, selected.version, `${selected.kind === "move" ? "Blocked time moved." : "Blocked time resized."}${selected.recurring ? " Only this date changed." : ""}`).finally(() => setBlockPreview(null));
   }
-  function cancelBlockDrag() {
-    if (!blockDrag.current) return;
-    blockDrag.current = null; setBlockPreview(null); suppressClick.current = true;
-  }
+  const cancelBlockDrag = useCallback(() => {
+    const selected = blockDrag.current;
+    if (!selected) return;
+    blockDrag.current = null; stopBlockAutoScroll(); setBlockPreview(null); suppressNextClick();
+    if (selected.element.hasPointerCapture(selected.pointerId)) selected.element.releasePointerCapture(selected.pointerId);
+  }, [stopBlockAutoScroll, suppressNextClick]);
   useEffect(() => {
     const escape = (event: KeyboardEvent) => { if (event.key === "Escape" && blockDrag.current) { event.preventDefault(); cancelBlockDrag(); } };
     window.addEventListener("keydown", escape);
-    return () => { window.removeEventListener("keydown", escape); if (blockScrollFrame.current !== null) cancelAnimationFrame(blockScrollFrame.current); };
-  }, []);
+    const blur = () => { cancelBlockDrag(); drag.current = null; setDragPreview(null); };
+    window.addEventListener("blur", blur);
+    return () => { window.removeEventListener("keydown", escape); window.removeEventListener("blur", blur); stopBlockAutoScroll(); if (clickResetTimer.current !== null) window.clearTimeout(clickResetTimer.current); };
+  }, [cancelBlockDrag, stopBlockAutoScroll]);
 
   return <section className="availability-calendar" ref={root} aria-label="Clinic availability">
     <div className="availability-heading">
@@ -318,11 +344,16 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     {blockPreview && <div className={`availability-drag-feedback${blockPreview.error ? " availability-invalid-drop" : ""}`} role="status">{blockPreview.error || `${formatDay(blockPreview.date)} · ${calendarRangeLabel(blockPreview.from, blockPreview.until)}${busy ? " · Saving…" : " · Release to save"}`}</div>}
     </div>
     <Dialog.Root open={!!editor} onOpenChange={isOpen => { if (!isOpen && !busy) { setEditor(null); setError(""); } }}>
-      <Dialog.Portal><Dialog.Overlay className="availability-dialog-backdrop" /><Dialog.Content className="availability-dialog" onEscapeKeyDown={e => { if (busy) e.preventDefault(); }} onPointerDownOutside={e => { if (busy) e.preventDefault(); }}>
+      <Dialog.Portal><Dialog.Overlay className="availability-dialog-backdrop" /><Dialog.Content className="availability-dialog" onCloseAutoFocus={event => {
+        event.preventDefault();
+        if (document.querySelector('.availability-settings-dialog')) return;
+        const target = editorTrigger.current?.isConnected ? editorTrigger.current : root.current?.querySelector<HTMLElement>('.availability-week-scroll');
+        target?.focus({ preventScroll: true });
+      }} onEscapeKeyDown={e => { if (busy) e.preventDefault(); }} onPointerDownOutside={e => { if (busy) e.preventDefault(); }}>
         {editor && <>
           <div className="availability-dialog-title"><Dialog.Title>{editor.kind === "hours" ? "Working hours" : editor.kind === "buffer" ? "Buffer between patients" : editor.kind === "appointment" ? "Booked consultation" : editor.id ? "Blocked" : "Block time"}</Dialog.Title><Dialog.Close disabled={busy} aria-label="Close editor"><X size={18} /></Dialog.Close></div>
           <Dialog.Description>{formatDay(editor.date)}</Dialog.Description>
-          {editor.kind === "appointment" ? <><p>{editor.patient || "Booked patient"}</p><p>{rangeLabel(hhmmToMin(editor.start), hhmmToMin(editor.end))} · {editor.minutes} minutes</p><p className="availability-help">Appointment start times change only when you reschedule.</p><Dialog.Close>Close</Dialog.Close></> : editor.kind === "buffer" ? <><p>{rangeLabel(hhmmToMin(editor.start), hhmmToMin(editor.end))}</p><p className="availability-help">Added automatically between patients.</p><button onClick={() => { setEditor(null); setSettings({ duration: String(schedule.consultation_minutes), buffer: String(schedule.buffer_minutes), version: schedule.version, trading: Array.from({ length: 7 }, (_, day_of_week) => ({ day_of_week, open_time: "09:00", close_time: "17:00", is_closed: day_of_week > 4, consult_duration_mins: 30, ...schedule.trading.find(h => h.day_of_week === day_of_week) })) }); root.current?.scrollIntoView({ block: "start", behavior: "smooth" }); }}>Change buffer length</button></> : <ScheduleEditor key={`${editor.kind}:${editor.id ?? "new"}:${editor.date}`} editor={editor} schedule={schedule} busy={busy} error={error} onCancel={() => { setEditor(null); setError(""); }} onCommit={command => void commit(command, editor.version, command.action === "unblock" ? "Time unblocked." : editor.kind === "hours" ? "Working hours saved." : "Time blocked.")} onRefresh={onRefresh ? refreshCalendar : undefined} />}
+          {editor.kind === "appointment" ? <><p>{editor.patient || "Booked patient"}</p><p>{rangeLabel(hhmmToMin(editor.start), hhmmToMin(editor.end))} · {editor.minutes} minutes</p><p className="availability-help">Appointment start times change only when you reschedule.</p><Dialog.Close>Close</Dialog.Close></> : editor.kind === "buffer" ? <><p>{rangeLabel(hhmmToMin(editor.start), hhmmToMin(editor.end))}</p><p className="availability-help">Added automatically between patients.</p><button onClick={() => { setEditor(null); setSettings({ duration: String(schedule.consultation_minutes), buffer: String(schedule.buffer_minutes), version: schedule.version, trading: Array.from({ length: 7 }, (_, day_of_week) => ({ day_of_week, open_time: "09:00", close_time: "17:00", is_closed: day_of_week > 4, consult_duration_mins: 30, ...schedule.trading.find(h => h.day_of_week === day_of_week) })) }); }}>Change buffer length</button></> : <ScheduleEditor key={`${editor.kind}:${editor.id ?? "new"}:${editor.date}`} editor={editor} schedule={schedule} busy={busy} error={error} onCancel={() => { setEditor(null); setError(""); }} onCommit={command => void commit(command, editor.version, command.action === "unblock" ? "Time unblocked." : editor.kind === "hours" ? "Working hours saved." : "Time blocked.")} onRefresh={onRefresh ? refreshCalendar : undefined} />}
         </>}
       </Dialog.Content></Dialog.Portal>
     </Dialog.Root>
