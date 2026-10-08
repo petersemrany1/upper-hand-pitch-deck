@@ -112,3 +112,5 @@
 
 .availability-booked strong { overflow-wrap:anywhere; }
 .availability-calendar .availability-finish { z-index:3; }
+
+.availability-calendar .availability-closing-buffer { justify-content:flex-start; padding-top:5px; }
