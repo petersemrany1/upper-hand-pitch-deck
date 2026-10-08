@@ -41,7 +41,7 @@
 .availability-warning { background:#fff4dc; color:#785217; padding:12px; border-radius:6px; margin-bottom:14px; font-size:12px; }
 .availability-warning summary { cursor:pointer; font-weight:600; }.availability-warning p { margin:8px 0; }.availability-warning ul { margin:0; padding-left:18px; }
 .availability-week { width:100%; border:1px solid var(--ac-line); border-bottom:0; border-radius:8px 8px 0 0; overflow:hidden; }
-.availability-day-heads,.availability-time-grid { display:grid; grid-template-columns:56px repeat(var(--availability-columns),minmax(0,1fr)); }
+.availability-day-heads,.availability-time-grid { display:grid; grid-template-columns:56px var(--availability-day-columns); }
 .availability-day-heads>button { display:flex; flex-direction:column; gap:5px; padding:13px 6px; border:0; border-left:1px solid var(--ac-line); border-radius:0; }
 .availability-day-heads strong { font-size:14px; font-weight:600; }.availability-day-heads span { font-size:12px; color:var(--ac-navy); }
 .availability-time-grid { border-top:1px solid var(--ac-line); }
@@ -81,7 +81,7 @@
 @media(max-width:520px) {
  .availability-calendar { padding:14px; }.availability-heading h2 { font-size:23px; }.availability-date-navigation { width:100%; justify-content:space-between; }.availability-date-navigation strong { font-size:12px; }.availability-date-jump { width:100%; justify-content:space-between; }.availability-date-jump input { font-size:16px; }.availability-toolbar-actions { width:100%; justify-content:space-between; }
  .availability-settings-form { grid-template-columns:1fr; padding:14px; gap:14px; }.availability-calendar input,.availability-dialog input,.availability-dialog select { font-size:16px; }.availability-dialog button,.availability-calendar button { min-height:44px; }
- .availability-calendar .availability-event { min-height:0; }.availability-day-heads,.availability-time-grid { grid-template-columns:44px repeat(var(--availability-columns),minmax(0,1fr)); }.availability-key { gap:8px 12px; }.availability-dialog { padding:16px; }.availability-preview { font-size:11px; }
+ .availability-calendar .availability-event { min-height:0; }.availability-day-heads,.availability-time-grid { grid-template-columns:44px var(--availability-day-columns); }.availability-key { gap:8px 12px; }.availability-dialog { padding:16px; }.availability-preview { font-size:11px; }
 }
 @media(max-width:350px) { .availability-time-inputs { grid-template-columns:1fr; gap:0; }.availability-dialog .availability-shortcuts button { font-size:11px; } }
 
@@ -109,3 +109,6 @@
 .availability-settings-dialog .availability-operating-day>label { margin:0; }
 .availability-settings-dialog .availability-operating-day input[type=time] { height:36px; }
 .availability-settings-dialog .availability-operating-day { min-height:44px; padding:5px 0; }
+
+.availability-booked strong { overflow-wrap:anywhere; }
+.availability-calendar .availability-finish { z-index:3; }

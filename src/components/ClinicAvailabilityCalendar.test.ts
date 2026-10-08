@@ -150,4 +150,7 @@ test("confirmed settings resize calendar events and expand the named patient con
   expect(host.querySelector('.availability-warning')?.hasAttribute('open')).toBe(true);
   expect(host.querySelector('.availability-warning')?.textContent).toContain("Patient 0");
   expect(host.querySelector('.availability-warning')?.textContent).toContain("Patient 1");
+  const booked = host.querySelectorAll<HTMLElement>('.availability-booked');
+  expect(booked[0].style.left).not.toBe(booked[1].style.left);
+  expect(booked[0].style.width).toBe(booked[1].style.width);
 });

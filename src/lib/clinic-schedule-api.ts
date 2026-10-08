@@ -2,6 +2,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { applyScheduleCommand, futureScheduleSlots, type ClinicSchedule, type ScheduleCommand } from "./clinic-schedule";
 import type { AvailabilityOverride, BlockedSlot, TradingHours } from "./slot-generation";
 
+import { createPreviewScheduleStore } from "./preview-schedule-store";
+
 type RpcClient = { rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message: string } | null }> };
 export async function fetchClinicSchedule(clinicId: string): Promise<ClinicSchedule> {
   const { data, error } = await (supabase as unknown as RpcClient).rpc("get_clinic_schedule", { p_clinic: clinicId });
@@ -16,16 +18,18 @@ export async function saveClinicSchedule(clinicId: string, version: string, comm
   return data as ClinicSchedule;
 }
 
-// Approval data lives only in this browser session. It never calls Supabase,
-// consumes a pack, sends a handover/reminder, or changes a patient's booking.
-const previewSchedules = new Map<string, ClinicSchedule>();
+// Approval edits survive refreshes in this tab. They never write to Supabase,
+// consume a pack, send a handover/reminder, or change a patient's live booking.
+const previewSchedules = createPreviewScheduleStore(() => typeof window === "undefined" ? undefined : window.sessionStorage);
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach(listener => listener());
 export const subscribePreviewSchedules = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
 export const getPreviewSchedule = (clinicId: string) => previewSchedules.get(clinicId);
 export function seedPreviewSchedule(schedule: ClinicSchedule) {
-  if (!previewSchedules.has(schedule.clinic_id)) { previewSchedules.set(schedule.clinic_id, structuredClone(schedule)); notify(); }
-  return previewSchedules.get(schedule.clinic_id)!;
+  const existing = previewSchedules.get(schedule.clinic_id);
+  const result = previewSchedules.seed(schedule);
+  if (!existing) notify();
+  return result;
 }
 export async function savePreviewSchedule(clinicId: string, version: string, command: ScheduleCommand) {
   const current = previewSchedules.get(clinicId);

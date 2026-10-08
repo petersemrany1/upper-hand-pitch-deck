@@ -7,6 +7,7 @@ import {
   patientBufferBands, rangeLabel, schedulingWarnings, timeLabel, validDate,
   type ClinicSchedule, type ScheduleCommand, type ScheduleConfiguration,
 } from "@/lib/clinic-schedule";
+import { calendarEventLayout, mergeCalendarBands } from "@/lib/calendar-event-layout";
 import { sydneyTodayISO } from "@/lib/timezone";
 import "./clinic-availability-calendar.css";
 
@@ -43,6 +44,15 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
   const today = sydneyTodayISO();
   const dates = Array.from({ length: columns }, (_, i) => addDays(base, i));
   const warnings = useMemo(() => schedulingWarnings(schedule), [schedule]);
+  const dayLayouts = dates.map(date => {
+    const booked = schedule.appointments.filter(a => a.appointment_date === date);
+    const blocks = blocksForDate(asDate(date), schedule.blocks);
+    const layout = calendarEventLayout([
+      ...booked.map(a => ({ id: `appointment:${a.id}`, start: hhmmToMin(a.appointment_time), end: hhmmToMin(a.appointment_time) + appointmentDuration(a) })),
+      ...blocks.map((b, i) => ({ id: `block:${i}`, start: hhmmToMin(b.slot_start), end: hhmmToMin(b.slot_end) })),
+    ]);
+    return { date, layout, width: Math.max(150, Math.max(1, ...[...layout.values()].map(l => l.lanes)) * 120) };
+  });
   useEffect(() => {
     const element = root.current;
     if (!element) return;
@@ -141,7 +151,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     {message && <div className="availability-message" role="status"><span>{message}</span><button aria-label="Dismiss message" onClick={() => setMessage("")}><X size={14} /></button></div>}
     {error && !editor && !settings && <div className="availability-error" role="alert">{error}{onRefresh && <button onClick={refreshCalendar}>Refresh calendar</button>}</div>}
     {warnings.length > 0 && <details className="availability-warning" open><summary>{warnings.length} appointment{warnings.length === 1 ? " needs" : "s need"} attention</summary><p>Contact these patients to arrange new times where needed. Appointment start times have not changed.</p><ul>{warnings.map(w => <li key={w.id}>{w.text}</li>)}</ul></details>}
-    <div className="availability-week-scroll"><div className="availability-week" style={{ "--availability-columns": columns } as CSSProperties}>
+    <div className="availability-week-scroll"><div className="availability-week" style={{ "--availability-day-columns": dayLayouts.map(day => `minmax(${day.width}px,1fr)`).join(" "), minWidth: 56 + dayLayouts.reduce((total, day) => total + day.width, 0) } as CSSProperties}>
       <div className="availability-day-heads"><div />{dates.map(date => {
         const h = effectiveHoursFor(asDate(date), schedule.trading, schedule.overrides, schedule.state);
         return <button key={date} aria-label={`Edit working hours for ${formatDay(date)}`} disabled={date < today || busy} onClick={() => hoursEditor(date)}><strong>{asDate(date).toLocaleDateString("en-AU", { weekday: "short", day: "numeric" })}</strong><span>{h && !h.is_closed ? rangeLabel(hhmmToMin(h.open_time), hhmmToMin(h.close_time)) : "Blocked"} · Edit hours</span></button>;
@@ -153,6 +163,8 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
           const working = hours && !hours.is_closed;
           const lastStart = working ? hhmmToMin(hours.open_time) + Math.floor((hhmmToMin(hours.close_time) - hhmmToMin(hours.open_time) - schedule.consultation_minutes) / (hours.consult_duration_mins || 15)) * (hours.consult_duration_mins || 15) : null;
           const booked = schedule.appointments.filter(a => a.appointment_date === date).sort((a, b) => hhmmToMin(a.appointment_time) - hhmmToMin(b.appointment_time));
+          const layout = dayLayouts.find(day => day.date === date)!.layout;
+          const laneStyle = (id: string): CSSProperties => { const item = layout.get(id)!; return { left: `calc(${item.lane * 100 / item.lanes}% + 5px)`, right: "auto", width: `calc(${100 / item.lanes}% - 10px)` }; };
           return <div className="availability-day" key={date} aria-label={formatDay(date)} onPointerDown={e => pointerDown(e, date)} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { drag.current = null; setDragPreview(null); }}>
             {working && <div className="availability-work" style={position(hhmmToMin(hours.open_time), hhmmToMin(hours.close_time))} />}
             {!working && <div className="availability-closed">Blocked</div>}
@@ -169,13 +181,14 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
             {booked.map(a => {
               const from = hhmmToMin(a.appointment_time), until = from + appointmentDuration(a);
               return <div key={a.id}>
-                <button className="availability-event availability-booked" style={position(from, until)} aria-label={`${a.patient_name || "Booked patient"}, ${formatDay(date)} ${rangeLabel(from, until)}`} onClick={() => open("appointment", date, minToHHMM(from), minToHHMM(until), { patient: a.patient_name ?? undefined, minutes: appointmentDuration(a) })}><strong>{a.patient_name || "Booked patient"}</strong><span>{rangeLabel(from, until)}</span></button>
-                {patientBufferBands(schedule, a).map(([bufferStart, bufferEnd]) => <button key={bufferStart} className="availability-event availability-buffer" style={position(bufferStart, bufferEnd)} aria-label={`Buffer between patients ${rangeLabel(bufferStart, bufferEnd)}`} onClick={() => open("buffer", date, minToHHMM(bufferStart), minToHHMM(bufferEnd))}>{(bufferEnd - bufferStart) * scale >= 24 && <strong>Buffer between patients</strong>}{(bufferEnd - bufferStart) * scale >= 44 && <span>{bufferEnd - bufferStart} min · {rangeLabel(bufferStart, bufferEnd)}</span>}</button>)}
+                <button className="availability-event availability-booked" style={{ ...position(from, until), ...laneStyle(`appointment:${a.id}`) }} aria-label={`${a.patient_name || "Booked patient"}, ${formatDay(date)} ${rangeLabel(from, until)}`} onClick={() => open("appointment", date, minToHHMM(from), minToHHMM(until), { patient: a.patient_name ?? undefined, minutes: appointmentDuration(a) })}><strong>{a.patient_name || "Booked patient"}</strong><span>{rangeLabel(from, until)}</span></button>
+
               </div>;
             })}
+            {mergeCalendarBands(booked.flatMap(a => patientBufferBands(schedule, a))).map(([bufferStart, bufferEnd]) => <button key={`buffer:${bufferStart}`} className="availability-event availability-buffer" style={position(bufferStart, bufferEnd)} aria-label={`Buffer between patients ${rangeLabel(bufferStart, bufferEnd)}`} onClick={() => open("buffer", date, minToHHMM(bufferStart), minToHHMM(bufferEnd))}>{(bufferEnd - bufferStart) * scale >= 24 && <strong>Buffer between patients</strong>}{(bufferEnd - bufferStart) * scale >= 44 && <span>{rangeLabel(bufferStart, bufferEnd)}</span>}</button>)}
             {blocksForDate(asDate(date), schedule.blocks).map((block, i) => {
               const from = hhmmToMin(block.slot_start), until = hhmmToMin(block.slot_end);
-              return <button key={block.id ?? i} className="availability-event availability-blocked" style={position(from, until)} disabled={date < today || busy} aria-label={`Blocked ${formatDay(date)} ${rangeLabel(from, until)}. Edit or unblock.`} onClick={() => open("block", date, minToHHMM(from), minToHHMM(until), { id: block.id, recurring: block.is_recurring })}><strong>Blocked</strong>{(until - from) * scale >= 40 && <span>{rangeLabel(from, until)}</span>}</button>;
+              return <button key={block.id ?? i} className="availability-event availability-blocked" style={{ ...position(from, until), ...laneStyle(`block:${i}`) }} disabled={date < today || busy} aria-label={`Blocked ${formatDay(date)} ${rangeLabel(from, until)}. Edit or unblock.`} onClick={() => open("block", date, minToHHMM(from), minToHHMM(until), { id: block.id, recurring: block.is_recurring })}><strong>Blocked</strong>{(until - from) * scale >= 40 && <span>{rangeLabel(from, until)}</span>}</button>;
             })}
             {dragPreview?.date === date && <div className="availability-event availability-selection" style={position(dragPreview.from, dragPreview.to)}>{rangeLabel(dragPreview.from, dragPreview.to)}</div>}
           </div>;

@@ -4,7 +4,7 @@ This change is prepared for approval only. `CALENDAR_APPROVAL_ONLY` remains true
 
 Lovable's GitHub connection must select `codex/calendar-availability` for review. Confirm the served preview contains the new calendar before sharing it; an older build can remain visible while branch synchronization completes. Switching the preview branch does not publish the application.
 
-The public `/calendar-preview` route uses example data and a shared in-memory schedule. Partner availability edits and sales bookings update the same preview schedule. Reloading resets this data. Preview-host calendar edits never write to the live database. Other portal actions still use real data, as indicated in the portal banner.
+The public `/calendar-preview` route uses example data and a shared tab-scoped preview schedule. Partner availability edits and sales bookings update the same preview schedule. Saved preview changes survive refreshing the same tab using session storage. The example-data reset button explicitly resets that demo. Closing the tab ends the preview session. Preview-host calendar edits never write to the live database. Other portal actions still use real data, as indicated in the portal banner.
 
 ## Release after approval
 
