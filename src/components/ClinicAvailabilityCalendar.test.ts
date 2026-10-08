@@ -43,9 +43,9 @@ test("closing shading explains the last start and updates with consultation leng
   schedule.trading = schedule.trading.map(hours => ({ ...hours, close_time: "16:00" }));
   schedule.overrides = [];
   await render(schedule, async () => schedule);
-  expect(host.querySelector(".availability-closing-buffer")?.textContent).toBe("No starts after 3pm");
+  expect(host.querySelector(".availability-closing-buffer")?.textContent).toBe("Last appointment: 3pm");
   await render({ ...schedule, consultation_minutes: 90 }, async () => schedule);
-  expect(host.querySelector(".availability-closing-buffer")?.textContent).toBe("No starts after 2:30pm");
+  expect(host.querySelector(".availability-closing-buffer")?.textContent).toBe("Last appointment: 2:30pm");
 });
 test("a failed save keeps the editor and draft visible instead of showing success", async () => {
   const schedule = calendarPreviewFixture(); let attempts = 0;
