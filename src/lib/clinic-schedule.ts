@@ -154,7 +154,8 @@ export function applyScheduleCommand(current: ClinicSchedule, command: ScheduleC
       for (const a of next.appointments.filter(a => a.appointment_date >= sydneyTodayISO())) {
         const h = effectiveHoursFor(asDate(a.appointment_date), next.trading, next.overrides, next.state);
         const oldHours = effectiveHoursFor(asDate(a.appointment_date), current.trading, current.overrides, current.state);
-        if (JSON.stringify(h) === JSON.stringify(oldHours)) continue;
+        const hoursKey = (value: typeof h) => value ? JSON.stringify([value.is_closed, hhmmToMin(value.open_time), hhmmToMin(value.close_time)]) : "closed";
+        if (hoursKey(h) === hoursKey(oldHours)) continue;
         if (!h || h.is_closed || hhmmToMin(a.appointment_time) < hhmmToMin(h.open_time) || hhmmToMin(a.appointment_time) + appointmentDuration(a) > hhmmToMin(h.close_time)) throw new Error("These hours overlap an existing appointment. Edit that day instead.");
       }
     }
