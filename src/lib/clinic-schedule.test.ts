@@ -10,6 +10,18 @@ function fixture(): ClinicSchedule {
 }
 const times = (s: ClinicSchedule, date = day) => scheduleSlots(s, date).filter(x => x.available).map(x => x.time);
 const block = (s: ClinicSchedule, start = "10:30", end = "12:00") => applyScheduleCommand(s, { action: "block", dates: [day], start, end });
+test("sales slots allow the exact closing boundary and exclude appointments that finish later", () => {
+  for (const [close, duration, last, tooLate] of [["17:00", 90, "15:30", "15:45"], ["16:00", 60, "15:00", "15:30"]] as const) {
+    const s = fixture();
+    s.consultation_minutes = duration;
+    s.trading = s.trading.map(h => ({ ...h, close_time: close }));
+    const offered = futureScheduleSlots(s, day, new Date("2026-10-08T00:00:00Z")).filter(slot => slot.available).map(slot => slot.time);
+    expect(offered.at(-1)).toBe(last);
+    expect(offered).not.toContain(tooLate);
+    const overridden = applyScheduleCommand(s, { action: "hours", dates: [day], start: "09:00", end: "14:00", closed: false });
+    expect(times(overridden).at(-1)).toBe(duration === 90 ? "12:30" : "13:00");
+  }
+});
 test("90 minutes fits exactly before a block, never runs into it or past closing", () => {
   expect(times(block(fixture()))).toEqual(["09:00", "12:00", "12:15", "12:30", "12:45", "13:00", "13:15", "13:30"]);
   expect(times(block(fixture(), "15:00", "24:00"))).toContain("13:30");
