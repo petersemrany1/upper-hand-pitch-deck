@@ -85,6 +85,36 @@ test("single-occurrence editing leaves all other recurring blocks intact", () =>
   expect(times(next)).toContain("12:00"); expect(times(next, addDays(day, 1))).not.toContain("12:00");
   expect(recurrenceMatches(s.blocks[0], asDate(addDays(day, -1)))).toBe(false);
 });
+test("moving a block releases its old sales slots, protects its new range and supports undo", () => {
+  const original = block(fixture());
+  const destination = addDays(day, 1);
+  const moved = applyScheduleCommand(original, { action: "block", id: original.blocks[0].id, source_date: day, scope: "date", dates: [destination], start: "12:00", end: "13:30" });
+  expect(times(original)).not.toContain("10:30");
+  expect(times(moved)).toContain("10:30");
+  expect(times(moved, destination)).not.toContain("11:00");
+  expect(times(moved, destination)).toContain("10:30");
+  expect(moved.blocks).toHaveLength(1);
+  expect(applyScheduleCommand(moved, { action: "restore", configuration: configurationOf(original) }).blocks).toEqual(original.blocks);
+});
+test("moving a recurring occurrence excludes the source date, not the destination repeat", () => {
+  const s = fixture(); s.blocks = [{ id: "repeat", slot_date: day, slot_start: "12:00", slot_end: "13:00", is_recurring: true, recur_pattern: "daily", recur_day_of_week: null }];
+  const destination = addDays(day, 1);
+  const moved = applyScheduleCommand(s, { action: "block", id: "repeat", source_date: day, scope: "date", dates: [destination], start: "14:00", end: "15:00" });
+  expect(moved.blocks[0].excluded_dates).toEqual([day]);
+  expect(times(moved)).toContain("12:00");
+  expect(times(moved, destination)).not.toContain("12:00");
+  expect(times(moved, destination)).not.toContain("13:30");
+  expect(times(moved, addDays(day, 2))).not.toContain("12:00");
+  expect(() => applyScheduleCommand(moved, { action: "block", id: "repeat", source_date: day, dates: [destination], start: "14:00", end: "15:00" })).toThrow("block has changed");
+});
+test("a rejected move or resize leaves the original block and sales slots intact", () => {
+  const s = block(fixture());
+  s.appointments = [{ id: "booked", appointment_date: addDays(day, 1), appointment_time: "12:00", consultation_duration_minutes: 90 }];
+  const before = structuredClone(s);
+  expect(() => applyScheduleCommand(s, { action: "block", id: s.blocks[0].id, source_date: day, dates: [addDays(day, 1)], start: "12:00", end: "13:30" })).toThrow("patient is booked");
+  expect(s).toEqual(before);
+  expect(times(s)).not.toContain("10:30");
+});
 test("copy/repeat dates are bounded and include only requested weekdays", () => {
   expect(datesForEdit("2026-10-12", [3], "2026-10-21")).toEqual(["2026-10-12", "2026-10-14", "2026-10-19", "2026-10-21"]);
   expect(() => datesForEdit(day, [], "2101-01-01")).toThrow("next year");

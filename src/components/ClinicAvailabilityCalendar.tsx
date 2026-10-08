@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
-import { ChevronLeft, ChevronRight, RotateCcw, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, GripVertical, RotateCcw, X } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   addDays, applyScheduleCommand, appointmentDuration, asDate, blockedStartBands, blocksForDate,
@@ -8,6 +8,7 @@ import {
   type ClinicSchedule, type ScheduleCommand, type ScheduleConfiguration,
 } from "@/lib/clinic-schedule";
 import { calendarEventLayout, mergeCalendarBands } from "@/lib/calendar-event-layout";
+import { projectBlockDrag, type BlockDragKind } from "@/lib/calendar-block-drag";
 import { sydneyTodayISO } from "@/lib/timezone";
 import "./clinic-availability-calendar.css";
 
@@ -44,6 +45,10 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
   const [undo, setUndo] = useState<{ configuration: ScheduleConfiguration; version: string } | null>(null);
   const [dragPreview, setDragPreview] = useState<{ date: string; from: number; to: number } | null>(null);
   const drag = useRef<{ date: string; from: number; to: number; y: number; moved: boolean; pointerId: number } | null>(null);
+  const blockDrag = useRef<{ id: string; date: string; from: number; until: number; kind: BlockDragKind; x: number; y: number; anchorMinute: number; moved: boolean; pointerId: number; version: string; recurring: boolean } | null>(null);
+  const blockPointer = useRef<{ x: number; y: number } | null>(null);
+  const blockScrollFrame = useRef<number | null>(null);
+  const [blockPreview, setBlockPreview] = useState<{ id: string; sourceDate: string; date: string; from: number; until: number; error: string } | null>(null);
   const suppressClick = useRef(false);
   const today = sydneyTodayISO();
   const dates = Array.from({ length: columns }, (_, i) => addDays(base, i));
@@ -141,6 +146,88 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
       window.setTimeout(() => { suppressClick.current = false; }, 0);
     }
   }
+  function startBlockDrag(event: PointerEvent<HTMLDivElement>, id: string | undefined, date: string, from: number, until: number, recurring: boolean) {
+    if (!id || event.button !== 0 || busy || date < today) return;
+    event.stopPropagation();
+    const edge = (event.target as HTMLElement).closest<HTMLElement>("[data-resize]")?.dataset.resize;
+    const day = event.currentTarget.closest<HTMLElement>(".availability-day")!;
+    blockDrag.current = { id, date, from, until, kind: edge === "start" || edge === "end" ? edge : "move", x: event.clientX, y: event.clientY, anchorMinute: (event.clientY - day.getBoundingClientRect().top) / scale + firstMinute, moved: false, pointerId: event.pointerId, version: schedule.version, recurring };
+    suppressClick.current = false;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+  function blockCandidate(x: number, y: number) {
+    const selected = blockDrag.current;
+    if (!selected) return null;
+    const scroll = root.current!.querySelector<HTMLElement>(".availability-week-scroll")!;
+    const viewport = scroll.getBoundingClientRect();
+    const axisWidth = root.current!.querySelector<HTMLElement>(".availability-axis")!.getBoundingClientRect().width;
+    const days = [...root.current!.querySelectorAll<HTMLElement>(".availability-day")];
+    const source = days.find(day => day.dataset.date === selected.date)!;
+    const target = selected.kind === "move" ? days.find(day => { const r = day.getBoundingClientRect(); return x >= Math.max(r.left, viewport.left + axisWidth) && x < Math.min(r.right, viewport.right) && y >= r.top && y <= r.bottom; }) : source;
+    const date = target?.dataset.date ?? selected.date;
+    const delta = (y - source.getBoundingClientRect().top) / scale + firstMinute - selected.anchorMinute;
+    const range = projectBlockDrag(selected.kind, selected.from, selected.until, delta);
+    let error = !target ? "Drop the block inside this week." : date < today ? "Choose today or a future day." : "";
+    if (!error) try { applyScheduleCommand(schedule, { action: "block", id: selected.id, source_date: selected.date, scope: "date", dates: [date], start: minToHHMM(range.from), end: minToHHMM(range.until) }); } catch (failure) { error = failure instanceof Error ? failure.message : "That time cannot be blocked."; }
+    return { id: selected.id, sourceDate: selected.date, date, ...range, error };
+  }
+  function moveBlockDrag(event: PointerEvent<HTMLDivElement>) {
+    const selected = blockDrag.current;
+    if (!selected || selected.pointerId !== event.pointerId) return;
+    event.stopPropagation();
+    if (!selected.moved && Math.hypot(event.clientX - selected.x, event.clientY - selected.y) < 6) return;
+    selected.moved = true;
+    blockPointer.current = { x: event.clientX, y: event.clientY };
+    const candidate = blockCandidate(event.clientX, event.clientY);
+    setBlockPreview(previous => JSON.stringify(previous) === JSON.stringify(candidate) ? previous : candidate);
+    if (blockScrollFrame.current === null) blockScrollFrame.current = requestAnimationFrame(scrollBlockDrag);
+  }
+  function scrollBlockDrag() {
+    blockScrollFrame.current = null;
+    const selected = blockDrag.current, point = blockPointer.current;
+    if (!selected || !point || !root.current) return;
+    const scroll = root.current.querySelector<HTMLElement>(".availability-week-scroll")!;
+    const r = scroll.getBoundingClientRect();
+    const axis = root.current.querySelector<HTMLElement>(".availability-axis")!.getBoundingClientRect().width;
+    let vertical = scroll.parentElement;
+    while (vertical && !(/auto|scroll/.test(getComputedStyle(vertical).overflowY) && vertical.scrollHeight > vertical.clientHeight)) vertical = vertical.parentElement;
+    const container = vertical ?? document.scrollingElement!;
+    const viewport = vertical?.getBoundingClientRect();
+    const oldLeft = scroll.scrollLeft, oldTop = container.scrollTop;
+    if (point.x >= r.left && point.x <= r.right) {
+      if (selected.kind === "move") scroll.scrollLeft += point.x > r.right - 36 ? 10 : point.x < r.left + axis + 36 ? -10 : 0;
+      container.scrollTop += point.y > (viewport?.bottom ?? window.innerHeight) - 40 ? 10 : point.y < (viewport?.top ?? 0) + 40 ? -10 : 0;
+    }
+    if (oldLeft !== scroll.scrollLeft || oldTop !== container.scrollTop) {
+      const candidate = blockCandidate(point.x, point.y);
+      setBlockPreview(previous => JSON.stringify(previous) === JSON.stringify(candidate) ? previous : candidate);
+    }
+    blockScrollFrame.current = requestAnimationFrame(scrollBlockDrag);
+  }
+  function finishBlockDrag(event: PointerEvent<HTMLDivElement>) {
+    const selected = blockDrag.current;
+    if (!selected) { window.setTimeout(() => { suppressClick.current = false; }, 0); return; }
+    if (selected.pointerId !== event.pointerId) return;
+    event.stopPropagation();
+    const candidate = selected.moved ? blockCandidate(event.clientX, event.clientY) : null;
+    blockDrag.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (!candidate) return;
+    suppressClick.current = true;
+    window.setTimeout(() => { suppressClick.current = false; }, 0);
+    if (candidate.error) { setError(candidate.error); setBlockPreview(null); return; }
+    if (candidate.date === selected.date && candidate.from === selected.from && candidate.until === selected.until) { setBlockPreview(null); return; }
+    void commit({ action: "block", id: selected.id, source_date: selected.date, scope: "date", dates: [candidate.date], start: minToHHMM(candidate.from), end: minToHHMM(candidate.until) }, selected.version, `${selected.kind === "move" ? "Blocked time moved." : "Blocked time resized."}${selected.recurring ? " Only this date changed." : ""}`).finally(() => setBlockPreview(null));
+  }
+  function cancelBlockDrag() {
+    if (!blockDrag.current) return;
+    blockDrag.current = null; setBlockPreview(null); suppressClick.current = true;
+  }
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape" && blockDrag.current) { event.preventDefault(); cancelBlockDrag(); } };
+    window.addEventListener("keydown", escape);
+    return () => { window.removeEventListener("keydown", escape); if (blockScrollFrame.current !== null) cancelAnimationFrame(blockScrollFrame.current); };
+  }, []);
 
   return <section className="availability-calendar" ref={root} aria-label="Clinic availability">
     <div className="availability-heading">
@@ -170,7 +257,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
       <label className="availability-date-jump">Go to date<input type="date" aria-label="Go to date" value={base} onChange={e => { if (validDate(e.target.value)) setBase(mondayOf(e.target.value)); }} /></label>
       <div className="availability-toolbar-actions"><button aria-label="Undo last change" disabled={!undo || undo.version !== schedule.version || busy} onClick={() => undo && void commit({ action: "restore", configuration: undo.configuration }, undo.version, "Last change undone.", true)}><RotateCcw size={15} />Undo</button><button className="availability-primary" disabled={busy} onClick={() => open("block", base < today ? today : base, "10:00", "10:30")}>Block time</button></div>
     </div>
-    <p className="availability-hint">{compact ? "Tap a time to block it." : "Click a time to block it. Drag to select a longer time."}</p>
+    <p className="availability-hint">{compact ? "Tap a time to block it. Drag a block to move it; drag its edges to resize." : "Click or drag empty time to block it. Drag a block to move it; drag its edges to resize."}</p>
     <div className="availability-key" aria-label="Calendar key"><span><i className="availability-key-booked" />Booked</span><span><i className="availability-key-blocked" />Blocked</span><span><i className="availability-key-buffer" />Buffer between patients</span></div>
     {message && <div className="availability-message" role="status"><span>{message}</span><button aria-label="Dismiss message" onClick={() => setMessage("")}><X size={14} /></button></div>}
     {error && !editor && !settings && <div className="availability-error" role="alert">{error}{onRefresh && <button onClick={refreshCalendar}>Refresh calendar</button>}</div>}
@@ -190,7 +277,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
           const booked = schedule.appointments.filter(a => a.appointment_date === date).sort((a, b) => hhmmToMin(a.appointment_time) - hhmmToMin(b.appointment_time));
           const layout = dayLayouts.find(day => day.date === date)!.layout;
           const laneStyle = (id: string): CSSProperties => { const item = layout.get(id)!; return { left: `calc(${item.lane * 100 / item.lanes}% + 5px)`, right: "auto", width: `calc(${100 / item.lanes}% - 10px)` }; };
-          return <div className="availability-day" key={date} aria-label={formatDay(date)} onPointerDown={e => pointerDown(e, date)} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { drag.current = null; setDragPreview(null); }}>
+          return <div className="availability-day" key={date} data-date={date} aria-label={formatDay(date)} onPointerDown={e => pointerDown(e, date)} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { drag.current = null; setDragPreview(null); }}>
             {working && <div className="availability-work" style={position(hhmmToMin(hours.open_time), hhmmToMin(hours.close_time))} />}
             {!working && <div className="availability-closed">Blocked</div>}
             {working && <>
@@ -213,13 +300,20 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
             {mergeCalendarBands(booked.flatMap(a => patientBufferBands(schedule, a))).map(([bufferStart, bufferEnd]) => <button key={`buffer:${bufferStart}`} className="availability-event availability-buffer" style={position(bufferStart, bufferEnd)} aria-label={`Buffer between patients ${rangeLabel(bufferStart, bufferEnd)}`} onClick={() => open("buffer", date, minToHHMM(bufferStart), minToHHMM(bufferEnd))}>{(bufferEnd - bufferStart) * scale >= 24 && <strong>Buffer between patients</strong>}{(bufferEnd - bufferStart) * scale >= 44 && <span>{rangeLabel(bufferStart, bufferEnd)}</span>}</button>)}
             {blocksForDate(asDate(date), schedule.blocks).map((block, i) => {
               const from = hhmmToMin(block.slot_start), until = hhmmToMin(block.slot_end);
-              return <button key={block.id ?? i} className="availability-event availability-blocked" style={{ ...position(from, until), ...laneStyle(`block:${i}`) }} disabled={date < today || busy} aria-label={`Blocked ${formatDay(date)} ${rangeLabel(from, until)}. Edit or unblock.`} onClick={() => open("block", date, minToHHMM(from), minToHHMM(until), { id: block.id, recurring: block.is_recurring })}><strong>Blocked</strong>{(until - from) * scale >= 40 && <span>{rangeLabel(from, until)}</span>}</button>;
+              const disabled = date < today || busy;
+              const edit = () => { if (!suppressClick.current) open("block", date, minToHHMM(from), minToHHMM(until), { id: block.id, recurring: block.is_recurring }); };
+              return <div key={block.id ?? i} className={`availability-event availability-blocked${blockPreview && blockPreview.id === block.id && blockPreview.sourceDate === date ? " availability-drag-origin" : ""}`} style={{ ...position(from, until), ...laneStyle(`block:${i}`) }} onPointerDown={e => startBlockDrag(e, block.id, date, from, until, block.is_recurring)} onPointerMove={moveBlockDrag} onPointerUp={finishBlockDrag} onPointerCancel={cancelBlockDrag} onLostPointerCapture={cancelBlockDrag}>
+                <button className="availability-block-body" disabled={disabled} aria-label={`Blocked ${formatDay(date)} ${rangeLabel(from, until)}. Drag to move or click to edit.`} onClick={edit}><strong>Blocked</strong>{(until - from) * scale >= 40 && <span>{calendarRangeLabel(from, until)}</span>}{!disabled && <GripVertical className="availability-block-grip" size={14} aria-hidden="true" />}</button>
+                {!disabled && block.id && (["start", "end"] as const).map(edge => <button key={edge} className={`availability-resize availability-resize-${edge}`} data-resize={edge} aria-label={`Change ${edge} of blocked time on ${formatDay(date)}`} title={`Drag to change ${edge} time`} onClick={edit}><span /></button>)}
+              </div>;
             })}
             {dragPreview?.date === date && <div className="availability-event availability-selection" style={position(dragPreview.from, dragPreview.to)}>{calendarRangeLabel(dragPreview.from, dragPreview.to)}</div>}
+            {blockPreview?.date === date && <div className={`availability-event availability-selection availability-block-preview${blockPreview.error ? " availability-invalid-drop" : ""}`} style={position(blockPreview.from, blockPreview.until)}><strong>Blocked</strong><span>{calendarRangeLabel(blockPreview.from, blockPreview.until)}</span></div>}
           </div>;
         })}
       </div>
     </div>
+    {blockPreview && <div className={`availability-drag-feedback${blockPreview.error ? " availability-invalid-drop" : ""}`} role="status">{blockPreview.error || `${formatDay(blockPreview.date)} · ${calendarRangeLabel(blockPreview.from, blockPreview.until)}${busy ? " · Saving…" : " · Release to save"}`}</div>}
     </div>
     <Dialog.Root open={!!editor} onOpenChange={isOpen => { if (!isOpen && !busy) { setEditor(null); setError(""); } }}>
       <Dialog.Portal><Dialog.Overlay className="availability-dialog-backdrop" /><Dialog.Content className="availability-dialog" onEscapeKeyDown={e => { if (busy) e.preventDefault(); }} onPointerDownOutside={e => { if (busy) e.preventDefault(); }}>
@@ -250,7 +344,7 @@ function ScheduleEditor({ editor, schedule, busy, error, onCancel, onCommit, onR
   try {
     if (!validDate(date)) throw new Error("Choose a date.");
     const dates = editor.id ? [date] : datesForEdit(date, weekdays, repeat ? until : undefined);
-    command = isHours ? { action: "hours", dates, start, end, closed } : { action: "block", dates, start, end, id: editor.id, scope };
+    command = isHours ? { action: "hours", dates, start, end, closed } : { action: "block", dates, start, end, id: editor.id, scope, ...(editor.id && scope === "date" ? { source_date: editor.date } : {}) };
     applyScheduleCommand(schedule, command);
   } catch (failure) { validation = failure instanceof Error ? failure.message : "Check the selected times."; }
   function changeStart(value: string) {
@@ -261,7 +355,7 @@ function ScheduleEditor({ editor, schedule, busy, error, onCancel, onCommit, onR
     setStart(value);
   }
   return <form onSubmit={event => { event.preventDefault(); if (command && !validation) onCommit(command); }}>
-    {!isHours && !editor.id && <label>Date<input type="date" value={date} min={sydneyTodayISO()} required onChange={e => setDate(e.target.value)} disabled={busy} /></label>}
+    {!isHours && <label>Date<input type="date" value={date} min={sydneyTodayISO()} required onChange={e => setDate(e.target.value)} disabled={busy || editor.recurring && scope === "series"} /></label>}
     {isHours && <label className="availability-checkbox"><input type="checkbox" checked={closed} onChange={e => setClosed(e.target.checked)} disabled={busy} />Block the whole day</label>}
     {!closed && <div className="availability-time-inputs"><label>{isHours ? "Start work" : "From"}<input type="time" value={start} step={900} required onChange={e => changeStart(e.target.value)} disabled={busy} /></label><label>{isHours ? "Finish work" : "Until"}{end === "24:00" ? <div className="availability-end-day">End of day <button type="button" onClick={() => setEnd("23:45")} disabled={busy}>Change</button></div> : <input type="time" value={end} step={900} required onChange={e => setEnd(e.target.value)} disabled={busy} />}</label></div>}
     {!isHours && <div className="availability-shortcuts">{[{ label: "30 min", length: 30 }, { label: "1 hour", length: 60 }, { label: "Rest of day", length: 1440 }].map(option => <button type="button" key={option.label} disabled={busy} aria-pressed={option.length === 1440 ? end === "24:00" : end !== "24:00" && hhmmToMin(end) - hhmmToMin(start) === option.length} onClick={() => setEnd(option.length === 1440 ? "24:00" : minToHHMM(Math.min(1440, hhmmToMin(start) + option.length)))}>{option.label}</button>)}</div>}

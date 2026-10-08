@@ -233,15 +233,17 @@ BEGIN
    first_day:=(dates->>0)::date;
    starts:=(p_command->>'start')::time; finishes:=(p_command->>'end')::time;
    IF NOT (action='hours' AND coalesce((p_command->>'closed')::boolean,false)) AND (starts IS NULL OR finishes IS NULL OR starts>=finishes) THEN RAISE EXCEPTION 'Choose an end time after the start time'; END IF;
+   IF action='block' AND p_command->>'source_date' IS NOT NULL AND p_command->>'id' IS NULL THEN RAISE EXCEPTION 'This block has changed. Refresh and try again.'; END IF;
    IF action='block' AND p_command->>'id' IS NOT NULL THEN
      SELECT * INTO block FROM public.clinic_blocked_slots WHERE id=(p_command->>'id')::uuid AND clinic_id=p_clinic;
      IF NOT FOUND THEN RAISE EXCEPTION 'This block has changed. Refresh and try again.'; END IF;
+     IF p_command->>'source_date' IS NOT NULL AND (jsonb_array_length(dates)<>1 OR p_command->>'scope'='series' OR NOT public.schedule_block_matches(block,(p_command->>'source_date')::date)) THEN RAISE EXCEPTION 'This block has changed. Refresh and try again.'; END IF;
      IF block.is_recurring AND p_command->>'scope'='series' THEN
        UPDATE public.clinic_blocked_slots SET slot_start=starts,slot_end=finishes WHERE id=block.id;
        SET CONSTRAINTS protect_booked_blocks IMMEDIATE;
        RETURN public.get_clinic_schedule(p_clinic);
      ELSIF block.is_recurring THEN
-       UPDATE public.clinic_blocked_slots SET excluded_dates=ARRAY(SELECT DISTINCT d FROM unnest(excluded_dates||ARRAY(SELECT value::date FROM jsonb_array_elements_text(dates))) AS d) WHERE id=block.id;
+       UPDATE public.clinic_blocked_slots SET excluded_dates=ARRAY(SELECT DISTINCT d FROM unnest(excluded_dates||CASE WHEN p_command->>'source_date' IS NOT NULL THEN ARRAY[(p_command->>'source_date')::date] ELSE ARRAY(SELECT value::date FROM jsonb_array_elements_text(dates)) END) AS d) WHERE id=block.id;
      ELSE DELETE FROM public.clinic_blocked_slots WHERE id=block.id; END IF;
    END IF;
    FOR item IN SELECT * FROM jsonb_array_elements(dates) LOOP

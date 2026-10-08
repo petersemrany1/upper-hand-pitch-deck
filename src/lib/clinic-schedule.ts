@@ -21,7 +21,7 @@ export type ClinicSchedule = {
 export type ScheduleConfiguration = Pick<ClinicSchedule, "consultation_minutes" | "buffer_minutes" | "blocks" | "overrides" | "trading">;
 export type ScheduleCommand =
   | { action: "settings"; consultation_minutes: number; buffer_minutes: number; apply_to_existing?: boolean; trading?: TradingHours[] }
-  | { action: "block"; dates: string[]; start: string; end: string; id?: string; scope?: "date" | "series" }
+  | { action: "block"; dates: string[]; start: string; end: string; id?: string; scope?: "date" | "series"; source_date?: string }
   | { action: "unblock"; id: string; date: string; scope: "date" | "series" }
   | { action: "hours"; dates: string[]; start: string; end: string; closed: boolean }
   | { action: "restore"; configuration: ScheduleConfiguration };
@@ -164,13 +164,14 @@ export function applyScheduleCommand(current: ClinicSchedule, command: ScheduleC
     const [from, until] = checkRange(command.start, command.end);
     const existing = command.id ? next.blocks.find(b => b.id === command.id) : undefined;
     if (command.id && !existing) throw new Error("This block has changed. Refresh and try again.");
+    if (command.source_date !== undefined && (!existing || !validDate(command.source_date) || command.dates.length !== 1 || command.scope === "series" || !blocksForDate(asDate(command.source_date), [existing]).length)) throw new Error("This block has changed. Refresh and try again.");
     if (existing?.is_recurring && command.scope === "series") {
       const dates = next.appointments.filter(a => blocksForDate(asDate(a.appointment_date), [existing]).length).map(a => a.appointment_date);
       rejectBooked(next, dates, from, until);
       existing.slot_start = command.start; existing.slot_end = command.end;
     } else {
       rejectBooked(next, command.dates, from, until);
-      if (existing?.is_recurring) existing.excluded_dates = [...new Set([...(existing.excluded_dates ?? []), ...command.dates])];
+      if (existing?.is_recurring) existing.excluded_dates = [...new Set([...(existing.excluded_dates ?? []), ...(command.source_date ? [command.source_date] : command.dates)])];
       else if (existing) next.blocks = next.blocks.filter(b => b.id !== existing.id);
       command.dates.forEach(day => next.blocks.push({ id: crypto.randomUUID(), slot_date: day, slot_start: command.start, slot_end: command.end, is_recurring: false, recur_day_of_week: null }));
     }

@@ -139,6 +139,24 @@ await save({action:'block',id:uid(100),dates:['2099-10-16'],start:'14:00',end:'1
 await book('2099-10-16','12:00');checks++;
 await reject(book('2099-10-16','14:00'),/blocked time/);
 await reject(book('2099-10-17','12:00'),/blocked time/);
+// Moving a repeat excludes its original occurrence and keeps the destination repeat.
+s=await save({action:'block',id:uid(100),source_date:'2099-10-17',dates:['2099-10-18'],start:'14:00',end:'15:00',scope:'date'});
+equal(s.blocks.find(b=>b.id===uid(100)).excluded_dates.includes('2099-10-17'),true,'Moved repeat excludes source date');
+equal(s.blocks.find(b=>b.id===uid(100)).excluded_dates.includes('2099-10-18'),false,'Destination repeat is preserved');
+await book('2099-10-17','12:00');checks++;
+await reject(book('2099-10-18','12:00'),/blocked time/);
+await reject(book('2099-10-18','14:00'),/blocked time/);
+await reject(save({action:'block',id:uid(100),source_date:'2099-10-17',dates:['2099-10-19'],start:'14:00',end:'15:00',scope:'date'}),/block has changed/);
+// A move is atomic: old time reopens, new time closes, failed moves preserve both.
+s=await save({action:'block',dates:['2099-10-20'],start:'09:00',end:'10:00'});
+let movable=s.blocks.find(b=>b.slot_date==='2099-10-20'&&!b.is_recurring);
+s=await save({action:'block',id:movable.id,source_date:'2099-10-20',dates:['2099-10-21'],start:'14:00',end:'15:00',scope:'date'});
+await book('2099-10-20','09:00');checks++;
+await reject(book('2099-10-21','14:00'),/blocked time/);
+movable=s.blocks.find(b=>b.slot_date==='2099-10-21'&&!b.is_recurring);
+await reject(save({action:'block',id:movable.id,source_date:'2099-10-21',dates:['2099-10-17'],start:'12:00',end:'13:30',scope:'date'}),/patient is already booked/);
+equal((await snapshot()).blocks,s.blocks,'Rejected drag preserves original blocks');
+await reject(save({action:'block',id:movable.id,source_date:'2099-10-22',dates:['2099-10-23'],start:'14:00',end:'15:00',scope:'date'}),/block has changed/);
 // Repeated hours preserve explicit closed dates and public holidays.
 await save({action:'hours',dates:['2099-11-02'],start:'09:00',end:'15:00',closed:true});
 await db.query("insert into clinic_public_holidays values('NSW','2099-11-03','Fixture holiday')");

@@ -63,6 +63,20 @@
 .availability-calendar .availability-booked { background:#edf2fa; color:#24364f; border-left:3px solid #1a3a6b; z-index:5; justify-content:flex-start; }
 .availability-calendar .availability-buffer { background:repeating-linear-gradient(135deg,#fff1d5,#fff1d5 5px,#f2dfb7 5px,#f2dfb7 8px); color:#795317; border-left:3px solid #795317; z-index:4; padding:4px 8px; }.availability-buffer strong { font-size:11px; }
 .availability-calendar .availability-blocked { background:#e9edf2; color:#536376; border-left:3px solid #536376; z-index:6; padding:5px 8px; }
+.availability-calendar .availability-blocked { padding:0; touch-action:none; }
+.availability-calendar .availability-block-body { position:absolute; inset:0; display:flex; flex-direction:column; align-items:flex-start; gap:2px; width:100%; height:100%; min-height:0; padding:6px 20px 6px 9px; background:transparent; border:0; color:inherit; font-size:12px; text-align:left; cursor:grab; touch-action:none; overflow:hidden; }
+.availability-block-body:active { cursor:grabbing; }
+.availability-block-body strong { flex-shrink:0; }
+.availability-block-body span { white-space:nowrap; }
+.availability-block-grip { position:absolute; right:4px; top:50%; translate:0 -50%; color:#77869a; }
+.availability-calendar .availability-resize { position:absolute; left:0; right:0; width:100%; height:10px; min-height:0; padding:0; border:0; border-radius:0; background:transparent; cursor:ns-resize; touch-action:none; z-index:1; }
+.availability-resize-start { top:0; }.availability-resize-end { bottom:0; }
+.availability-resize span { width:24px; height:2px; border-radius:2px; background:#8795a7; }
+.availability-resize:hover span,.availability-resize:focus-visible span { background:#1a3a6b; }
+.availability-drag-origin { opacity:.25; }
+.availability-calendar .availability-block-preview { justify-content:center; white-space:normal; }
+.availability-drag-feedback { position:fixed; bottom:24px; left:50%; translate:-50% 0; z-index:110; max-width:calc(100vw - 32px); width:max-content; background:#1a3a6b; color:#fff; border-radius:8px; padding:10px 16px; box-shadow:0 4px 20px #24364f30; font-size:13px; pointer-events:none; }
+.availability-calendar .availability-invalid-drop { background:#fff0ed; color:#a03631; border-color:#a03631!important; }
 .availability-calendar .availability-selection { background:#edf2fa; border:2px solid #1a3a6b!important; color:#1a3a6b; pointer-events:none; z-index:9; padding:3px 6px; font-weight:600; white-space:nowrap; }
 .availability-calendar .availability-finish { position:absolute; left:0; right:0; border:0; border-top:2px solid #758297; border-radius:0; background:#f5f7fa; color:#536376; font-size:11px; z-index:7; }
 .availability-outside,.availability-closed { position:absolute; left:0; right:0; top:12px; text-align:center; color:var(--ac-muted); font-size:11px; }.availability-closed { top:100px; }

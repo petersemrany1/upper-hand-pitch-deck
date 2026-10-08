@@ -187,3 +187,51 @@ test("confirmed settings resize events and keep named conflicts in a review popu
   expect(booked[0].style.left).not.toBe(booked[1].style.left);
   expect(booked[0].style.width).toBe(booked[1].style.width);
 });
+
+function dragGeometry() {
+  const rect = (left: number, width: number) => ({ left, right: left + width, top: 0, bottom: 960, width, height: 960, x: left, y: 0, toJSON: () => ({}) });
+  host.querySelector<HTMLElement>('.availability-week-scroll')!.getBoundingClientRect = () => rect(0, 1476);
+  host.querySelector<HTMLElement>('.availability-axis')!.getBoundingClientRect = () => rect(0, 76);
+  host.querySelectorAll<HTMLElement>('.availability-day').forEach((day, index) => { day.getBoundingClientRect = () => rect(76 + index * 200, 200); });
+  const block = host.querySelector<HTMLElement>('.availability-blocked')!;
+  block.setPointerCapture = () => {}; block.hasPointerCapture = () => false;
+  return block;
+}
+async function dragEvent(element: HTMLElement, type: string, x: number, y: number) {
+  await act(async () => { element.dispatchEvent(new window.PointerEvent(type, { bubbles: true, pointerId: 7, pointerType: "mouse", button: 0, clientX: x, clientY: y })); });
+}
+test("dragging a block saves one atomic move without opening the editor", async () => {
+  const schedule = calendarPreviewFixture(); schedule.blocks[0].slot_date = "2099-10-12"; schedule.appointments = [];
+  const commands: ScheduleCommand[] = [];
+  await render(schedule, async command => { commands.push(command); return applyScheduleCommand(schedule, command); });
+  const block = dragGeometry();
+  await dragEvent(block.querySelector<HTMLElement>('.availability-block-body')!, 'pointerdown', 176, 312);
+  await dragEvent(block, 'pointermove', 376, 456);
+  expect(host.querySelector('.availability-drag-feedback')?.textContent).toContain('12:00pm–1:30pm');
+  expect(commands).toHaveLength(0);
+  await dragEvent(block, 'pointerup', 376, 456);
+  expect(commands).toEqual([{ action: "block", id: schedule.blocks[0].id, source_date: "2099-10-12", scope: "date", dates: ["2099-10-13"], start: "12:00", end: "13:30" }]);
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+});
+test("resize failure preserves the block; Escape and pointer cancellation never save", async () => {
+  const schedule = calendarPreviewFixture(); schedule.blocks[0].slot_date = "2099-10-12"; schedule.appointments = [];
+  let attempts = 0;
+  await render(schedule, async () => { attempts++; throw new Error("Connection interrupted"); });
+  const block = dragGeometry();
+  await dragEvent(block.querySelector<HTMLElement>('[data-resize="end"]')!, 'pointerdown', 176, 379);
+  await dragEvent(block, 'pointermove', 176, 427);
+  expect(host.querySelector('.availability-drag-feedback')?.textContent).toContain('10:30am–12:30pm');
+  await dragEvent(block, 'pointerup', 176, 427);
+  expect(attempts).toBe(1);
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain('Connection interrupted');
+  expect(host.querySelector('.availability-block-body')?.textContent).toContain('10:30am–12:00pm');
+  for (const cancel of ['escape', 'pointercancel']) {
+    await dragEvent(block.querySelector<HTMLElement>('.availability-block-body')!, 'pointerdown', 176, 312);
+    await dragEvent(block, 'pointermove', 376, 312);
+    if (cancel === 'escape') await act(async () => { window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' })); });
+    else await dragEvent(block, 'pointercancel', 376, 312);
+    await dragEvent(block, 'pointerup', 376, 312);
+    expect(host.querySelector('.availability-block-preview')).toBeNull();
+    expect(attempts).toBe(1);
+  }
+});
