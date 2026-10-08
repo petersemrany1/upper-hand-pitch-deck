@@ -1,12 +1,7 @@
 import "./clinic-portal.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuietRefresh } from "@/hooks/useQuietRefresh";
-import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock, Sparkles } from "lucide-react";
-import { ClinicFlowSetup } from "@/components/ClinicFlowSetup";
-import { ClinicFlowToday } from "@/components/ClinicFlowToday";
-import { ClinicFlowQuotesList } from "@/components/ClinicFlowQuotesList";
-import { ClinicFlowFollowups } from "@/components/ClinicFlowFollowups";
-import { ClinicFlowTraining } from "@/components/ClinicFlowTraining";
+import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock } from "lucide-react";
 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +20,10 @@ import { disqualifyAppointment, resolveAppointmentDeposit, processConsultOutcome
 import { requestChase } from "@/utils/chase.functions";
 import { ClinicTrialSettings } from "@/components/ClinicTrialSettings";
 import { useAuth } from "@/hooks/useAuth";
+import { addPreviewAppointment, loadApprovalSchedule, reschedulePreviewAppointment } from "@/lib/clinic-schedule-api";
+import { ClinicAvailabilityPanel } from "./ClinicAvailabilityPanel";
+import { CALENDAR_APPROVAL_ONLY, isCalendarApprovalHost } from "@/lib/calendar-release";
+import { ConnectedScheduleSlotPicker } from "./ConnectedScheduleSlotPicker";
 
 export type ChaseStatus = "requested" | "rebooked" | "not_proceeding" | "no_answer" | "voicemail";
 
@@ -37,6 +36,7 @@ export type ClinicAppointment = {
   patient_email: string | null;
   appointment_date: string; // YYYY-MM-DD
   appointment_time: string;
+  consultation_duration_minutes?: number;
   intel_notes: string | null;
   outcome: "show" | "noshow" | "proceeded" | "disqualified" | null;
   consult_summary: string | null;
@@ -248,7 +248,7 @@ export function ClinicPortalView(props: ClinicPortalProps) {
 function ClinicPortalContent({ clinicId, clinicName, isAdmin = false }: ClinicPortalProps) {
   const { role, userType } = useAuth();
   const showBilling = role === "admin" || userType === "clinic";
-  const [tab, setTab] = useState<"appointments" | "availability" | "clinicflow">("appointments");
+  const [tab, setTab] = useState<"appointments" | "availability">("appointments");
   const [refresh, setRefresh] = useState(0);
   const [selected, setSelected] = useState<ClinicAppointment | null>(null);
   const fetchPortal = useCallback(async () => {
@@ -317,7 +317,6 @@ function ClinicPortalContent({ clinicId, clinicName, isAdmin = false }: ClinicPo
         <div className="clinic-portal-tabs" style={{ display: "flex", gap: 0, padding: "0 24px" }}>
           <TabBtn active={tab === "appointments"} onClick={() => setTab("appointments")} icon={<ClipboardList size={16} />}>Appointments</TabBtn>
           <TabBtn active={tab === "availability"} onClick={() => setTab("availability")} icon={<CalendarDays size={16} />}>Availability</TabBtn>
-          <TabBtn active={tab === "clinicflow"} onClick={() => setTab("clinicflow")} icon={<Sparkles size={16} />}>ClinicFlow</TabBtn>
         </div>
       </div>
 
@@ -343,8 +342,8 @@ function ClinicPortalContent({ clinicId, clinicName, isAdmin = false }: ClinicPo
           onChange={reload}
           onSelect={setSelected}
         />
-      ) : tab === "availability" ? (
-        <AvailabilityTab
+      ) : (
+        !CALENDAR_APPROVAL_ONLY || isCalendarApprovalHost() ? <ClinicAvailabilityPanel clinicId={clinicId} appointments={appts} /> : <AvailabilityTab
           tradingHours={tradingHours}
           blockedSlots={blockedSlots}
           overrides={overrides}
@@ -354,9 +353,6 @@ function ClinicPortalContent({ clinicId, clinicName, isAdmin = false }: ClinicPo
           minGapMins={minGapMins}
           onChange={reload}
         />
-
-      ) : (
-        <ClinicFlowPane clinicId={clinicId} isAdmin={isAdmin} />
       )}
 
 
@@ -806,6 +802,7 @@ type ApptNote = {
 function NotesTrail({ appointmentId, clinicId, isAdmin }: {
   appointmentId: string; clinicId: string; isAdmin: boolean;
 }) {
+  const { userType } = useAuth();
   const [notes, setNotes] = useState<ApptNote[]>([]);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
@@ -828,7 +825,8 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
     if (!body) return;
     setSaving(true);
     const { data: userRes } = await supabase.auth.getUser();
-    const authorType: "admin" | "clinic" = isAdmin ? "admin" : "clinic";
+    // Viewing the partner UI must not attribute an administrator's note to the clinic.
+    const authorType: "admin" | "clinic" = isAdmin || userType === "admin" ? "admin" : "clinic";
     const authorName = userRes?.user?.user_metadata?.full_name
       ?? userRes?.user?.email
       ?? null;
@@ -1323,6 +1321,11 @@ function RescheduleModal({ appt: liveAppt, onClose, onSaved }: {
       toast.error("That's the same date and time");
       return;
     }
+    if (isCalendarApprovalHost()) {
+      try { await loadApprovalSchedule(appt.clinic_id); await reschedulePreviewAppointment(appt.clinic_id, appt.id, date, time); toast.success("Preview appointment moved. No real booking was changed."); onSaved(); }
+      catch (error) { toast.error((error as Error).message); }
+      return;
+    }
     setSaving(true);
     const newLabel = `${new Date(date).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })} ${fmtTime(time)}`;
     const stamp = new Date().toLocaleString("en-AU", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
@@ -1347,6 +1350,7 @@ function RescheduleModal({ appt: liveAppt, onClose, onSaved }: {
       <div style={{ fontSize: 12, color: "#6b7785", marginBottom: 14 }}>{appt.patient_name} · currently {oldLabel}</div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {!CALENDAR_APPROVAL_ONLY || isCalendarApprovalHost() ? <ConnectedScheduleSlotPicker clinicId={appt.clinic_id} date={date} time={time} onDate={setDate} onTime={setTime} excludeAppointmentId={appt.id} consultationMinutes={appt.consultation_duration_minutes ?? (isCalendarApprovalHost() && appt.clinic_id === "9ac8fa05-c4b0-4faa-b519-f6a347956fb1" ? 90 : 30)} enforceBookingWindow={false} /> : <>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: NAVY, textTransform: "uppercase", letterSpacing: 0.5 }}>New date</span>
           <input
@@ -1367,6 +1371,7 @@ function RescheduleModal({ appt: liveAppt, onClose, onSaved }: {
             style={{ padding: "8px 10px", fontSize: 14, border: "1px solid #d4dae3", borderRadius: 6 }}
           />
         </label>
+        </>}
       </div>
 
       <div style={{ fontSize: 11, color: "#6b7785", marginTop: 12, lineHeight: 1.5 }}>
@@ -2323,6 +2328,11 @@ function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string;
       toast.error("Please enter a valid appointment date");
       return;
     }
+    if (isCalendarApprovalHost()) {
+      try { await loadApprovalSchedule(clinicId); await addPreviewAppointment(clinicId, date, time); toast.success("Preview appointment added. No real patient was booked or contacted."); onSaved(); }
+      catch (error) { toast.error((error as Error).message); }
+      return;
+    }
     setSaving(true);
     const { error } = await supabase.from("clinic_appointments").insert({
       clinic_id: clinicId,
@@ -2347,11 +2357,11 @@ function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string;
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Patient name" style={inp} />
       <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" style={inp} />
       <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" style={inp} />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      {!CALENDAR_APPROVAL_ONLY || isCalendarApprovalHost() ? <ConnectedScheduleSlotPicker clinicId={clinicId} date={date} time={time} onDate={setDate} onTime={setTime} /> : <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <input type="date" value={date} min="2024-01-01" max="2100-01-01" onChange={(e) => setDate(e.target.value)} style={inp} />
         <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={inp} />
 
-      </div>
+      </div>}
       <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Intel notes (visible to clinic)" rows={3} style={{ ...inp, resize: "vertical" }} />
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <button onClick={onClose} style={{ ...navBtn, fontSize: 13 }}>Cancel</button>
@@ -2442,53 +2452,5 @@ function OpenDayModal({
         </button>
       </div>
     </ModalShell>
-  );
-}
-
-function ClinicFlowPane({ clinicId, isAdmin }: { clinicId: string; isAdmin: boolean }) {
-  const [sub, setSub] = useState<"today" | "quotes" | "followups" | "training" | "setup">("today");
-  if (!isAdmin) {
-    return (
-      <div style={{ padding: 60, textAlign: "center", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 10 }}>ClinicFlow is coming soon</div>
-        <div style={{ fontSize: 13, color: "#6b7785", maxWidth: 420, margin: "0 auto", lineHeight: 1.55 }}>
-          The clinic consult tools are being finalised. You'll be able to take patient check-ins, build quotes, and collect deposits right here.
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div>
-      <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec" }}>
-        <div style={{ display: "flex", gap: 0, padding: "0 24px", flexWrap: "wrap" }}>
-          <SubTabBtn active={sub === "today"} onClick={() => setSub("today")}>Today</SubTabBtn>
-          <SubTabBtn active={sub === "quotes"} onClick={() => setSub("quotes")}>Quotes</SubTabBtn>
-          <SubTabBtn active={sub === "followups"} onClick={() => setSub("followups")}>Follow-ups</SubTabBtn>
-          <SubTabBtn active={sub === "training"} onClick={() => setSub("training")}>Training</SubTabBtn>
-          <SubTabBtn active={sub === "setup"} onClick={() => setSub("setup")}>Setup</SubTabBtn>
-        </div>
-      </div>
-      {sub === "today" ? <ClinicFlowToday clinicId={clinicId} />
-        : sub === "quotes" ? <ClinicFlowQuotesList clinicId={clinicId} />
-        : sub === "followups" ? <ClinicFlowFollowups clinicId={clinicId} />
-        : sub === "training" ? <ClinicFlowTraining clinicId={clinicId} />
-        : <ClinicFlowSetup clinicId={clinicId} />}
-    </div>
-  );
-}
-
-function SubTabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: "12px 18px", background: "transparent", border: "none",
-        borderBottom: `2px solid ${active ? "#1a3a6b" : "transparent"}`,
-        color: active ? "#1a3a6b" : "#6b7785",
-        fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-      }}
-    >
-      {children}
-    </button>
   );
 }

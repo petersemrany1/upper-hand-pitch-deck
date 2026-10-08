@@ -17,6 +17,7 @@ import { Mic, CalendarCheck, Play, Pause, ArrowUp } from "lucide-react";
 import { TrainingProgressSection } from "@/components/settings/TrainingProgressSection";
 import { TeamSection } from "@/components/settings/TeamSection";
 import { PhoneNumbersSection } from "@/components/settings/PhoneNumbersSection";
+import { PartnerViewSection } from "@/components/settings/PartnerViewSection";
 
 
 
@@ -100,6 +101,7 @@ function SettingsPage() {
         </div>
 
         <div className="space-y-8">
+          {isAdmin && <PartnerViewSection />}
           {isAdmin && <TeamSection />}
           {isAdmin && <TrainingProgressSection />}
           {isAdmin && <PhoneNumbersSection />}

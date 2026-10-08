@@ -13,6 +13,8 @@ import { APP_TIMEZONE } from "@/lib/timezone";
 import { norwoodNeedsExpectations } from "@/lib/norwood";
 import { abandonedLeadIds } from "@/components/sales-call/abandoned";
 import { dateInBookingWindow, trialBookingWindow } from "@/lib/clinic-booking-window";
+import { CALENDAR_APPROVAL_ONLY } from "@/lib/calendar-release";
+import { futureScheduleSlots, type ClinicSchedule } from "@/lib/clinic-schedule";
 
 // Gate helper: ensures the calling user is an admin in sales_reps.
 // Uses email matching (case-insensitive).
@@ -332,7 +334,16 @@ export const saveBooking = createServerFn({ method: "POST" })
     if (doctorErr || !doctor) {
       return { success: false as const, error: "The selected consultation team member is not available at this clinic. Please select the clinic and team member again." };
     }
-    // Step 1: write booking fields on meta_leads (NOT status).
+    if (!CALENDAR_APPROVAL_ONLY) {
+      const { data: schedule, error: scheduleError } = await (supabaseAdmin as any).rpc("get_clinic_schedule", { p_clinic: data.clinicId });
+      const { data: existingAppointment, error: existingError } = await supabaseAdmin.from("clinic_appointments").select("id").eq("lead_id", data.leadId).maybeSingle();
+      if (scheduleError || existingError || !schedule) return { success: false as const, error: "Could not check clinic availability. Please try again." };
+      const current = schedule as ClinicSchedule;
+      const existingDuration = current.appointments.find(a => a.id === existingAppointment?.id)?.consultation_duration_minutes;
+      current.appointments = current.appointments.filter(a => a.id !== existingAppointment?.id);
+      if (!futureScheduleSlots(current, data.date, new Date(), existingDuration ?? undefined).some(slot => slot.time === data.time.slice(0, 5))) return { success: false as const, error: "That appointment no longer fits the clinic calendar. Choose another time." };
+    }
+    // Prepare the lead update; reserve the appointment before changing its schedule.
     // Also reassign rep_id to the rep actually booking — credits the booking
     // to whoever closed it, not whoever first touched the lead.
     const updatePayload: {
@@ -353,9 +364,6 @@ export const saveBooking = createServerFn({ method: "POST" })
       updatePayload.expectations_set_by = data.repId ?? null;
       updatePayload.expectations_set_at = new Date().toISOString();
     }
-    const { error } = await supabaseAdmin.from("meta_leads").update(updatePayload).eq("id", data.leadId);
-    if (error) return { success: false as const, error: error.message };
-
     // Step 2: mirror into clinic_appointments so the slot is reserved and the
     // enforce_booking_before_status_lock trigger will accept our status change.
     // Intel notes are NOT written here — they are snapshotted only when the
@@ -419,23 +427,16 @@ export const saveBooking = createServerFn({ method: "POST" })
         // Plain insert: the lead uniqueness index is PARTIAL
         // (WHERE lead_id IS NOT NULL), which ON CONFLICT cannot target — an
         // upsert here fails with "no unique or exclusion constraint matching
-        // the ON CONFLICT specification". On a race, fall back to an update.
+        // the ON CONFLICT specification". A competing booking must be reviewed.
         const { error: apptErr } = await supabaseAdmin
           .from("clinic_appointments")
-          .insert({ ...payload, intel_notes: null, booked_at: nowIso });
+          .insert({ ...payload, ...(data.repId ? { booking_rep_id: data.repId } : {}), intel_notes: null, booked_at: nowIso });
         if (apptErr) {
           const isDuplicate =
             (apptErr as { code?: string }).code === "23505" ||
             /duplicate key/i.test(apptErr.message);
           if (isDuplicate) {
-            const { error: raceErr } = await supabaseAdmin
-              .from("clinic_appointments")
-              .update({ ...payload, booked_at: nowIso })
-              .eq("lead_id", data.leadId);
-            if (raceErr) {
-              await logError("saveBooking.appointmentInsert", raceErr.message, { leadId: data.leadId });
-              return { success: false as const, error: `Could not create clinic appointment: ${raceErr.message}` };
-            }
+            return { success: false as const, error: "This patient was just booked by another request. Refresh to review the saved appointment." };
           } else {
             await logError("saveBooking.appointmentInsert", apptErr.message, { leadId: data.leadId });
             return { success: false as const, error: `Could not create clinic appointment: ${apptErr.message}` };
@@ -457,6 +458,10 @@ export const saveBooking = createServerFn({ method: "POST" })
       }
       savedAppointmentId = verifyAppt[0].id;
     }
+
+    // A rejected/racing slot must not leave an unreserved date on the lead.
+    const { error } = await supabaseAdmin.from("meta_leads").update(updatePayload).eq("id", data.leadId);
+    if (error) return { success: false as const, error: error.message };
 
     // Step 3: promote status IF this call came from the Book button and a
     // clinic is set (no clinic = no appointment = trigger would block us).

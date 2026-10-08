@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
+import { Route as CalendarPreviewRouteImport } from './routes/calendar-preview'
 import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PayDepositRouteImport } from './routes/pay-deposit'
@@ -44,9 +45,7 @@ import { Route as DashboardSentLinksRouteImport } from './routes/_dashboard.sent
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
 import { Route as DashboardTrainingRouteImport } from './routes/_dashboard.training'
 import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
-import { Route as ClinicQuoteQuoteIdRouteImport } from './routes/clinic-quote.$quoteId'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
-import { Route as KioskAppointmentIdRouteImport } from './routes/kiosk.$appointmentId'
 import { Route as DashboardTrainingIndexRouteImport } from './routes/_dashboard.training.index'
 import { Route as DashboardTrainingAiRouteImport } from './routes/_dashboard.training.ai'
 import { Route as DashboardTrainingAudienceRouteImport } from './routes/_dashboard.training.audience'
@@ -79,6 +78,11 @@ import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lova
 
 const DashboardRoute = DashboardRouteImport.update({
   id: '/_dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarPreviewRoute = CalendarPreviewRouteImport.update({
+  id: '/calendar-preview',
+  path: '/calendar-preview',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClinicPortalRoute = ClinicPortalRouteImport.update({
@@ -265,19 +269,9 @@ const ApiCoachStreamRoute = ApiCoachStreamRouteImport.update({
   path: '/api/coach-stream',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ClinicQuoteQuoteIdRoute = ClinicQuoteQuoteIdRouteImport.update({
-  id: '/clinic-quote/$quoteId',
-  path: '/clinic-quote/$quoteId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
   id: '/email/unsubscribe',
   path: '/email/unsubscribe',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const KioskAppointmentIdRoute = KioskAppointmentIdRouteImport.update({
-  id: '/kiosk/$appointmentId',
-  path: '/kiosk/$appointmentId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardTrainingIndexRoute = DashboardTrainingIndexRouteImport.update({
@@ -452,6 +446,7 @@ const LovableEmailTransactionalSendRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
+  '/calendar-preview': typeof CalendarPreviewRoute
   '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
   '/pay-deposit': typeof PayDepositRoute
@@ -485,9 +480,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof DashboardSettingsRoute
   '/training': typeof DashboardTrainingRouteWithChildren
   '/api/coach-stream': typeof ApiCoachStreamRoute
-  '/clinic-quote/$quoteId': typeof ClinicQuoteQuoteIdRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
-  '/kiosk/$appointmentId': typeof KioskAppointmentIdRoute
   '/training/ai': typeof DashboardTrainingAiRoute
   '/training/audience': typeof DashboardTrainingAudienceRoute
   '/training/call-coaching': typeof DashboardTrainingCallCoachingRoute
@@ -519,6 +512,7 @@ export interface FileRoutesByFullPath {
   '/training/sales-framework/': typeof DashboardTrainingSalesFrameworkIndexRoute
 }
 export interface FileRoutesByTo {
+  '/calendar-preview': typeof CalendarPreviewRoute
   '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
   '/pay-deposit': typeof PayDepositRoute
@@ -551,9 +545,7 @@ export interface FileRoutesByTo {
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
   '/api/coach-stream': typeof ApiCoachStreamRoute
-  '/clinic-quote/$quoteId': typeof ClinicQuoteQuoteIdRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
-  '/kiosk/$appointmentId': typeof KioskAppointmentIdRoute
   '/': typeof DashboardIndexRoute
   '/training/ai': typeof DashboardTrainingAiRoute
   '/training/audience': typeof DashboardTrainingAudienceRoute
@@ -588,6 +580,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_dashboard': typeof DashboardRouteWithChildren
+  '/calendar-preview': typeof CalendarPreviewRoute
   '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
   '/pay-deposit': typeof PayDepositRoute
@@ -621,9 +614,7 @@ export interface FileRoutesById {
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/_dashboard/training': typeof DashboardTrainingRouteWithChildren
   '/api/coach-stream': typeof ApiCoachStreamRoute
-  '/clinic-quote/$quoteId': typeof ClinicQuoteQuoteIdRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
-  '/kiosk/$appointmentId': typeof KioskAppointmentIdRoute
   '/_dashboard/': typeof DashboardIndexRoute
   '/_dashboard/training/ai': typeof DashboardTrainingAiRoute
   '/_dashboard/training/audience': typeof DashboardTrainingAudienceRoute
@@ -659,6 +650,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/calendar-preview'
     | '/clinic-portal'
     | '/login'
     | '/pay-deposit'
@@ -692,9 +684,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/training'
     | '/api/coach-stream'
-    | '/clinic-quote/$quoteId'
     | '/email/unsubscribe'
-    | '/kiosk/$appointmentId'
     | '/training/ai'
     | '/training/audience'
     | '/training/call-coaching'
@@ -726,6 +716,7 @@ export interface FileRouteTypes {
     | '/training/sales-framework/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/calendar-preview'
     | '/clinic-portal'
     | '/login'
     | '/pay-deposit'
@@ -758,9 +749,7 @@ export interface FileRouteTypes {
     | '/sent-links'
     | '/settings'
     | '/api/coach-stream'
-    | '/clinic-quote/$quoteId'
     | '/email/unsubscribe'
-    | '/kiosk/$appointmentId'
     | '/'
     | '/training/ai'
     | '/training/audience'
@@ -794,6 +783,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_dashboard'
+    | '/calendar-preview'
     | '/clinic-portal'
     | '/login'
     | '/pay-deposit'
@@ -827,9 +817,7 @@ export interface FileRouteTypes {
     | '/_dashboard/settings'
     | '/_dashboard/training'
     | '/api/coach-stream'
-    | '/clinic-quote/$quoteId'
     | '/email/unsubscribe'
-    | '/kiosk/$appointmentId'
     | '/_dashboard/'
     | '/_dashboard/training/ai'
     | '/_dashboard/training/audience'
@@ -864,6 +852,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
+  CalendarPreviewRoute: typeof CalendarPreviewRoute
   ClinicPortalRoute: typeof ClinicPortalRoute
   LoginRoute: typeof LoginRoute
   PayDepositRoute: typeof PayDepositRoute
@@ -872,9 +861,7 @@ export interface RootRouteChildren {
   ThankYouRoute: typeof ThankYouRoute
   DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute: typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   ApiCoachStreamRoute: typeof ApiCoachStreamRoute
-  ClinicQuoteQuoteIdRoute: typeof ClinicQuoteQuoteIdRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
-  KioskAppointmentIdRoute: typeof KioskAppointmentIdRoute
   ApiPublicClinicLeadsRoute: typeof ApiPublicClinicLeadsRoute
   ApiPublicMetaAdSpendRoute: typeof ApiPublicMetaAdSpendRoute
   ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
@@ -901,6 +888,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendar-preview': {
+      id: '/calendar-preview'
+      path: '/calendar-preview'
+      fullPath: '/calendar-preview'
+      preLoaderRoute: typeof CalendarPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/clinic-portal': {
@@ -1141,25 +1135,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCoachStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/clinic-quote/$quoteId': {
-      id: '/clinic-quote/$quoteId'
-      path: '/clinic-quote/$quoteId'
-      fullPath: '/clinic-quote/$quoteId'
-      preLoaderRoute: typeof ClinicQuoteQuoteIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/email/unsubscribe': {
       id: '/email/unsubscribe'
       path: '/email/unsubscribe'
       fullPath: '/email/unsubscribe'
       preLoaderRoute: typeof EmailUnsubscribeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/kiosk/$appointmentId': {
-      id: '/kiosk/$appointmentId'
-      path: '/kiosk/$appointmentId'
-      fullPath: '/kiosk/$appointmentId'
-      preLoaderRoute: typeof KioskAppointmentIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_dashboard/training/': {
@@ -1469,6 +1449,7 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
+  CalendarPreviewRoute: CalendarPreviewRoute,
   ClinicPortalRoute: ClinicPortalRoute,
   LoginRoute: LoginRoute,
   PayDepositRoute: PayDepositRoute,
@@ -1478,9 +1459,7 @@ const rootRouteChildren: RootRouteChildren = {
   DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute:
     DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute,
   ApiCoachStreamRoute: ApiCoachStreamRoute,
-  ClinicQuoteQuoteIdRoute: ClinicQuoteQuoteIdRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
-  KioskAppointmentIdRoute: KioskAppointmentIdRoute,
   ApiPublicClinicLeadsRoute: ApiPublicClinicLeadsRoute,
   ApiPublicMetaAdSpendRoute: ApiPublicMetaAdSpendRoute,
   ApiPublicMetaLeadsRoute: ApiPublicMetaLeadsRoute,

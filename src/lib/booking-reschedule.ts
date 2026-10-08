@@ -2,8 +2,8 @@ import { APP_TIMEZONE } from "./timezone";
 import { generateSlots, type TradingHours, type BlockedSlot, type ExistingAppt, type AvailabilityOverride } from "./slot-generation";
 import { clinicSmsAddress, rescheduleConfirmationSms } from "../../supabase/functions/_shared/patient-sms";
 export type RescheduleSnapshot = {
-  appointment: {id:string;clinic_id:string;lead_id:string|null;booking_rep_id:string|null;patient_name:string;patient_phone:string|null;doctor_name:string|null;appointment_date:string;appointment_time:string;updated_at:string;outcome:string|null;disqualified_at:string|null};
-  clinic: {clinic_name:string;address:string|null;city:string|null;state:string|null;phone:string|null;min_appointment_gap_mins:number|null};
+  appointment: {id:string;clinic_id:string;lead_id:string|null;booking_rep_id:string|null;patient_name:string;patient_phone:string|null;doctor_name:string|null;appointment_date:string;appointment_time:string;updated_at:string;outcome:string|null;disqualified_at:string|null;consultation_duration_minutes?:number};
+  clinic: {clinic_name:string;address:string|null;city:string|null;state:string|null;phone:string|null;min_appointment_gap_mins:number|null;consultation_duration_minutes?:number;buffer_minutes?:number};
   trading: TradingHours[];blocks:BlockedSlot[];busy:ExistingAppt[];overrides:AvailabilityOverride[];
   reminder:{id:string;status:string}|null;
 };
@@ -17,7 +17,7 @@ export function availableRescheduleSlots(s:RescheduleSnapshot,date:string,now=ne
   if(day.getFullYear()!==y || day.getMonth()!==m-1 || day.getDate()!==d) return [];
   const local=clinicNow(s.clinic.state,now);
   if(date<local.date) return [];
-  return generateSlots(day,s.trading,s.blocks,s.busy,s.overrides,s.clinic.state,s.clinic.min_appointment_gap_mins??0)
+  return generateSlots(day,s.trading,s.blocks,s.busy,s.overrides,s.clinic.state,s.clinic.buffer_minutes??s.clinic.min_appointment_gap_mins??0,s.appointment.consultation_duration_minutes??30)
     .filter(slot=>slot.available && (date>local.date || slot.time>local.time));
 }
 export function validateReschedule(s:RescheduleSnapshot,date:string,time:string,now=new Date()) {
