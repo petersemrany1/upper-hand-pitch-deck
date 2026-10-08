@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { addDays, applyScheduleCommand, asDate, blockedStartBands, configurationOf, patientBufferBands, datesForEdit, futureScheduleSlots, scheduleSlots, schedulingWarnings, type ClinicSchedule } from "./clinic-schedule";
-import { recurrenceMatches } from "./slot-generation";
+import { hhmmToMin, recurrenceMatches } from "./slot-generation";
 
 const day = "2099-10-12";
 function fixture(): ClinicSchedule {
@@ -122,9 +122,40 @@ test("copy/repeat dates are bounded and include only requested weekdays", () => 
 });
 test("pre-block shading is display-only and undo restores exact configuration", () => {
   const s = fixture(), next = block(s);
-  expect(blockedStartBands(next, day)).toEqual([[540, 630]]); expect(next.blocks).toHaveLength(1);
+  expect(blockedStartBands(next, day)).toEqual([[555, 630]]); expect(next.blocks).toHaveLength(1);
   const restored = applyScheduleCommand(next, { action: "restore", configuration: configurationOf(s) });
   expect(times(restored)).toEqual(times(s)); expect(s.blocks).toHaveLength(0);
+});
+test("pre-block shading starts at the first sales start that cannot fit, including custom intervals and hours", () => {
+  for (const [duration, step, open, blockedAt, lastValid, firstInvalid] of [
+    [60, 15, "09:00", "10:30", "09:30", "09:45"],
+    [120, 15, "09:00", "12:00", "10:00", "10:15"],
+    [60, 30, "09:00", "10:30", "09:30", "10:00"],
+    [120, 30, "09:00", "12:00", "10:00", "10:30"],
+    [65, 15, "09:00", "10:30", "09:15", "09:30"],
+    [60, 15, "09:10", "10:30", "09:25", "09:40"],
+  ] as const) {
+    const s = fixture(); s.consultation_minutes = duration; s.buffer_minutes = 0;
+    s.trading = s.trading.map(h => ({ ...h, open_time: open, consult_duration_mins: step }));
+    const next = block(s, blockedAt, "13:00");
+    const bands = blockedStartBands(next, day);
+    expect(bands).toEqual([[hhmmToMin(firstInvalid), hhmmToMin(blockedAt)]]);
+    expect(times(next)).toContain(lastValid);
+    expect(times(next)).not.toContain(firstInvalid);
+    for (const slot of scheduleSlots(next, day).filter(slot => slot.time < blockedAt)) {
+      const minute = hhmmToMin(slot.time);
+      expect(bands.some(([start, end]) => minute >= start && minute < end)).toBe(!slot.available);
+    }
+  }
+});
+test("pre-block shading is clipped to working and unoccupied time", () => {
+  const s = fixture(); s.consultation_minutes = 60; s.buffer_minutes = 0;
+  expect(blockedStartBands(block(s, "09:30", "10:00"), day)).toEqual([[540, 570]]);
+  const next = block(s);
+  next.appointments = [{ id: "patient", appointment_date: day, appointment_time: "09:30", consultation_duration_minutes: 60 }];
+  expect(blockedStartBands(next, day)).toEqual([]);
+  next.appointments = []; next.trading = next.trading.map(h => ({ ...h, is_closed: true }));
+  expect(blockedStartBands(next, day)).toEqual([]);
 });
 test("invalid or incomplete busy data fails closed", () => {
   for (const patch of [{ consultation_minutes: 0 }, { buffer_minutes: -1 }, { appointments: [{ id: "a", appointment_date: day, appointment_time: "bad" }] }, { blocks: [{ id: "b", slot_date: day, slot_start: "bad", slot_end: "12:00", is_recurring: false, recur_day_of_week: null }] }]) expect(times({ ...fixture(), ...patch })).toEqual([]);

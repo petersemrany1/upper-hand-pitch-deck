@@ -72,6 +72,24 @@ test("closing shading explains the last start and updates with consultation leng
   await render({ ...schedule, consultation_minutes: 90 }, async () => schedule);
   expect(host.querySelector(".availability-closing-buffer")?.textContent).toBe("Last appointment: 2:30pm");
 });
+test("shading leaves the last valid start clear before blocked time and closing", async () => {
+  const schedule = calendarPreviewFixture();
+  const date = schedule.blocks[0].slot_date!;
+  schedule.consultation_minutes = 60; schedule.buffer_minutes = 0;
+  schedule.appointments = []; schedule.overrides = [];
+  schedule.blocks = [{ ...schedule.blocks[0], slot_start: "10:30", slot_end: "12:00" }];
+  schedule.trading = schedule.trading.map(h => ({ ...h, is_closed: false, open_time: "09:00", close_time: "16:00", consult_duration_mins: 15 }));
+  await render(schedule, async () => schedule);
+  const day = host.querySelector<HTMLElement>(`[data-date="${date}"]`)!;
+  const beforeBlock = day.querySelector<HTMLElement>('.availability-before-block:not(.availability-closing-buffer)')!;
+  const closing = day.querySelector<HTMLElement>('.availability-closing-buffer')!;
+  const lastBeforeBlock = day.querySelector<HTMLElement>('.availability-empty[data-minute="570"]')!;
+  const lastBeforeClose = day.querySelector<HTMLElement>('.availability-empty[data-minute="900"]')!;
+  expect(beforeBlock.textContent).toBe("Would overlap blocked time");
+  expect(parseFloat(beforeBlock.style.top)).toBe(parseFloat(lastBeforeBlock.style.top) + parseFloat(lastBeforeBlock.style.height) / 2);
+  expect(parseFloat(closing.style.top)).toBe(parseFloat(lastBeforeClose.style.top) + parseFloat(lastBeforeClose.style.height) / 2);
+  expect(closing.textContent).toBe("Last appointment: 3pm");
+});
 test("closing-time shading ends before a late patient card instead of covering its label", async () => {
   const schedule = calendarPreviewFixture();
   schedule.consultation_minutes = 60; schedule.buffer_minutes = 0;
@@ -81,7 +99,7 @@ test("closing-time shading ends before a late patient card instead of covering i
   await render(schedule, async () => schedule);
   const shading = host.querySelector<HTMLElement>('.availability-closing-buffer')!;
   const patient = host.querySelector<HTMLElement>('.availability-booked')!;
-  expect(shading.textContent).toBe("Last appointment: 3pm");
+  expect(shading.getAttribute("aria-label")).toBe("Last appointment: 3pm");
   expect(parseFloat(shading.style.top) + parseFloat(shading.style.height)).toBeLessThanOrEqual(parseFloat(patient.style.top));
 });
 test("a failed save keeps the editor and draft visible instead of showing success", async () => {

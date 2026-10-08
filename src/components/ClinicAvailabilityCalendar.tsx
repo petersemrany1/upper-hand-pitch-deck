@@ -274,7 +274,8 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
         {dates.map(date => {
           const hours = effectiveHoursFor(asDate(date), schedule.trading, schedule.overrides, schedule.state);
           const working = hours && !hours.is_closed;
-          const lastStart = working ? hhmmToMin(hours.open_time) + Math.floor((hhmmToMin(hours.close_time) - hhmmToMin(hours.open_time) - schedule.consultation_minutes) / (hours.consult_duration_mins || 15)) * (hours.consult_duration_mins || 15) : null;
+          const startInterval = hours?.consult_duration_mins ?? 15;
+          const lastStart = working ? hhmmToMin(hours.open_time) + Math.floor((hhmmToMin(hours.close_time) - hhmmToMin(hours.open_time) - schedule.consultation_minutes) / startInterval) * startInterval : null;
           const booked = schedule.appointments.filter(a => a.appointment_date === date).sort((a, b) => hhmmToMin(a.appointment_time) - hhmmToMin(b.appointment_time));
           const layout = dayLayouts.find(day => day.date === date)!.layout;
           const laneStyle = (id: string): CSSProperties => { const item = layout.get(id)!; return { left: `calc(${item.lane * 100 / item.lanes}% + 5px)`, right: "auto", width: `calc(${100 / item.lanes}% - 10px)` }; };
@@ -287,8 +288,8 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
                 const minute = start + i * 30, until = Math.min(minute + 30, end);
                 return <button key={minute} className="availability-event availability-empty" style={position(minute, until)} data-minute={minute} data-until={until} aria-label={`Block time on ${formatDay(date)} at ${timeLabel(minute)}`} disabled={date < today || busy} onClick={() => { if (!suppressClick.current) open("block", date, minToHHMM(minute), minToHHMM(until)); }}><span>{calendarRangeLabel(minute, until)}</span></button>;
               }))}
-              {blockedStartBands(schedule, date).map(([start, end]) => <div className="availability-event availability-before-block" key={start} style={position(start, end)} aria-label="Buffer before blocked time">{(end - start) * scale >= 30 && <strong>Buffer before blocked time</strong>}</div>)}
-              {lastStart !== null && freeIntervals(schedule, date).map(([start, end]) => [Math.max(start, lastStart), Math.min(end, hhmmToMin(hours.close_time))]).filter(([start, end]) => end > start).map(([start, end]) => <div key={`closing:${start}`} className="availability-event availability-before-block availability-closing-buffer" style={position(start, end)} aria-label={`Last appointment: ${timeLabel(lastStart)}`}>{(end - start) * scale >= 30 && <strong>{lastStart < hhmmToMin(hours.open_time) ? "No appointment fits" : `Last appointment: ${timeLabel(lastStart)}`}</strong>}</div>)}
+              {blockedStartBands(schedule, date).map(([start, end]) => <div className="availability-event availability-before-block" key={start} style={position(start, end)} aria-label="Would overlap blocked time">{(end - start) * scale >= 30 && <strong>Would overlap blocked time</strong>}</div>)}
+              {lastStart !== null && freeIntervals(schedule, date).map(([start, end]) => [Math.max(start, lastStart + startInterval), Math.min(end, hhmmToMin(hours.close_time))]).filter(([start, end]) => end > start).map(([start, end]) => <div key={`closing:${start}`} className="availability-event availability-before-block availability-closing-buffer" style={position(start, end)} aria-label={lastStart < hhmmToMin(hours.open_time) ? "No appointment fits" : `Last appointment: ${timeLabel(lastStart)}`}>{(end - start) * scale >= 30 && <strong>{lastStart < hhmmToMin(hours.open_time) ? "No appointment fits" : `Last appointment: ${timeLabel(lastStart)}`}</strong>}</div>)}
               {hhmmToMin(hours.close_time) < lastMinute && <button className="availability-finish" style={{ top: (hhmmToMin(hours.close_time) - firstMinute) * scale }} onClick={() => hoursEditor(date)} disabled={date < today || busy}>Finish work · {timeLabel(hhmmToMin(hours.close_time))}</button>}
             </>}
             {booked.map(a => {

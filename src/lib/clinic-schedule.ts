@@ -78,11 +78,18 @@ export function freeIntervals(s: ClinicSchedule, day: string): [number, number][
   return result.filter(([a, b]) => b > a && a < until);
 }
 
-/** Display-only shading. It never creates extra blocked rows. */
+/** Shade invalid appointment starts, leaving the last start that fits clear.
+ * This follows the sales start interval; it never creates extra blocked rows. */
 export function blockedStartBands(s: ClinicSchedule, day: string): [number, number][] {
+  const hours = effectiveHoursFor(asDate(day), s.trading, s.overrides, s.state);
+  if (!hours || hours.is_closed) return [];
+  const open = hhmmToMin(hours.open_time), step = hours.consult_duration_mins ?? 15;
+  const free = freeIntervals(s, day);
   const bands = blocksForDate(asDate(day), s.blocks).flatMap(b => {
-    const until = hhmmToMin(b.slot_start), from = until - s.consultation_minutes;
-    return freeIntervals(s, day).map(([a, z]) => [Math.max(a, from), Math.min(z, until)] as [number, number]).filter(([a, z]) => z > a);
+    const until = hhmmToMin(b.slot_start);
+    const lastFittingStart = open + Math.floor((until - open - s.consultation_minutes) / step) * step;
+    const from = lastFittingStart + step;
+    return free.map(([a, z]) => [Math.max(a, from), Math.min(z, until)] as [number, number]).filter(([a, z]) => z > a);
   }).sort((a, b) => a[0] - b[0]);
   const merged: [number, number][] = [];
   for (const band of bands) {
