@@ -13,7 +13,7 @@ The public `/calendar-preview` route uses example data and a shared in-memory sc
 3. Set `CALENDAR_APPROVAL_ONLY` to false in the release and verify partner and sales flows against that database.
 4. Publish only after the owner approves the release. Do not publish the approval branch as an activated release.
 
-Existing appointments retain their dates, times and stored consultation lengths. Conflicts are flagged; appointments are never moved automatically. Working-hour copies preserve closures. Consultation length and the buffer between patients are independent settings.
+Consultation length changes require explicit confirmation before applying the new duration to all existing appointments. Dates and start times stay unchanged. The expanded review list identifies affected patients with overlaps, blocked-time conflicts or appointments outside working hours. Bulk duration changes disable configuration-only undo; a further confirmed settings change can revise the duration again. Working-hour copies preserve closures. Consultation length and the buffer between patients are independent settings.
 
 Rollback should restore the previous application release while retaining stored appointment lengths and the database booking guards. Removing those guards can permit overlapping appointments and should not be used as a routine rollback.
 

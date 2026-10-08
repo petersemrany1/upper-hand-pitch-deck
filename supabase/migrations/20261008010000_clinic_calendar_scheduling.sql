@@ -89,7 +89,7 @@ BEGIN
  IF c.id IS NULL THEN RAISE EXCEPTION 'Clinic not found'; END IF;
  IF TG_OP='INSERT' THEN NEW.consultation_duration_minutes:=c.consultation_duration_minutes;
  ELSIF NEW.clinic_id IS DISTINCT FROM OLD.clinic_id THEN NEW.consultation_duration_minutes:=c.consultation_duration_minutes;
- ELSIF NEW.consultation_duration_minutes IS DISTINCT FROM OLD.consultation_duration_minutes THEN
+ ELSIF NEW.consultation_duration_minutes IS DISTINCT FROM OLD.consultation_duration_minutes AND NOT (coalesce(current_setting('app.confirmed_duration_clinic',true),'')=NEW.clinic_id::text AND NEW.consultation_duration_minutes=c.consultation_duration_minutes AND NEW.appointment_date=OLD.appointment_date AND NEW.appointment_time=OLD.appointment_time AND NEW.clinic_id=OLD.clinic_id) THEN
    RAISE EXCEPTION 'An existing appointment keeps its booked consultation length';
  END IF;
  IF TG_OP='UPDATE' AND NEW.appointment_date=OLD.appointment_date AND NEW.appointment_time::time=OLD.appointment_time::time AND NEW.clinic_id=OLD.clinic_id THEN RETURN NEW; END IF;
@@ -216,6 +216,11 @@ BEGIN
        ON CONFLICT(clinic_id,day_of_week) DO UPDATE SET open_time=excluded.open_time,close_time=excluded.close_time,is_closed=excluded.is_closed
        WHERE (clinic_trading_hours.open_time,clinic_trading_hours.close_time,clinic_trading_hours.is_closed) IS DISTINCT FROM (excluded.open_time,excluded.close_time,excluded.is_closed);
      END LOOP;
+   END IF;
+   IF coalesce((p_command->>'apply_to_existing')::boolean,false) THEN
+     PERFORM set_config('app.confirmed_duration_clinic',p_clinic::text,true);
+     UPDATE public.clinic_appointments SET consultation_duration_minutes=duration WHERE clinic_id=p_clinic AND consultation_duration_minutes IS DISTINCT FROM duration;
+     PERFORM set_config('app.confirmed_duration_clinic','',true);
    END IF;
  ELSIF action IN ('block','hours') THEN
    dates:=p_command->'dates';

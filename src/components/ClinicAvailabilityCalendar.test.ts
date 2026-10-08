@@ -111,3 +111,21 @@ test("settings opens a compact dialog and failed saves keep the draft visible", 
   await click(button("Cancel"));
   expect(document.querySelector('[role="dialog"]')).toBeNull();
 });
+
+test("updating existing consultation lengths requires confirmation and preserves it after a failed save", async () => {
+  const schedule = calendarPreviewFixture();
+  schedule.appointments[0].consultation_duration_minutes = 30;
+  let attempts = 0;
+  await render(schedule, async command => { attempts++; expect(command.action === "settings" && command.apply_to_existing).toBe(true); throw new Error("Connection interrupted"); });
+  await click(host.querySelector<HTMLButtonElement>('.availability-settings-summary')!);
+  await click(button("Save settings"));
+  expect(attempts).toBe(0);
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Start times stay unchanged");
+  await click(button("Back"));
+  expect(attempts).toBe(0);
+  await click(button("Save settings"));
+  await click(button("Yes, update all appointments"));
+  expect(attempts).toBe(1);
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain("Connection interrupted");
+  expect(button("Yes, update all appointments")).not.toBeUndefined();
+});

@@ -20,7 +20,7 @@ export type ClinicSchedule = {
 };
 export type ScheduleConfiguration = Pick<ClinicSchedule, "consultation_minutes" | "buffer_minutes" | "blocks" | "overrides" | "trading">;
 export type ScheduleCommand =
-  | { action: "settings"; consultation_minutes: number; buffer_minutes: number; trading?: TradingHours[] }
+  | { action: "settings"; consultation_minutes: number; buffer_minutes: number; apply_to_existing?: boolean; trading?: TradingHours[] }
   | { action: "block"; dates: string[]; start: string; end: string; id?: string; scope?: "date" | "series" }
   | { action: "unblock"; id: string; date: string; scope: "date" | "series" }
   | { action: "hours"; dates: string[]; start: string; end: string; closed: boolean }
@@ -116,8 +116,9 @@ export function schedulingWarnings(s: ClinicSchedule, today = sydneyTodayISO()) 
     const hours = effectiveHoursFor(asDate(a.appointment_date), s.trading, s.overrides, s.state);
     const outside = !hours || hours.is_closed || from < hhmmToMin(hours.open_time) || to > hhmmToMin(hours.close_time);
     const blocked = blocksForDate(asDate(a.appointment_date), s.blocks).some(b => overlap(from, to, hhmmToMin(b.slot_start), hhmmToMin(b.slot_end)));
+    const collision = s.appointments.find(b => b.id !== a.id && b.appointment_date === a.appointment_date && overlap(from, to, hhmmToMin(b.appointment_time), hhmmToMin(b.appointment_time) + appointmentDuration(b)));
     const previous = s.appointments.find(b => b.id !== a.id && b.appointment_date === a.appointment_date && hhmmToMin(b.appointment_time) <= from && hhmmToMin(b.appointment_time) + appointmentDuration(b) + s.buffer_minutes > from);
-    if (outside || blocked || previous) warnings.push({ id: a.id, text: `${formatDay(a.appointment_date)} · ${timeLabel(from)}${a.patient_name ? ` · ${a.patient_name}` : ""}: ${outside ? "outside working hours" : blocked ? "overlaps blocked time" : "not enough buffer between patients"}.` });
+    if (outside || blocked || collision || previous) warnings.push({ id: a.id, text: `${formatDay(a.appointment_date)} · ${timeLabel(from)}${a.patient_name ? ` · ${a.patient_name}` : ""}: ${outside ? "outside working hours" : blocked ? "overlaps blocked time" : collision ? `overlaps ${collision.patient_name || "another appointment"}` : "not enough buffer between patients"}.` });
   }
   return warnings;
 }
@@ -145,6 +146,7 @@ export function applyScheduleCommand(current: ClinicSchedule, command: ScheduleC
     const { consultation_minutes: duration, buffer_minutes: buffer } = command;
     if (!Number.isInteger(duration) || duration < 5 || duration > 240 || !Number.isInteger(buffer) || buffer < 0 || buffer > 180) throw new Error("Choose a consultation of 5–240 minutes and a buffer of 0–180 minutes.");
     next.consultation_minutes = duration; next.buffer_minutes = buffer;
+    if (command.apply_to_existing) next.appointments = next.appointments.map(a => ({ ...a, consultation_duration_minutes: duration }));
     if (command.trading) {
       if (command.trading.length !== 7 || new Set(command.trading.map(h => h.day_of_week)).size !== 7 || command.trading.some(h => !Number.isInteger(h.day_of_week) || h.day_of_week < 0 || h.day_of_week > 6)) throw new Error("Set operating hours for all seven days.");
       command.trading.filter(h => !h.is_closed).forEach(h => checkRange(h.open_time, h.close_time));

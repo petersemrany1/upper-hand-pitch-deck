@@ -44,6 +44,17 @@ test("settings preserve existing appointment lengths and flag existing conflicts
   expect(next.appointments).toEqual(s.appointments); expect(times(next)[0]).toBe("12:30");
   expect(schedulingWarnings(next, day)).toHaveLength(1);
 });
+test("confirmed length changes resize all patients, preserve starts and identify both overlapping patients", () => {
+  const s = fixture(); s.buffer_minutes = 0;
+  s.appointments = ["13:30", "14:00"].map((time, i) => ({ id: String(i), patient_name: `Patient ${i}`, appointment_date: day, appointment_time: time, consultation_duration_minutes: 30 }));
+  const next = applyScheduleCommand(s, { action: "settings", consultation_minutes: 90, buffer_minutes: 0, apply_to_existing: true });
+  expect(next.appointments.map(a => a.consultation_duration_minutes)).toEqual([90, 90]);
+  expect(next.appointments.map(a => a.appointment_time)).toEqual(["13:30", "14:00"]);
+  expect(schedulingWarnings(next, day).map(w => w.id)).toEqual(["0", "1"]);
+  expect(schedulingWarnings(next, day)[0].text).toContain("overlaps Patient 1");
+  expect(schedulingWarnings(next, day)[1].text).toContain("outside working hours");
+  expect(times(next)).not.toContain("13:00");
+});
 test("manual blocks and shortened working hours cannot cut through a booked patient", () => {
   const s = fixture(); s.appointments = [{ id: "a", appointment_date: day, appointment_time: "12:00", consultation_duration_minutes: 90 }];
   expect(() => block(s, "13:00", "14:00")).toThrow("patient is booked");

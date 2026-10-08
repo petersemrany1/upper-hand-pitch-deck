@@ -179,6 +179,14 @@ for (const [duration,buffer] of [[90,30],[45,0],[30,60],[120,15]]) {
   equal(actual,expected,`Client/database parity ${duration}/${buffer} on ${date}`);
  }
 }
+await db.exec('BEGIN');
+const beforeResize=await snapshot();
+const resized=await save({action:'settings',consultation_minutes:240,buffer_minutes:0,apply_to_existing:true});
+equal(resized.appointments.every(a=>a.consultation_duration_minutes===240),true,'Confirmed settings update every existing duration, including conflicts');
+equal(resized.appointments.map(a=>[a.id,a.appointment_date,a.appointment_time]),beforeResize.appointments.map(a=>[a.id,a.appointment_date,a.appointment_time]),'Bulk resize leaves patient start times unchanged');
+equal((await snapshot(uid(11))).consultation_minutes,30,'Bulk resize does not affect another clinic');
+await db.exec('ROLLBACK');
+await reject(db.query('update clinic_appointments set consultation_duration_minutes=5 where clinic_id=$1',[uid(10)]),/keeps its booked/);
 if (nativePg) {
  await db.exec('RESET ROLE');
  const a=nativePg.getPgClient(),b=nativePg.getPgClient();await a.connect();await b.connect();
