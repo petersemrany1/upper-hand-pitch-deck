@@ -1066,7 +1066,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
           <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
             <tr>
               <td style="background:${CORAL};padding:28px 32px;color:#ffffff;">
-                <div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:0.85;">Hair Transplant Group</div>
+                <div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:0.85;">Bold Patients</div>
                 <div style="font-size:24px;font-weight:700;margin-top:6px;">New Booking — ${esc(fullName)}</div>
               </td>
             </tr>
@@ -1117,8 +1117,8 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
             </tr>
             <tr>
               <td style="padding:20px 32px;background:#fafafa;border-top:1px solid #eee;font-size:12px;color:#888;line-height:1.5;">
-                This handover was generated automatically by Hair Transplant Group after a confirmed booking. If you have any questions about this patient, reply to this email.<br/>
-                — Hair Transplant Group
+                This handover was generated automatically by Bold Patients after a confirmed booking. If you have any questions about this patient, reply to this email.<br/>
+                — Bold Patients
               </td>
             </tr>
           </table>
