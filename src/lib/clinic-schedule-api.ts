@@ -3,6 +3,7 @@ import { applyScheduleCommand, futureScheduleSlots, type ClinicSchedule, type Sc
 import type { AvailabilityOverride, BlockedSlot, TradingHours } from "./slot-generation";
 
 import { createPreviewScheduleStore } from "./preview-schedule-store";
+import { identifyPreviewAppointments } from "./preview-appointment-identity";
 
 type RpcClient = { rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message: string } | null }> };
 export async function fetchClinicSchedule(clinicId: string): Promise<ClinicSchedule> {
@@ -101,8 +102,23 @@ export async function addPreviewAppointment(clinicId: string, date: string, time
 
 export async function loadApprovalSchedule(clinicId: string): Promise<ClinicSchedule> {
   const store = await preparePreviewStore();
+  type VisibleAppointment = { id: string; appointment_date: string; appointment_time: string };
+  async function repairIdentities(schedule: ClinicSchedule, visible?: VisibleAppointment[]) {
+    if (new Set(schedule.appointments.map(a => a.id)).size === schedule.appointments.length) return schedule;
+    if (!visible) {
+      const result = await supabase.from("clinic_appointments").select("id,appointment_date,appointment_time").eq("clinic_id", clinicId);
+      if (result.error) throw new Error(result.error.message);
+      visible = result.data;
+    }
+    // Read the latest draft under the store lock, preserving any simultaneous edits.
+    return store.update(clinicId, current => {
+      const appointments = identifyPreviewAppointments(current.appointments, visible!);
+      if (appointments.every((a, i) => a.id === current.appointments[i].id)) return current;
+      return { ...current, appointments, version: crypto.randomUUID() };
+    });
+  }
   const existing = store.get(clinicId);
-  if (existing) return store.seed(existing);
+  if (existing) return repairIdentities(await store.seed(existing));
   const [clinic, trading, blocks, overrides, busy, visibleAppointments] = await Promise.all([
     supabase.from("partner_clinics").select("clinic_name,state,min_appointment_gap_mins").eq("id", clinicId).single(),
     supabase.from("clinic_trading_hours").select("*").eq("clinic_id", clinicId),
@@ -114,13 +130,14 @@ export async function loadApprovalSchedule(clinicId: string): Promise<ClinicSche
   const error = clinic.error || trading.error || blocks.error || overrides.error || busy.error || visibleAppointments.error;
   if (error) throw new Error(error.message);
   const boss = clinicId === "9ac8fa05-c4b0-4faa-b519-f6a347956fb1";
-  return store.seed({
+  const loaded = await store.seed({
     clinic_id: clinicId, clinic_name: clinic.data!.clinic_name, state: clinic.data!.state,
     consultation_minutes: boss ? 90 : 30, buffer_minutes: boss ? 30 : clinic.data!.min_appointment_gap_mins,
     trading: trading.data as TradingHours[], blocks: blocks.data as BlockedSlot[], overrides: overrides.data as AvailabilityOverride[],
-    appointments: (busy.data as { appointment_date: string; appointment_time: string }[]).map((a, i) => ({ ...a, id: visibleAppointments.data?.find(p => p.appointment_date === a.appointment_date && p.appointment_time === a.appointment_time)?.id ?? `preview-${i}`, consultation_duration_minutes: boss ? 90 : 30 })),
+    appointments: identifyPreviewAppointments((busy.data as { appointment_date: string; appointment_time: string }[]).map(a => ({ ...a, consultation_duration_minutes: boss ? 90 : 30 })), visibleAppointments.data ?? []),
     version: crypto.randomUUID(),
   });
+  return repairIdentities(loaded, visibleAppointments.data ?? []);
 }
 
 export async function reschedulePreviewAppointment(clinicId: string, id: string, date: string, time: string) {
