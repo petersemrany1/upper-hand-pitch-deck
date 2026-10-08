@@ -45,6 +45,23 @@ test("booked appointments show the full patient name, including short bookings",
   expect(host.querySelector(".availability-booked strong")?.textContent).toBe("Alexandra Jane Smith");
   expect(host.querySelector(".availability-booked")?.textContent).not.toContain("Booked ·");
 });
+test("clicking the displayed time range stops at the next blocked interval", async () => {
+  const schedule = calendarPreviewFixture();
+  const date = "2099-10-12";
+  schedule.appointments = []; schedule.overrides = [];
+  schedule.blocks = [{ ...schedule.blocks[0], slot_date: date, slot_start: "10:15", slot_end: "12:00" }];
+  schedule.trading = schedule.trading.map(day => ({ ...day, is_closed: false, open_time: "09:00", close_time: "15:00" }));
+  await render(schedule, async () => schedule);
+  const slot = host.querySelector<HTMLButtonElement>('.availability-empty[data-minute="600"]')!;
+  expect(slot.textContent).toBe("10:00am–10:15am");
+  const day = slot.closest<HTMLElement>('.availability-day')!;
+  day.setPointerCapture = () => {}; day.hasPointerCapture = () => false;
+  await act(async () => {
+    slot.dispatchEvent(new window.PointerEvent("pointerdown", { bubbles: true, pointerId: 1, pointerType: "mouse", button: 0 }));
+    day.dispatchEvent(new window.PointerEvent("pointerup", { bubbles: true, pointerId: 1, pointerType: "mouse", button: 0 }));
+  });
+  expect([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="time"]')].map(input => input.value)).toEqual(["10:00", "10:15"]);
+});
 test("closing shading explains the last start and updates with consultation length", async () => {
   const schedule = calendarPreviewFixture();
   schedule.consultation_minutes = 60;

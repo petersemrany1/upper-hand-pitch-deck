@@ -44,25 +44,26 @@
 .availability-review-dialog { width:560px; }
 .availability-review-dialog ul { padding-left:20px; margin:16px 0; font-size:13px; }
 .availability-review-dialog li + li { margin-top:12px; }
-.availability-week { width:100%; border:1px solid var(--ac-line); border-bottom:0; border-radius:8px 8px 0 0; overflow:hidden; }
-.availability-day-heads,.availability-time-grid { display:grid; grid-template-columns:56px var(--availability-day-columns); }
+.availability-week { width:100%; border:1px solid var(--ac-line); border-bottom:0; border-radius:8px 8px 0 0; overflow:clip; }
+.availability-day-heads,.availability-time-grid { display:grid; grid-template-columns:76px var(--availability-day-columns); }
 .availability-day-heads>button { display:flex; flex-direction:column; gap:5px; padding:13px 6px; border:0; border-left:1px solid var(--ac-line); border-radius:0; }
 .availability-day-heads strong { font-size:14px; font-weight:600; }.availability-day-heads span { font-size:12px; color:var(--ac-navy); }
 .availability-time-grid { border-top:1px solid var(--ac-line); }
-.availability-axis { position:relative; }
-.availability-axis>span { position:absolute; right:7px; font-size:11px; color:var(--ac-muted); transform:translateY(-50%); }.availability-axis>span:first-child { transform:translateY(3px); }
+.availability-axis,.availability-axis-corner { position:sticky; left:0; z-index:12; background:#fff; box-shadow:1px 0 0 var(--ac-line); }
+.availability-axis>span { position:absolute; right:10px; font-size:12px; line-height:16px; font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--ac-muted); transform:translateY(-50%); }.availability-axis>span:first-child { transform:translateY(3px); }
+.availability-axis>.availability-hour-label { font-weight:650; color:#354962; }
 .availability-day { position:relative; min-width:0; border-left:1px solid var(--ac-line); background:#f5f7fa; user-select:none; touch-action:pan-y; }
-.availability-day::after { position:absolute; content:''; inset:0; pointer-events:none; background:repeating-linear-gradient(to bottom,transparent 0px,transparent 47px,#e7edf3 47px,#e7edf3 48px,transparent 48px,transparent 95px,#dce3ec 95px,#dce3ec 96px); z-index:1; }
+.availability-day::after { position:absolute; content:''; inset:0; pointer-events:none; background:repeating-linear-gradient(to bottom,transparent 0px,transparent 47px,#e7edf3 47px,#e7edf3 48px,transparent 48px,transparent 95px,#c7d2e0 95px,#c7d2e0 96px); z-index:1; }
 .availability-work { position:absolute; left:0; right:0; background:#fff; }
 .availability-calendar .availability-event { position:absolute; left:5px; right:5px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:3px; padding:7px 9px; border:0; border-radius:5px; text-align:left; min-height:0; overflow:hidden; font-size:12px; }
 .availability-event strong { font-size:12px; font-weight:600; }.availability-event span { font-size:11px; }
-.availability-calendar .availability-empty { background:transparent; color:var(--ac-muted); z-index:2; border-radius:0; }.availability-empty span { visibility:hidden; }
-.availability-calendar .availability-empty:not(:disabled):hover,.availability-calendar .availability-empty:focus-visible { background:#edf2fa; z-index:8; }.availability-empty:hover span,.availability-empty:focus-visible span { visibility:visible; }
+.availability-calendar .availability-empty { background:transparent; color:var(--ac-navy); z-index:2; border-radius:0; padding:3px 6px; }.availability-empty span { visibility:hidden; font-weight:600; white-space:nowrap; }
+.availability-calendar .availability-empty:not(:disabled):hover,.availability-calendar .availability-empty:focus-visible { background:#edf2fa; z-index:8; }.availability-empty:not(:disabled):hover span,.availability-empty:focus-visible span { visibility:visible; }
 .availability-before-block { background:repeating-linear-gradient(135deg,#f1f3f6,#f1f3f6 7px,#e9edf2 7px,#e9edf2 9px); border-left:3px dotted #728093!important; color:#536376; pointer-events:none; z-index:3; }
 .availability-calendar .availability-booked { background:#edf2fa; color:#24364f; border-left:3px solid #1a3a6b; z-index:5; justify-content:flex-start; }
 .availability-calendar .availability-buffer { background:repeating-linear-gradient(135deg,#fff1d5,#fff1d5 5px,#f2dfb7 5px,#f2dfb7 8px); color:#795317; border-left:3px solid #795317; z-index:4; padding:4px 8px; }.availability-buffer strong { font-size:11px; }
 .availability-calendar .availability-blocked { background:#e9edf2; color:#536376; border-left:3px solid #536376; z-index:6; padding:5px 8px; }
-.availability-selection { background:#edf2fa; border:2px solid #1a3a6b!important; color:#1a3a6b; pointer-events:none; z-index:9; }
+.availability-calendar .availability-selection { background:#edf2fa; border:2px solid #1a3a6b!important; color:#1a3a6b; pointer-events:none; z-index:9; padding:3px 6px; font-weight:600; white-space:nowrap; }
 .availability-calendar .availability-finish { position:absolute; left:0; right:0; border:0; border-top:2px solid #758297; border-radius:0; background:#f5f7fa; color:#536376; font-size:11px; z-index:7; }
 .availability-outside,.availability-closed { position:absolute; left:0; right:0; top:12px; text-align:center; color:var(--ac-muted); font-size:11px; }.availability-closed { top:100px; }
 .availability-footer { padding:14px 0; border-top:1px solid var(--ac-line); color:var(--ac-muted); font-size:11px; }
@@ -85,7 +86,7 @@
 @media(max-width:520px) {
  .availability-calendar { padding:14px; }.availability-heading h2 { font-size:23px; }.availability-date-navigation { width:100%; justify-content:space-between; }.availability-date-navigation strong { font-size:12px; }.availability-date-jump { width:100%; justify-content:space-between; }.availability-date-jump input { font-size:16px; }.availability-toolbar-actions { width:100%; justify-content:space-between; }
  .availability-settings-form { grid-template-columns:1fr; padding:14px; gap:14px; }.availability-calendar input,.availability-dialog input,.availability-dialog select { font-size:16px; }.availability-dialog button,.availability-calendar button { min-height:44px; }
- .availability-calendar .availability-event { min-height:0; }.availability-day-heads,.availability-time-grid { grid-template-columns:44px var(--availability-day-columns); }.availability-key { gap:8px 12px; }.availability-dialog { padding:16px; }.availability-preview { font-size:11px; }
+ .availability-calendar .availability-event { min-height:0; }.availability-key { gap:8px 12px; }.availability-dialog { padding:16px; }.availability-preview { font-size:11px; }
 }
 @media(max-width:350px) { .availability-time-inputs { grid-template-columns:1fr; gap:0; }.availability-dialog .availability-shortcuts button { font-size:11px; } }
 

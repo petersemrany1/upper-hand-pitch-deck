@@ -24,6 +24,8 @@ type Editor = {
   id?: string; recurring?: boolean; patient?: string; minutes?: number;
 };
 const weekDays = [{ n: 1, label: "Mon" }, { n: 2, label: "Tue" }, { n: 3, label: "Wed" }, { n: 4, label: "Thu" }, { n: 5, label: "Fri" }, { n: 6, label: "Sat" }, { n: 0, label: "Sun" }];
+const calendarTimeLabel = (minute: number) => timeLabel(minute).replace(/^(\d+)(am|pm)$/, "$1:00$2");
+const calendarRangeLabel = (from: number, until: number) => `${calendarTimeLabel(from)}–${calendarTimeLabel(until)}`;
 
 export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, preview = false, initialDate }: Props) {
   const root = useRef<HTMLElement>(null);
@@ -76,7 +78,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
   }, []);
   const visibleHours = dates.map(date => effectiveHoursFor(asDate(date), schedule.trading, schedule.overrides, schedule.state)).filter(h => h && !h.is_closed);
   const appointments = schedule.appointments.filter(a => dates.includes(a.appointment_date));
-  const firstMinute = Math.max(0, Math.min(480, ...visibleHours.map(h => hhmmToMin(h!.open_time)), ...appointments.map(a => hhmmToMin(a.appointment_time))));
+  const firstMinute = Math.max(0, Math.floor(Math.min(480, ...visibleHours.map(h => hhmmToMin(h!.open_time)), ...appointments.map(a => hhmmToMin(a.appointment_time))) / 60) * 60);
   const lastMinute = Math.min(1440, Math.ceil(Math.max(960, ...visibleHours.map(h => hhmmToMin(h!.close_time) + 60), ...appointments.map(a => hhmmToMin(a.appointment_time) + appointmentDuration(a) + schedule.buffer_minutes)) / 60) * 60);
   const scale = 1.6;
   const position = (from: number, to: number): CSSProperties => ({ top: (Math.max(from, firstMinute) - firstMinute) * scale, height: Math.max(0, Math.min(to, lastMinute) - Math.max(from, firstMinute)) * scale });
@@ -117,7 +119,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     if (event.button !== 0 || event.pointerType === "touch" || busy || date < today || !(event.target as HTMLElement).closest(".availability-empty")) return;
     const button = (event.target as HTMLElement).closest<HTMLElement>(".availability-empty")!;
     const from = Number(button.dataset.minute);
-    drag.current = { date, from, to: from + 30, y: event.clientY, moved: false, pointerId: event.pointerId };
+    drag.current = { date, from, to: Number(button.dataset.until), y: event.clientY, moved: false, pointerId: event.pointerId };
     event.currentTarget.setPointerCapture(event.pointerId);
   }
   function pointerMove(event: PointerEvent<HTMLDivElement>) {
@@ -135,7 +137,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     if (selected) {
       suppressClick.current = true;
-      open("block", selected.date, minToHHMM(Math.min(selected.from, selected.to)), minToHHMM(Math.max(selected.from + 15, selected.to)));
+      open("block", selected.date, minToHHMM(Math.min(selected.from, selected.to)), minToHHMM(selected.moved ? Math.max(selected.from + 15, selected.to) : selected.to));
       window.setTimeout(() => { suppressClick.current = false; }, 0);
     }
   }
@@ -175,12 +177,12 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     {warnings.length > 0 && <div className="availability-warning"><strong>{warnings.length} appointment{warnings.length === 1 ? " needs" : "s need"} attention</strong><button onClick={() => setReviewOpen(true)}>Review patients</button></div>}
     <Dialog.Root open={reviewOpen} onOpenChange={setReviewOpen}><Dialog.Portal><Dialog.Overlay className="availability-dialog-backdrop" /><Dialog.Content className="availability-dialog availability-review-dialog" onCloseAutoFocus={event => { event.preventDefault(); root.current?.querySelector<HTMLButtonElement>(".availability-warning button")?.focus({ preventScroll: true }); }}><div className="availability-dialog-title"><Dialog.Title>Patients to review</Dialog.Title><Dialog.Close aria-label="Close patient review"><X size={18} /></Dialog.Close></div><Dialog.Description>Contact these patients to arrange new times where needed. Appointment start times have not changed.</Dialog.Description><ul>{warnings.map(w => <li key={w.id}>{w.text}</li>)}</ul><div className="availability-actions"><Dialog.Close className="availability-primary">Done</Dialog.Close></div></Dialog.Content></Dialog.Portal></Dialog.Root>
     <div className="availability-week-scroll"><div className="availability-week" style={{ "--availability-day-columns": `repeat(${columns},minmax(0,1fr))` } as CSSProperties}>
-      <div className="availability-day-heads"><div />{dates.map(date => {
+      <div className="availability-day-heads"><div className="availability-axis-corner" />{dates.map(date => {
         const h = effectiveHoursFor(asDate(date), schedule.trading, schedule.overrides, schedule.state);
         return <button key={date} aria-label={`Edit working hours for ${formatDay(date)}`} disabled={date < today || busy} onClick={() => hoursEditor(date)}><strong>{asDate(date).toLocaleDateString("en-AU", { weekday: "short", day: "numeric" })}</strong><span>{h && !h.is_closed ? rangeLabel(hhmmToMin(h.open_time), hhmmToMin(h.close_time)) : "Blocked"} · Edit hours</span></button>;
       })}</div>
       <div className="availability-time-grid" style={{ height: (lastMinute - firstMinute) * scale }}>
-        <div className="availability-axis" aria-hidden="true">{Array.from({ length: Math.ceil((lastMinute - firstMinute) / 60) }, (_, i) => <span key={i} style={{ top: i * 60 * scale }}>{timeLabel(firstMinute + i * 60)}</span>)}</div>
+        <div className="availability-axis" aria-hidden="true">{Array.from({ length: Math.ceil((lastMinute - firstMinute) / 30) }, (_, i) => { const minute = firstMinute + i * 30; return <span key={minute} className={minute % 60 === 0 ? "availability-hour-label" : "availability-half-hour-label"} style={{ top: i * 30 * scale }}>{calendarTimeLabel(minute)}</span>; })}</div>
         {dates.map(date => {
           const hours = effectiveHoursFor(asDate(date), schedule.trading, schedule.overrides, schedule.state);
           const working = hours && !hours.is_closed;
@@ -194,8 +196,8 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
             {working && <>
               {hhmmToMin(hours.open_time) > firstMinute && <div className="availability-outside">Blocked</div>}
               {freeIntervals(schedule, date).flatMap(([start, end]) => Array.from({ length: Math.ceil((end - start) / 30) }, (_, i) => {
-                const minute = start + i * 30;
-                return <button key={minute} className="availability-event availability-empty" style={position(minute, Math.min(minute + 30, end))} data-minute={minute} aria-label={`Block time on ${formatDay(date)} at ${timeLabel(minute)}`} disabled={date < today || busy} onClick={() => { if (!suppressClick.current) open("block", date, minToHHMM(minute), minToHHMM(Math.min(minute + 30, end))); }}><span>+ Block time</span></button>;
+                const minute = start + i * 30, until = Math.min(minute + 30, end);
+                return <button key={minute} className="availability-event availability-empty" style={position(minute, until)} data-minute={minute} data-until={until} aria-label={`Block time on ${formatDay(date)} at ${timeLabel(minute)}`} disabled={date < today || busy} onClick={() => { if (!suppressClick.current) open("block", date, minToHHMM(minute), minToHHMM(until)); }}><span>{calendarRangeLabel(minute, until)}</span></button>;
               }))}
               {blockedStartBands(schedule, date).map(([start, end]) => <div className="availability-event availability-before-block" key={start} style={position(start, end)} aria-label="Buffer before blocked time">{(end - start) * scale >= 30 && <strong>Buffer before blocked time</strong>}</div>)}
               {lastStart !== null && freeIntervals(schedule, date).map(([start, end]) => [Math.max(start, lastStart), Math.min(end, hhmmToMin(hours.close_time))]).filter(([start, end]) => end > start).map(([start, end]) => <div key={`closing:${start}`} className="availability-event availability-before-block availability-closing-buffer" style={position(start, end)} aria-label={`Last appointment: ${timeLabel(lastStart)}`}>{(end - start) * scale >= 30 && <strong>{lastStart < hhmmToMin(hours.open_time) ? "No appointment fits" : `Last appointment: ${timeLabel(lastStart)}`}</strong>}</div>)}
@@ -213,7 +215,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
               const from = hhmmToMin(block.slot_start), until = hhmmToMin(block.slot_end);
               return <button key={block.id ?? i} className="availability-event availability-blocked" style={{ ...position(from, until), ...laneStyle(`block:${i}`) }} disabled={date < today || busy} aria-label={`Blocked ${formatDay(date)} ${rangeLabel(from, until)}. Edit or unblock.`} onClick={() => open("block", date, minToHHMM(from), minToHHMM(until), { id: block.id, recurring: block.is_recurring })}><strong>Blocked</strong>{(until - from) * scale >= 40 && <span>{rangeLabel(from, until)}</span>}</button>;
             })}
-            {dragPreview?.date === date && <div className="availability-event availability-selection" style={position(dragPreview.from, dragPreview.to)}>{rangeLabel(dragPreview.from, dragPreview.to)}</div>}
+            {dragPreview?.date === date && <div className="availability-event availability-selection" style={position(dragPreview.from, dragPreview.to)}>{calendarRangeLabel(dragPreview.from, dragPreview.to)}</div>}
           </div>;
         })}
       </div>
