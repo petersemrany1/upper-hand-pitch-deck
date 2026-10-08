@@ -9,6 +9,7 @@ import {
 } from "@/lib/clinic-schedule";
 import { calendarEventLayout, mergeCalendarBands } from "@/lib/calendar-event-layout";
 import { projectBlockDrag, type BlockDragKind } from "@/lib/calendar-block-drag";
+import { calendarVisibleHours } from "@/lib/calendar-visible-hours";
 import { sydneyTodayISO } from "@/lib/timezone";
 import "./clinic-availability-calendar.css";
 
@@ -30,7 +31,7 @@ const calendarRangeLabel = (from: number, until: number) => `${calendarTimeLabel
 
 export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, preview = false, initialDate }: Props) {
   const root = useRef<HTMLElement>(null);
-  const savedViewport = useRef<{ y: number; top: number; visible: boolean; left: number; container: HTMLElement | null } | null>(null);
+  const savedViewport = useRef<{ y: number; top: number; visible: boolean; left: number; minute: number; container: HTMLElement | null } | null>(null);
   const mondayOf = (date: string) => addDays(date, -((asDate(date).getDay() + 6) % 7));
   const [base, setBase] = useState(() => mondayOf(initialDate ?? sydneyTodayISO()));
   const columns = 7;
@@ -52,6 +53,8 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
   const suppressClick = useRef(false);
   const today = sydneyTodayISO();
   const dates = Array.from({ length: columns }, (_, i) => addDays(base, i));
+  const { firstMinute, lastMinute } = calendarVisibleHours(schedule, dates);
+  const scale = 1.6;
   const warnings = useMemo(() => schedulingWarnings(schedule), [schedule]);
   const dayLayouts = dates.map(date => {
     const booked = schedule.appointments.filter(a => a.appointment_date === date);
@@ -69,11 +72,12 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     savedViewport.current = null;
     if (!grid) return;
     grid.scrollLeft = previous.left;
+    grid.scrollTop = Math.max(0, (previous.minute - firstMinute) * scale);
     const currentY = previous.container?.scrollTop ?? window.scrollY;
     const top = previous.visible ? currentY + grid.getBoundingClientRect().top - previous.top : previous.y;
     if (previous.container) previous.container.scrollTo({ top, behavior: "instant" });
     else window.scrollTo({ top, behavior: "instant" });
-  }, [schedule, busy, settings]);
+  }, [schedule, busy, settings, firstMinute]);
   useEffect(() => {
     const element = root.current;
     if (!element) return;
@@ -81,11 +85,6 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  const visibleHours = dates.map(date => effectiveHoursFor(asDate(date), schedule.trading, schedule.overrides, schedule.state)).filter(h => h && !h.is_closed);
-  const appointments = schedule.appointments.filter(a => dates.includes(a.appointment_date));
-  const firstMinute = Math.max(0, Math.floor(Math.min(480, ...visibleHours.map(h => hhmmToMin(h!.open_time)), ...appointments.map(a => hhmmToMin(a.appointment_time))) / 60) * 60);
-  const lastMinute = Math.min(1440, Math.ceil(Math.max(960, ...visibleHours.map(h => hhmmToMin(h!.close_time) + 60), ...appointments.map(a => hhmmToMin(a.appointment_time) + appointmentDuration(a) + schedule.buffer_minutes)) / 60) * 60);
-  const scale = 1.6;
   const position = (from: number, to: number): CSSProperties => ({ top: (Math.max(from, firstMinute) - firstMinute) * scale, height: Math.max(0, Math.min(to, lastMinute) - Math.max(from, firstMinute)) * scale });
 
   function open(kind: Editor["kind"], date: string, start: string, end: string, extra: Partial<Editor> = {}) {
@@ -99,7 +98,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
       let container = grid.parentElement;
       while (container && !(/auto|scroll/.test(getComputedStyle(container).overflowY) && container.scrollHeight > container.clientHeight)) container = container.parentElement;
       const rect = grid.getBoundingClientRect(), viewport = container?.getBoundingClientRect();
-      savedViewport.current = { container, y: container?.scrollTop ?? window.scrollY, top: rect.top, visible: rect.top < (viewport?.bottom ?? window.innerHeight) && rect.bottom > (viewport?.top ?? 0), left: grid.scrollLeft };
+      savedViewport.current = { container, y: container?.scrollTop ?? window.scrollY, top: rect.top, visible: rect.top < (viewport?.bottom ?? window.innerHeight) && rect.bottom > (viewport?.top ?? 0), left: grid.scrollLeft, minute: firstMinute + grid.scrollTop / scale };
     }
     setBusy(true); setError("");
     try {
@@ -161,9 +160,10 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     const scroll = root.current!.querySelector<HTMLElement>(".availability-week-scroll")!;
     const viewport = scroll.getBoundingClientRect();
     const axisWidth = root.current!.querySelector<HTMLElement>(".availability-axis")!.getBoundingClientRect().width;
+    const headingBottom = root.current!.querySelector<HTMLElement>(".availability-day-heads")!.getBoundingClientRect().bottom;
     const days = [...root.current!.querySelectorAll<HTMLElement>(".availability-day")];
     const source = days.find(day => day.dataset.date === selected.date)!;
-    const target = selected.kind === "move" ? days.find(day => { const r = day.getBoundingClientRect(); return x >= Math.max(r.left, viewport.left + axisWidth) && x < Math.min(r.right, viewport.right) && y >= r.top && y <= r.bottom; }) : source;
+    const target = selected.kind === "move" ? days.find(day => { const r = day.getBoundingClientRect(); return x >= Math.max(r.left, viewport.left + axisWidth) && x < Math.min(r.right, viewport.right) && y >= Math.max(r.top, headingBottom) && y <= Math.min(r.bottom, viewport.bottom); }) : source;
     const date = target?.dataset.date ?? selected.date;
     const delta = (y - source.getBoundingClientRect().top) / scale + firstMinute - selected.anchorMinute;
     const range = projectBlockDrag(selected.kind, selected.from, selected.until, delta);
@@ -189,14 +189,15 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     const scroll = root.current.querySelector<HTMLElement>(".availability-week-scroll")!;
     const r = scroll.getBoundingClientRect();
     const axis = root.current.querySelector<HTMLElement>(".availability-axis")!.getBoundingClientRect().width;
-    let vertical = scroll.parentElement;
+    let vertical: HTMLElement | null = scroll;
     while (vertical && !(/auto|scroll/.test(getComputedStyle(vertical).overflowY) && vertical.scrollHeight > vertical.clientHeight)) vertical = vertical.parentElement;
     const container = vertical ?? document.scrollingElement!;
     const viewport = vertical?.getBoundingClientRect();
     const oldLeft = scroll.scrollLeft, oldTop = container.scrollTop;
     if (point.x >= r.left && point.x <= r.right) {
       if (selected.kind === "move") scroll.scrollLeft += point.x > r.right - 36 ? 10 : point.x < r.left + axis + 36 ? -10 : 0;
-      container.scrollTop += point.y > (viewport?.bottom ?? window.innerHeight) - 40 ? 10 : point.y < (viewport?.top ?? 0) + 40 ? -10 : 0;
+      const headerBottom = root.current.querySelector<HTMLElement>(".availability-day-heads")!.getBoundingClientRect().bottom;
+      container.scrollTop += point.y > Math.min(viewport?.bottom ?? window.innerHeight, window.innerHeight) - 40 ? 10 : point.y < Math.max(viewport?.top ?? 0, headerBottom) + 40 ? -10 : 0;
     }
     if (oldLeft !== scroll.scrollLeft || oldTop !== container.scrollTop) {
       const candidate = blockCandidate(point.x, point.y);
@@ -263,7 +264,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     {error && !editor && !settings && <div className="availability-error" role="alert">{error}{onRefresh && <button onClick={refreshCalendar}>Refresh calendar</button>}</div>}
     {warnings.length > 0 && <div className="availability-warning"><strong>{warnings.length} appointment{warnings.length === 1 ? " needs" : "s need"} attention</strong><button onClick={() => setReviewOpen(true)}>Review patients</button></div>}
     <Dialog.Root open={reviewOpen} onOpenChange={setReviewOpen}><Dialog.Portal><Dialog.Overlay className="availability-dialog-backdrop" /><Dialog.Content className="availability-dialog availability-review-dialog" onCloseAutoFocus={event => { event.preventDefault(); root.current?.querySelector<HTMLButtonElement>(".availability-warning button")?.focus({ preventScroll: true }); }}><div className="availability-dialog-title"><Dialog.Title>Patients to review</Dialog.Title><Dialog.Close aria-label="Close patient review"><X size={18} /></Dialog.Close></div><Dialog.Description>Contact these patients to arrange new times where needed. Appointment start times have not changed.</Dialog.Description><ul>{warnings.map(w => <li key={w.id}>{w.text}</li>)}</ul><div className="availability-actions"><Dialog.Close className="availability-primary">Done</Dialog.Close></div></Dialog.Content></Dialog.Portal></Dialog.Root>
-    <div className="availability-week-scroll"><div className="availability-week" style={{ "--availability-day-columns": `repeat(${columns},minmax(0,1fr))` } as CSSProperties}>
+    <div className="availability-week-scroll" role="region" aria-label="Weekly availability calendar" tabIndex={0}><div className="availability-week" style={{ "--availability-day-columns": `repeat(${columns},minmax(0,1fr))` } as CSSProperties}>
       <div className="availability-day-heads"><div className="availability-axis-corner" />{dates.map(date => {
         const h = effectiveHoursFor(asDate(date), schedule.trading, schedule.overrides, schedule.state);
         return <button key={date} aria-label={`Edit working hours for ${formatDay(date)}`} disabled={date < today || busy} onClick={() => hoursEditor(date)}><strong>{asDate(date).toLocaleDateString("en-AU", { weekday: "short", day: "numeric" })}</strong><span>{h && !h.is_closed ? rangeLabel(hhmmToMin(h.open_time), hhmmToMin(h.close_time)) : "Blocked"} · Edit hours</span></button>;
@@ -293,7 +294,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
             {booked.map(a => {
               const from = hhmmToMin(a.appointment_time), until = from + appointmentDuration(a);
               return <div key={a.id}>
-                <button className="availability-event availability-booked" style={{ ...position(from, until), ...laneStyle(`appointment:${a.id}`) }} aria-label={`${a.patient_name || "Booked patient"}, ${formatDay(date)} ${rangeLabel(from, until)}`} onClick={() => open("appointment", date, minToHHMM(from), minToHHMM(until), { patient: a.patient_name ?? undefined, minutes: appointmentDuration(a) })}><strong>{a.patient_name || "Booked patient"}</strong><span>{rangeLabel(from, until)}</span></button>
+                <button className="availability-event availability-booked" data-short={until - from < 30 || undefined} style={{ ...position(from, until), ...laneStyle(`appointment:${a.id}`) }} aria-label={`${a.patient_name || "Booked patient"}, ${formatDay(date)} ${rangeLabel(from, until)}`} onClick={() => open("appointment", date, minToHHMM(from), minToHHMM(until), { patient: a.patient_name ?? undefined, minutes: appointmentDuration(a) })}><strong>{a.patient_name || "Booked patient"}</strong><span>{rangeLabel(from, until)}</span></button>
 
               </div>;
             })}
@@ -303,7 +304,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
               const disabled = date < today || busy;
               const edit = () => { if (!disabled && !suppressClick.current) open("block", date, minToHHMM(from), minToHHMM(until), { id: block.id, recurring: block.is_recurring }); };
               return <div key={block.id ?? i} className={`availability-event availability-blocked${blockPreview && blockPreview.id === block.id && blockPreview.sourceDate === date ? " availability-drag-origin" : ""}`} style={{ ...position(from, until), ...laneStyle(`block:${i}`) }} onClick={edit} onPointerDown={e => startBlockDrag(e, block.id, date, from, until, block.is_recurring)} onPointerMove={moveBlockDrag} onPointerUp={finishBlockDrag} onPointerCancel={cancelBlockDrag} onLostPointerCapture={cancelBlockDrag}>
-                <button className="availability-block-body" disabled={disabled} aria-label={`Blocked ${formatDay(date)} ${rangeLabel(from, until)}. Drag to move or click to edit.`}><strong>Blocked</strong>{(until - from) * scale >= 40 && <span>{calendarRangeLabel(from, until)}</span>}{!disabled && <GripVertical className="availability-block-grip" size={14} aria-hidden="true" />}</button>
+                <button className="availability-block-body" disabled={disabled} aria-label={`Blocked ${formatDay(date)} ${rangeLabel(from, until)}. Drag to move or click to edit.`}><strong>Blocked</strong>{(until - from) * scale >= 40 && <span>{calendarRangeLabel(from, until)}</span>}{!disabled && <GripVertical className="availability-block-grip" size={18} aria-hidden="true" />}</button>
                 {!disabled && block.id && (["start", "end"] as const).map(edge => <button key={edge} className={`availability-resize availability-resize-${edge}`} data-resize={edge} aria-label={`Change ${edge} of blocked time on ${formatDay(date)}`} title={`Drag to change ${edge} time`}><span /></button>)}
               </div>;
             })}
