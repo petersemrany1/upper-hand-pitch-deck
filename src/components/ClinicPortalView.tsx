@@ -1322,7 +1322,7 @@ function RescheduleModal({ appt: liveAppt, onClose, onSaved }: {
       return;
     }
     if (isCalendarApprovalHost()) {
-      try { await loadApprovalSchedule(appt.clinic_id); reschedulePreviewAppointment(appt.clinic_id, appt.id, date, time); toast.success("Preview appointment moved. No real booking was changed."); onSaved(); }
+      try { await loadApprovalSchedule(appt.clinic_id); await reschedulePreviewAppointment(appt.clinic_id, appt.id, date, time); toast.success("Preview appointment moved. No real booking was changed."); onSaved(); }
       catch (error) { toast.error((error as Error).message); }
       return;
     }
@@ -2329,7 +2329,7 @@ function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string;
       return;
     }
     if (isCalendarApprovalHost()) {
-      try { await loadApprovalSchedule(clinicId); addPreviewAppointment(clinicId, date, time); toast.success("Preview appointment added. No real patient was booked or contacted."); onSaved(); }
+      try { await loadApprovalSchedule(clinicId); await addPreviewAppointment(clinicId, date, time); toast.success("Preview appointment added. No real patient was booked or contacted."); onSaved(); }
       catch (error) { toast.error((error as Error).message); }
       return;
     }

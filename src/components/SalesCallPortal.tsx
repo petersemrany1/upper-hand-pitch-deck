@@ -4184,7 +4184,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     if (isCalendarApprovalHost()) {
       try {
         await loadApprovalSchedule(form.clinicId);
-        addPreviewAppointment(form.clinicId, form.date, form.time);
+        await addPreviewAppointment(form.clinicId, form.date, form.time);
         toast.success("Preview appointment added. No real patient was booked or contacted.");
       } catch (error) { toast.error((error as Error).message); }
       return;
