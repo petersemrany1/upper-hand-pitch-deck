@@ -31,8 +31,10 @@ export function clinicRemainingBalances(packs: CapacityPack[], appts: CapacityAp
   }
   for (const trial of trials) {
     if (trial.paid_started_at) continue;
-    // Scheduling admission, not paid credit: reps get no trial label/count.
-    remaining[trial.clinic_id] = todayStr >= trial.booking_opens && todayStr <= trial.appointment_end ? 1 : 0;
+    // Keep trial leads visible and callable regardless of the booking window.
+    // The calendar and booking save enforce the permitted appointment dates;
+    // scheduling dates must not remove a city from the sales pipeline.
+    remaining[trial.clinic_id] = 1;
   }
   return remaining;
 }

@@ -8,6 +8,8 @@ type Props = {
   defaultAmount: number;
   patientName: string;
   leadId?: string;
+  clinicId?: string;
+  clinicAddress?: string | null;
   onSuccess?: (payment: { paymentIntentId: string; amount: number }) => void;
 };
 
@@ -23,6 +25,8 @@ export function ChargeCardOverPhoneModal({
   defaultAmount,
   patientName,
   leadId,
+  clinicId,
+  clinicAddress,
   onSuccess,
 }: Props) {
   if (!open) return null;
@@ -57,9 +61,19 @@ export function ChargeCardOverPhoneModal({
         </header>
 
         <div className="max-h-[calc(100vh-9rem)] overflow-y-auto p-3 sm:p-5">
-          {leadId ? (
+          {!clinicId ? (
+            <p className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-foreground">
+              Close this window and select a clinic before taking payment.
+            </p>
+          ) : !clinicAddress?.trim() ? (
+            <p className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-foreground">
+              This clinic is missing its address. Ask Admin to update the clinic details, then reopen
+              this payment window.
+            </p>
+          ) : leadId ? (
             <SquareCardForm
               reference={leadId}
+              clinicId={clinicId}
               onPaid={(payment) =>
                 onSuccess?.({ paymentIntentId: payment.paymentId, amount: payment.amount })
               }

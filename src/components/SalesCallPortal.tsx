@@ -8541,6 +8541,8 @@ function RightPanel({
         defaultAmount={Number(panelClinic?.consult_price_deposit ?? 75)}
         patientName={[active.first_name, active.last_name].filter(Boolean).join(" ") || "Patient"}
         leadId={active.id}
+        clinicId={panelClinic?.id}
+        clinicAddress={panelClinic?.address}
         onSuccess={() => {
           toast.success("$75 booking fee processed successfully");
         }}
