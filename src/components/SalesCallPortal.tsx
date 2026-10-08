@@ -4294,7 +4294,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         handover_sent_at: handoverSentAt,
         ...(paymentReceivedAt || depositPaid || depositSent ? { status: "booked_deposit_paid" } : {}),
       });
-      toast.success("Clinic handover email sent ✓");
+      if ("warning" in r && typeof r.warning === "string") toast.warning(r.warning);
+      else toast.success("Clinic handover email sent ✓");
     }
     else toast.error(`Handover failed: ${r.error}`);
   };
@@ -4716,7 +4717,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           handover_sent_at: handoverSentAt,
           ...(previewDeposit ? { status: "booked_deposit_paid" } : {}),
         });
-        toast.success("Clinic handover email sent ✓");
+        if ("warning" in r && typeof r.warning === "string") toast.warning(r.warning);
+        else toast.success("Clinic handover email sent ✓");
       }
       else toast.error(`Handover failed: ${r.error ?? "unknown error"}`);
     } catch (err) {

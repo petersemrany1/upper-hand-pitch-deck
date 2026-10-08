@@ -6,6 +6,7 @@ import { logError } from "./error-logger.functions";
 import { createClient } from "@supabase/supabase-js";
 import { createStripeCheckoutSession } from "./stripe.functions";
 import { norwoodNeedsExpectations } from "@/lib/norwood";
+import { loadClinicHandoverRecipients, clinicHandoverRecipients, clinicHandoverReceipt } from "@/lib/clinic-handover-delivery";
 
 /**
  * Deposit links use the lead's private deposit_token (?t=) so the internal
@@ -1065,7 +1066,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
           <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
             <tr>
               <td style="background:${CORAL};padding:28px 32px;color:#ffffff;">
-                <div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:0.85;">Hair Transplant Group</div>
+                <div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:0.85;">Bold Patients</div>
                 <div style="font-size:24px;font-weight:700;margin-top:6px;">New Booking — ${esc(fullName)}</div>
               </td>
             </tr>
@@ -1116,8 +1117,8 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
             </tr>
             <tr>
               <td style="padding:20px 32px;background:#fafafa;border-top:1px solid #eee;font-size:12px;color:#888;line-height:1.5;">
-                This handover was generated automatically by Hair Transplant Group after a confirmed booking. If you have any questions about this patient, reply to this email.<br/>
-                — Hair Transplant Group
+                This handover was generated automatically by Bold Patients after a confirmed booking. If you have any questions about this patient, reply to this email.<br/>
+                — Bold Patients
               </td>
             </tr>
           </table>
@@ -1127,34 +1128,21 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
   </body>
 </html>`;
 
-    // Recipient: the clinic's own email (with optional CC list from the
-    // clinic record). Bookings reference partner_clinics, so look there
-    // first; fall back to the legacy clinics table, then to Peter only when
-    // the clinic has no email on file, so a handover is never silently
-    // dropped.
-    let clinicRow: { email: string | null; handover_cc: string | null } | null = null;
-    {
-      const { data: partnerRow } = await supabase
-        .from("partner_clinics")
+    // A failed address lookup must not become a successful handover to a
+    // different inbox. Only use the legacy record when the partner is absent.
+    let recipients: ReturnType<typeof clinicHandoverRecipients>;
+    try {
+      recipients = await loadClinicHandoverRecipients((table) => supabase
+        .from(table)
         .select("email, handover_cc")
         .eq("id", data.clinicId)
-        .maybeSingle();
-      if (partnerRow) {
-        clinicRow = partnerRow;
-      } else {
-        const { data: legacyRow } = await supabase
-          .from("clinics")
-          .select("email, handover_cc")
-          .eq("id", data.clinicId)
-          .maybeSingle();
-        clinicRow = legacyRow ?? null;
-      }
+        .maybeSingle());
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Check the clinic's notification addresses.";
+      await logError("sendClinicHandoverEmail.recipients", message, { clinicId: data.clinicId });
+      return { success: false, error: message };
     }
-    const clinicEmailTo = clinicRow?.email?.trim() || "peter@gobold.com.au";
-    const clinicEmailCc = ((clinicRow?.handover_cc as string | null) || "")
-      .split(/[,;\s]+/)
-      .map((e: string) => e.trim())
-      .filter((e: string) => e.includes("@"));
+    const { to: clinicEmailTo, cc: clinicEmailCc } = recipients;
     // Save the EXACT same Patient Intel to the clinic portal before sending.
     // If this fails, do not send the email — we never want a clinic email whose
     // patient-card intel wasn't captured.
@@ -1214,7 +1202,27 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       return result;
     }
 
-    // Resend confirmed delivery — stamp handover_sent_at so the
+    let receipt: ReturnType<typeof clinicHandoverReceipt>;
+    try {
+      receipt = clinicHandoverReceipt({ providerId: result.id, clinicId: data.clinicId, leadId: data.leadId, to: clinicEmailTo, cc: clinicEmailCc });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Email submission could not be confirmed.";
+      await logError("sendClinicHandoverEmail.receipt", message, { leadId: data.leadId });
+      return { success: false, error: message };
+    }
+
+    // Keep the provider ID and all recipients in the service-role-only audit
+    // log. This is provider acceptance, not proof of arrival in an inbox.
+    let deliveryWarning: string | undefined;
+    try {
+      const { error: receiptError } = await supabase.from("email_send_log").insert(receipt);
+      if (receiptError) throw receiptError;
+    } catch (error) {
+      await logError("sendClinicHandoverEmail.receiptLog", error instanceof Error ? error.message : String(error), { leadId: data.leadId, providerMessageId: receipt.message_id });
+      deliveryWarning = "Email submitted, but its tracking record could not be saved. Contact support before resending.";
+    }
+
+    // Resend accepted the email — stamp handover_sent_at so the
     // sales-call portal can unlock "Next Lead". If the deposit has
     // already been paid, also promote the lead to booked_deposit_paid
     // (this is the explicit rep action that closes the sale).
@@ -1248,7 +1256,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       };
     }
 
-    return result;
+    return { ...result, warning: deliveryWarning };
   });
 
 export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
@@ -1782,4 +1790,3 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
       return { success: false as const, error: msg };
     }
   });
-
