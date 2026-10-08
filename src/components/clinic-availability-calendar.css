@@ -114,3 +114,5 @@
 .availability-calendar .availability-finish { z-index:3; }
 
 .availability-calendar .availability-closing-buffer { justify-content:flex-start; padding-top:5px; }
+
+.availability-warning ul { max-height:180px; overflow-y:auto; }
