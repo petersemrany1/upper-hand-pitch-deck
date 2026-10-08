@@ -21,4 +21,4 @@ Rollback should restore the previous application release while retaining stored 
 
 ## Verification
 
-307 application tests, TypeScript, production build and focused lint checks. The isolated PostgreSQL suite covers 89 scheduling, ownership, atomicity, recurrence, migration replay and boundary checks, including 820 booking attempts compared against the application slot generator and independent concurrent database connections. Browser checks include moving and resizing blocks, cancellation, Undo, sideways edge scrolling and sales slots updating after a partner block moves.
+308 application tests, TypeScript, production build and focused lint checks. The isolated PostgreSQL suite covers 89 scheduling, ownership, atomicity, recurrence, migration replay and boundary checks, including 820 booking attempts compared against the application slot generator and independent concurrent database connections. Browser checks include moving and resizing blocks, normal clicks after pointer capture, cancellation, Undo, sideways edge scrolling and sales slots updating after a partner block moves.

@@ -200,6 +200,17 @@ function dragGeometry() {
 async function dragEvent(element: HTMLElement, type: string, x: number, y: number) {
   await act(async () => { element.dispatchEvent(new window.PointerEvent(type, { bubbles: true, pointerId: 7, pointerType: "mouse", button: 0, clientX: x, clientY: y })); });
 }
+test("a normal click still opens the block editor after pointer capture", async () => {
+  const schedule = calendarPreviewFixture(); schedule.blocks[0].slot_date = "2099-10-12";
+  await render(schedule, async () => { throw new Error("A click must not save"); });
+  const block = dragGeometry();
+  await dragEvent(block.querySelector<HTMLElement>('.availability-block-body')!, 'pointerdown', 176, 312);
+  await dragEvent(block, 'pointerup', 176, 312);
+  // Browsers retarget the click to the element that captured the pointer.
+  await click(block);
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Unblock this time");
+  expect(document.querySelector<HTMLInputElement>('[role="dialog"] input[type="date"]')?.value).toBe("2099-10-12");
+});
 test("dragging a block saves one atomic move without opening the editor", async () => {
   const schedule = calendarPreviewFixture(); schedule.blocks[0].slot_date = "2099-10-12"; schedule.appointments = [];
   const commands: ScheduleCommand[] = [];
