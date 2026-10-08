@@ -135,6 +135,7 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE clinic uuid; day date; a public.clinic_appointments; b public.clinic_blocked_slots; h record; starts integer; finishes integer;
 BEGIN
  clinic:=CASE WHEN TG_OP='DELETE' THEN OLD.clinic_id ELSE NEW.clinic_id END;
+ IF TG_TABLE_NAME='clinic_trading_hours' AND coalesce(current_setting('app.confirmed_hours_clinic',true),'')=clinic::text THEN RETURN NULL; END IF;
  IF TG_TABLE_NAME='clinic_blocked_slots' THEN
    IF TG_OP='DELETE' THEN RETURN NULL; END IF;
    SELECT * INTO b FROM public.clinic_blocked_slots WHERE id=NEW.id;
@@ -205,6 +206,7 @@ BEGIN
    IF duration IS NULL OR buffer IS NULL OR duration NOT BETWEEN 5 AND 240 OR buffer NOT BETWEEN 0 AND 180 THEN RAISE EXCEPTION 'Choose valid consultation and buffer lengths'; END IF;
    UPDATE public.partner_clinics SET consultation_duration_minutes=duration,buffer_minutes=buffer WHERE id=p_clinic;
    cfg:=p_command;
+   IF coalesce((p_command->>'apply_to_existing')::boolean,false) THEN PERFORM set_config('app.confirmed_hours_clinic',p_clinic::text,true); END IF;
    IF cfg ? 'trading' THEN
      IF jsonb_typeof(cfg->'trading') IS DISTINCT FROM 'array' OR jsonb_array_length(cfg->'trading')<>7 OR (SELECT count(DISTINCT (value->>'day_of_week')::integer) FROM jsonb_array_elements(cfg->'trading'))<>7 THEN RAISE EXCEPTION 'Set operating hours for all seven days'; END IF;
      FOR item IN SELECT * FROM jsonb_array_elements(cfg->'trading') LOOP
@@ -221,6 +223,9 @@ BEGIN
      PERFORM set_config('app.confirmed_duration_clinic',p_clinic::text,true);
      UPDATE public.clinic_appointments SET consultation_duration_minutes=duration WHERE clinic_id=p_clinic AND consultation_duration_minutes IS DISTINCT FROM duration;
      PERFORM set_config('app.confirmed_duration_clinic','',true);
+     SET CONSTRAINTS protect_booked_hours IMMEDIATE;
+     SET CONSTRAINTS protect_booked_hours DEFERRED;
+     PERFORM set_config('app.confirmed_hours_clinic','',true);
    END IF;
  ELSIF action IN ('block','hours') THEN
    dates:=p_command->'dates';

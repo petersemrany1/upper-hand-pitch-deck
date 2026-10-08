@@ -56,6 +56,16 @@ test("confirmed length changes resize all patients, preserve starts and identify
   expect(schedulingWarnings(next, day)[1].text).toContain("outside working hours");
   expect(times(next)).not.toContain("13:00");
 });
+test("confirmed settings allow working-hour conflicts and flag patients after saving", () => {
+  const s = fixture();
+  s.appointments = [{ id: "patient", patient_name: "Alex Smith", appointment_date: day, appointment_time: "13:30", consultation_duration_minutes: 30 }];
+  const trading = s.trading.map(h => ({ ...h, close_time: "14:00" }));
+  const next = applyScheduleCommand(s, { action: "settings", consultation_minutes: 90, buffer_minutes: 0, apply_to_existing: true, trading });
+  expect(next.appointments[0].consultation_duration_minutes).toBe(90);
+  expect(next.trading[0].close_time).toBe("14:00");
+  expect(schedulingWarnings(next, day)[0].text).toContain("Alex Smith: outside working hours");
+  expect(times(next)).not.toContain("13:00");
+});
 test("manual blocks and shortened working hours cannot cut through a booked patient", () => {
   const s = fixture(); s.appointments = [{ id: "a", appointment_date: day, appointment_time: "12:00", consultation_duration_minutes: 90 }];
   expect(() => block(s, "13:00", "14:00")).toThrow("patient is booked");

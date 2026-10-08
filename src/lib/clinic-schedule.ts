@@ -151,7 +151,7 @@ export function applyScheduleCommand(current: ClinicSchedule, command: ScheduleC
       if (command.trading.length !== 7 || new Set(command.trading.map(h => h.day_of_week)).size !== 7 || command.trading.some(h => !Number.isInteger(h.day_of_week) || h.day_of_week < 0 || h.day_of_week > 6)) throw new Error("Set operating hours for all seven days.");
       command.trading.filter(h => !h.is_closed).forEach(h => checkRange(h.open_time, h.close_time));
       next.trading = structuredClone(command.trading);
-      for (const a of next.appointments.filter(a => a.appointment_date >= sydneyTodayISO())) {
+      for (const a of next.appointments.filter(a => !command.apply_to_existing && a.appointment_date >= sydneyTodayISO())) {
         const h = effectiveHoursFor(asDate(a.appointment_date), next.trading, next.overrides, next.state);
         const oldHours = effectiveHoursFor(asDate(a.appointment_date), current.trading, current.overrides, current.state);
         const hoursKey = (value: typeof h) => value ? JSON.stringify([value.is_closed, hhmmToMin(value.open_time), hhmmToMin(value.close_time)]) : "closed";
