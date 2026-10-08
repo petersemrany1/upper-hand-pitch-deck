@@ -1,8 +1,8 @@
 import { afterAll, afterEach, beforeEach, expect, test } from "bun:test";
 import { Window } from "happy-dom";
-import { act, createElement as h } from "react";
+import { act, createElement as h, useState } from "react";
 import { calendarPreviewFixture } from "@/lib/calendar-preview-fixture";
-import type { ClinicSchedule, ScheduleCommand } from "@/lib/clinic-schedule";
+import { applyScheduleCommand, type ClinicSchedule, type ScheduleCommand } from "@/lib/clinic-schedule";
 
 const browser = new Window({ url: "http://localhost" });
 const environment = {
@@ -128,4 +128,26 @@ test("updating existing consultation lengths requires confirmation and preserves
   expect(attempts).toBe(1);
   expect(document.querySelector('[role="alert"]')?.textContent).toContain("Connection interrupted");
   expect(button("Yes, update all appointments")).not.toBeUndefined();
+});
+
+test("confirmed settings resize calendar events and expand the named patient conflict list", async () => {
+  const schedule = calendarPreviewFixture();
+  const date = "2099-10-12";
+  schedule.blocks[0].slot_date = date;
+  schedule.blocks[0].slot_start = "13:00"; schedule.blocks[0].slot_end = "14:00";
+  schedule.appointments = ["09:00", "09:30"].map((time, i) => ({ id: String(i), patient_name: `Patient ${i}`, appointment_date: date, appointment_time: time, consultation_duration_minutes: 30 }));
+  function Harness() {
+    const [current, setCurrent] = useState(schedule);
+    return h(ClinicAvailabilityCalendar, { schedule: current, initialDate: date, onSave: async command => { const next = applyScheduleCommand(current, command); setCurrent(next); return next; } });
+  }
+  await act(async () => root.render(h(Harness)));
+  await click(host.querySelector<HTMLButtonElement>('.availability-settings-summary')!);
+  await click(button("Save settings"));
+  expect(host.querySelector('.availability-booked')?.textContent).toContain("9am–9:30am");
+  await click(button("Yes, update all appointments"));
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expect(host.querySelector('.availability-booked')?.textContent).toContain("9am–10:30am");
+  expect(host.querySelector('.availability-warning')?.hasAttribute('open')).toBe(true);
+  expect(host.querySelector('.availability-warning')?.textContent).toContain("Patient 0");
+  expect(host.querySelector('.availability-warning')?.textContent).toContain("Patient 1");
 });
