@@ -37,6 +37,14 @@ const render = async (schedule: ClinicSchedule, onSave: (command: ScheduleComman
   await act(async () => root.render(h(ClinicAvailabilityCalendar, { schedule, onSave, initialDate: schedule.blocks[0].slot_date! })));
 };
 
+test("booked appointments show the full patient name, including short bookings", async () => {
+  const schedule = calendarPreviewFixture();
+  schedule.appointments[0].patient_name = "Alexandra Jane Smith";
+  schedule.appointments[0].consultation_duration_minutes = 30;
+  await render(schedule, async () => schedule);
+  expect(host.querySelector(".availability-booked strong")?.textContent).toBe("Alexandra Jane Smith");
+  expect(host.querySelector(".availability-booked")?.textContent).not.toContain("Booked ·");
+});
 test("closing shading explains the last start and updates with consultation length", async () => {
   const schedule = calendarPreviewFixture();
   schedule.consultation_minutes = 60;
