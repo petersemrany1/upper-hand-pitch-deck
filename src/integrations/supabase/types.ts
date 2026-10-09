@@ -531,6 +531,7 @@ export type Database = {
           chase_status: string | null
           clinic_id: string
           consult_summary: string | null
+          consultation_duration_minutes: number
           created_at: string
           deposit_amount: number | null
           disqualified_at: string | null
@@ -570,6 +571,7 @@ export type Database = {
           chase_status?: string | null
           clinic_id: string
           consult_summary?: string | null
+          consultation_duration_minutes?: number
           created_at?: string
           deposit_amount?: number | null
           disqualified_at?: string | null
@@ -609,6 +611,7 @@ export type Database = {
           chase_status?: string | null
           clinic_id?: string
           consult_summary?: string | null
+          consultation_duration_minutes?: number
           created_at?: string
           deposit_amount?: number | null
           disqualified_at?: string | null
@@ -729,6 +732,7 @@ export type Database = {
         Row: {
           clinic_id: string
           created_at: string
+          excluded_dates: string[]
           id: string
           is_recurring: boolean
           recur_day_of_month: number | null
@@ -744,6 +748,7 @@ export type Database = {
         Insert: {
           clinic_id: string
           created_at?: string
+          excluded_dates?: string[]
           id?: string
           is_recurring?: boolean
           recur_day_of_month?: number | null
@@ -759,6 +764,7 @@ export type Database = {
         Update: {
           clinic_id?: string
           created_at?: string
+          excluded_dates?: string[]
           id?: string
           is_recurring?: boolean
           recur_day_of_month?: number | null
@@ -984,6 +990,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      clinic_public_holidays: {
+        Row: {
+          holiday_date: string
+          name: string
+          state: string
+        }
+        Insert: {
+          holiday_date: string
+          name: string
+          state: string
+        }
+        Update: {
+          holiday_date?: string
+          name?: string
+          state?: string
+        }
+        Relationships: []
       }
       clinic_trading_hours: {
         Row: {
@@ -2172,11 +2196,13 @@ export type Database = {
       partner_clinics: {
         Row: {
           address: string | null
+          buffer_minutes: number
           city: string | null
           clinic_name: string
           clinicflow_enabled: boolean
           consult_price_deposit: number | null
           consult_price_original: number | null
+          consultation_duration_minutes: number
           created_at: string
           email: string | null
           handover_cc: string | null
@@ -2194,11 +2220,13 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          buffer_minutes?: number
           city?: string | null
           clinic_name: string
           clinicflow_enabled?: boolean
           consult_price_deposit?: number | null
           consult_price_original?: number | null
+          consultation_duration_minutes?: number
           created_at?: string
           email?: string | null
           handover_cc?: string | null
@@ -2216,11 +2244,13 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          buffer_minutes?: number
           city?: string | null
           clinic_name?: string
           clinicflow_enabled?: boolean
           consult_price_deposit?: number | null
           consult_price_original?: number | null
+          consultation_duration_minutes?: number
           created_at?: string
           email?: string | null
           handover_cc?: string | null
@@ -3371,6 +3401,7 @@ export type Database = {
           value_owed: number
         }[]
       }
+      clinic_schedule_snapshot: { Args: { p_clinic: string }; Returns: Json }
       commit_booking_reschedule: {
         Args: {
           p_actor: string
@@ -3409,6 +3440,7 @@ export type Database = {
         Returns: number
       }
       get_booking_reschedule: { Args: { p_id: string }; Returns: Json }
+      get_clinic_schedule: { Args: { p_clinic: string }; Returns: Json }
       get_dashboard_stats: { Args: never; Returns: Json }
       has_sales_role: { Args: { _roles: string[] }; Returns: boolean }
       is_admin_user: { Args: never; Returns: boolean }
@@ -3527,6 +3559,27 @@ export type Database = {
           shows: number
         }[]
       }
+      save_clinic_schedule: {
+        Args: { p_clinic: string; p_command: Json; p_version: string }
+        Returns: Json
+      }
+      schedule_block_matches: {
+        Args: {
+          b: Database["public"]["Tables"]["clinic_blocked_slots"]["Row"]
+          p_day: string
+        }
+        Returns: boolean
+      }
+      schedule_hours: {
+        Args: { p_clinic: string; p_day: string }
+        Returns: {
+          closes: number
+          opens: number
+          step: number
+        }[]
+      }
+      schedule_minute: { Args: { p_time: string }; Returns: number }
+      schedule_state: { Args: { p_state: string }; Returns: string }
       spend_location: {
         Args: { p_campaign: string; p_location: string }
         Returns: string
