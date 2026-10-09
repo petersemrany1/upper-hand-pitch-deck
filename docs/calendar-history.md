@@ -1,6 +1,6 @@
 # Calendar history
 
-The partner Availability header includes Calendar history above Settings. It shows a plain description of each actual change with its timestamp underneath. Reads are scoped to the signed-in clinic or an administrator. Affected-date filtering checks both previous and new values, including recurring blocks and exclusions. Times display in Sydney time, including seconds and the daylight-saving abbreviation.
+The partner Availability toolbar includes Calendar history alongside Settings, Undo and Block time. It shows a plain description of each actual change with its timestamp underneath. Reads are scoped to the signed-in clinic or an administrator. Affected-date filtering checks both previous and new values, including recurring blocks and exclusions. Times display in Sydney time, including seconds and the daylight-saving abbreviation.
 
 Apply `20261010010000_calendar_history.sql` before publishing the UI. It installs database triggers for blocks, date-specific hours, weekly hours, consultation/buffer settings and appointments. Only meaningful scheduling fields are retained; patient phone numbers and medical notes are excluded. Account attribution comes from the authenticated database session. Background writes without a signed-in account are labelled System / integration.
 

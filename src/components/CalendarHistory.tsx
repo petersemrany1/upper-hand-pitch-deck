@@ -37,7 +37,7 @@ export function CalendarHistory({ load, clinicName }: { load: CalendarHistoryLoa
   }
   const changes = entries.filter(entry => entry.operation !== "baseline");
   return <Dialog.Root open={open} onOpenChange={setOpen}>
-    <Dialog.Trigger asChild><button className="availability-history-link"><History size={14} />Calendar history</button></Dialog.Trigger>
+    <Dialog.Trigger asChild><button className="availability-history-trigger"><History size={14} />Calendar history</button></Dialog.Trigger>
     <Dialog.Portal><Dialog.Overlay className="availability-dialog-backdrop" /><Dialog.Content className="availability-dialog availability-history-dialog">
       <div className="availability-dialog-title"><Dialog.Title>Calendar history</Dialog.Title><Dialog.Close aria-label="Close calendar history"><X size={18} /></Dialog.Close></div>
       <Dialog.Description>{clinicName} · Sydney time</Dialog.Description>
