@@ -322,7 +322,7 @@ async function ensureSmsThread(
 async function sendViaResend(
   to: string,
   subject: string,
-  html: string,
+  content: string | { text: string },
   attachments?: Array<{ filename: string; content: string }>,
   bcc?: string | string[],
   cc?: string | string[]
@@ -333,7 +333,7 @@ async function sendViaResend(
       reply_to: "admin@bold-patients.com",
       to: [to],
       subject,
-      html,
+      ...(typeof content === "string" ? { html: content } : { text: content.text }),
     };
     if (bcc) {
       body.bcc = Array.isArray(bcc) ? bcc : [bcc];
@@ -1037,95 +1037,38 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       rawNotes.length > 0 &&
       rawNotes.split(/\r?\n/).filter((l: string) => l.trim().length > 0).every((l: string) => /^\s*[-•]\s+/.test(l));
 
-    let intelBody: string;
-    if (!rawNotes) {
-      intelBody = `<p style="margin:0;font-size:14px;color:#888;font-style:italic;">No call notes recorded.</p>`;
-    } else if (isBulletList) {
-      const items = rawNotes
-        .split(/\r?\n/)
-        .map((l: string) => l.trim())
-        .filter((l: string) => l.length > 0)
-        .map((l: string) => l.replace(/^\s*[-•]\s+/, ""))
-        .map((l: string) => `<li style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#2a2a2a;">${esc(l)}</li>`)
-        .join("");
-      intelBody = `<ul style="margin:0;padding:0 0 0 20px;">${items}</ul>`;
-    } else {
-      intelBody = `<p style="margin:0;font-size:15px;line-height:1.6;color:#2a2a2a;white-space:pre-wrap;">${esc(rawNotes)}</p>`;
-    }
-
-    // Clinics always see finance as approved regardless of whether it was discussed/checked on the call.
-    const financeCell = "✅ Approved";
-
-    const html = `<!doctype html>
-<html>
-  <body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1a1a1a;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:24px 0;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
-            <tr>
-              <td style="background:${CORAL};padding:28px 32px;color:#ffffff;">
-                <div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:0.85;">Hair Transplant Group</div>
-                <div style="font-size:24px;font-weight:700;margin-top:6px;">New Booking — ${esc(fullName)}</div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:28px 32px;">
-                <p style="margin:0 0 18px;font-size:15px;line-height:1.6;">Hi ${esc(data.clinicName)} team,</p>
-                <p style="margin:0 0 24px;font-size:15px;line-height:1.6;">We've just confirmed a consultation booking with <b>${esc(fullName)}</b>. Here's everything you need to know before they arrive.</p>
-
-                <div style="background:${LIGHT_CORAL};border-left:4px solid ${CORAL};padding:16px 20px;border-radius:6px;margin-bottom:24px;">
-                  <div style="font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:${CORAL};font-weight:600;margin-bottom:6px;">Appointment</div>
-                  <div style="font-size:17px;font-weight:600;color:#1a1a1a;">${esc(bookingDisplay)}</div>
-                  ${data.doctorName ? `<div style="font-size:14px;color:#555;margin-top:4px;">With ${esc(data.doctorName)}</div>` : ""}
-                </div>
-
-                <div style="margin-bottom:24px;">
-                  <div style="font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:${CORAL};font-weight:600;margin-bottom:10px;">Patient Intel</div>
-                  ${intelBody}
-                </div>
-
-                <div style="margin-bottom:24px;">
-                  <div style="font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:${CORAL};font-weight:600;margin-bottom:10px;">Key Facts</div>
-                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
-                    <tr>
-                      <td style="padding:10px 0;border-bottom:1px solid #eee;color:#666;width:45%;">Funding Method</td>
-                      <td style="padding:10px 0;border-bottom:1px solid #eee;color:#1a1a1a;font-weight:600;">${esc(fundingLabel)}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:10px 0;border-bottom:1px solid #eee;color:#666;">Finance Eligible</td>
-                      <td style="padding:10px 0;border-bottom:1px solid #eee;color:#1a1a1a;font-weight:600;">${financeCell}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:10px 0;border-bottom:1px solid #eee;color:#666;">Deposit Paid</td>
-                      <td style="padding:10px 0;border-bottom:1px solid #eee;color:#1a1a1a;font-weight:600;">${data.depositPaid ? "✅ Yes — $75" : "❌ No deposit recorded"}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:10px 0;color:#666;">Understands Cost</td>
-                      <td style="padding:10px 0;color:#1a1a1a;font-weight:600;">✅ Yes — quoted range</td>
-                    </tr>
-                  </table>
-                </div>
-
-                <div style="background:#fafafa;border-radius:8px;padding:16px 20px;margin-bottom:8px;">
-                  <div style="font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:${CORAL};font-weight:600;margin-bottom:10px;">Patient Contact</div>
-                  ${data.phone ? `<div style="font-size:14px;color:#1a1a1a;margin-bottom:4px;">📞 <a href="tel:${esc(data.phone)}" style="color:#1a1a1a;text-decoration:none;">${esc(data.phone)}</a></div>` : ""}
-                  ${data.email ? `<div style="font-size:14px;color:#1a1a1a;">✉️ <a href="mailto:${esc(data.email)}" style="color:#1a1a1a;text-decoration:none;">${esc(data.email)}</a></div>` : ""}
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:20px 32px;background:#fafafa;border-top:1px solid #eee;font-size:12px;color:#888;line-height:1.5;">
-                This handover was generated automatically by Hair Transplant Group after a confirmed booking. If you have any questions about this patient, reply to this email.<br/>
-                — Hair Transplant Group
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
+    void isBulletList;
+    const noteLines = rawNotes
+      .split(/\r?\n/)
+      .map((l: string) => l.trim().replace(/^[-•]\s*/, ""))
+      .filter((l: string) => l.length > 0);
+    const text = [
+      `New booking: ${fullName}`,
+      "",
+      `Hi ${data.clinicName} team,`,
+      "",
+      `We've just confirmed a consultation booking with ${fullName}.`,
+      "",
+      "APPOINTMENT",
+      bookingDisplay,
+      ...(data.doctorName ? [`With ${data.doctorName}`] : []),
+      "",
+      "PATIENT NOTES",
+      ...(noteLines.length > 0 ? noteLines.map((l) => `- ${l}`) : ["- No call notes recorded."]),
+      "",
+      "KEY FACTS",
+      `Funding method: ${fundingLabel}`,
+      "Finance eligible: Approved",
+      `Deposit paid: ${data.depositPaid ? "Yes - $75" : "No deposit recorded"}`,
+      "Understands cost: Yes - quoted range",
+      "",
+      "PATIENT CONTACT",
+      `Phone: ${data.phone || "Not provided"}`,
+      `Email: ${data.email || "Not provided"}`,
+      "",
+      "Reply to this email with any questions about this patient.",
+      "— Bold Patients",
+    ].join("\n");
 
     // Recipient: the clinic's own email (with optional CC list from the
     // clinic record). Bookings reference partner_clinics, so look there
