@@ -58,7 +58,7 @@ function ClinicPortalPage() {
   const clinicName = clinic?.key === requestKey ? clinic.name : "";
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f0f2f5", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+    <div className="clinic-portal-page" style={{ minHeight: "100vh", background: "#f0f2f5", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
       {partnerView && <div className="partner-view-banner">
         <div><strong>Partner view{clinicName ? ` · ${clinicName}` : ""}</strong><p>{isCalendarApprovalHost() ? "Availability changes stay in this preview. Other changes are real." : "You are viewing the partner portal. Changes here are real."}</p></div>
         <Link to="/settings" hash="partner-view">Back to Settings</Link>
