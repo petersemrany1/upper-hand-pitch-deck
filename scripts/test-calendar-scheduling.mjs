@@ -67,6 +67,8 @@ await db.exec(`
 if (nativePg) await db.exec('CREATE PUBLICATION supabase_realtime FOR TABLE clinic_appointments');
 await db.exec(sql('20261008010000_clinic_calendar_scheduling.sql'));
 await db.exec(sql('20261008010000_clinic_calendar_scheduling.sql'));
+await db.exec(sql('20261009020000_exclude_disqualified_calendar.sql'));
+await db.exec(sql('20261009020000_exclude_disqualified_calendar.sql'));
 const actor=async(n,email,role='authenticated')=>{await db.exec('RESET ROLE');await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:uid(n),email,role})]);await db.exec('SET ROLE '+role);};
 const snapshot=async(clinic=uid(10))=>(await db.query('select get_clinic_schedule($1) s',[clinic])).rows[0].s;
 const save=async(command,version,clinic=uid(10))=>{const s=version??(await snapshot(clinic)).version;return (await db.query('select save_clinic_schedule($1,$2,$3) s',[clinic,s,JSON.stringify(command)])).rows[0].s;};
@@ -209,6 +211,32 @@ equal(resized.trading.every(h=>h.close_time==='10:00:00'),true,'Confirmed settin
 await reject(book('2099-12-30','09:00'),/working hours/);
 await db.exec('ROLLBACK');
 await reject(db.query('update clinic_appointments set consultation_duration_minutes=5 where clinic_id=$1',[uid(10)]),/keeps its booked/);
+
+// A disqualified booking remains auditable without reserving its old slot.
+await actor(1,'admin@fixture.test');
+await db.exec('BEGIN');
+await save({action:'settings',consultation_minutes:30,buffer_minutes:0,trading:Array.from({length:7},(_,day_of_week)=>({day_of_week,open_time:'09:00',close_time:'17:00',is_closed:false,consult_duration_mins:15}))});
+const disqId=uid(800), timestampId=uid(801), activeId=uid(802);
+await book('2099-11-20','09:00',uid(10),disqId);
+await db.query("update clinic_appointments set outcome='disqualified' where id=$1",[disqId]);
+await book('2099-11-20','10:00',uid(10),timestampId);
+await db.query("update clinic_appointments set disqualified_at=now() where id=$1",[timestampId]);
+await book('2099-11-20','09:00',uid(10),activeId);
+equal((await snapshot()).appointments.filter(a=>a.appointment_date==='2099-11-20').map(a=>a.id),[activeId],'Only active booking occupies the calendar');
+equal((await db.query("select * from booking_busy_times($1) where appointment_date='2099-11-20'",[uid(10)])).rows.map(a=>a.appointment_time),['09:00'],'Sales busy times exclude both disqualification markers');
+const reschedule=(await db.query('select get_booking_reschedule($1) s',[activeId])).rows[0].s;
+equal(reschedule.snapshot.busy.filter(a=>a.appointment_date==='2099-11-20'),[],'Reschedule conflicts exclude disqualified bookings');
+equal((await db.query('select count(*)::int n from clinic_appointments where id=any($1::uuid[])',[[disqId,timestampId]])).rows[0].n,2,'History is retained');
+await db.query("insert into clinic_blocked_slots(clinic_id,slot_date,slot_start,slot_end,is_recurring) values($1,'2099-11-20','10:00','10:30',false)",[uid(10)]);
+checks++;
+await db.exec('SAVEPOINT reinstate');
+await reject(db.query('update clinic_appointments set outcome=null where id=$1',[disqId]),/just taken|overlaps/);
+await db.exec('ROLLBACK TO SAVEPOINT reinstate');
+await db.exec('SAVEPOINT timestamp_reinstate');
+await reject(db.query('update clinic_appointments set disqualified_at=null where id=$1',[timestampId]),/blocked time/);
+await db.exec('ROLLBACK TO SAVEPOINT timestamp_reinstate');
+await db.exec('ROLLBACK');
+
 if (nativePg) {
  await db.exec('RESET ROLE');
  const a=nativePg.getPgClient(),b=nativePg.getPgClient();await a.connect();await b.connect();
