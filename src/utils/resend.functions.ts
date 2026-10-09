@@ -988,10 +988,6 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       return data.fundingPreference || "Not specified";
     })();
 
-    const CORAL = "#f4522d";
-    const LIGHT_CORAL = "#fff5f3";
-    const esc = (s: string) =>
-      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     // Render the patient intel verbatim — it has already been reviewed and edited
     // in the "Review before sending" step, so we must NOT truncate or rewrite it.
@@ -1143,7 +1139,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     const result = await sendViaResend(
       clinicEmailTo,
       `New Booking: ${fullName} — ${bookingDisplay}`,
-      html,
+      { text },
       undefined,
       undefined,
       clinicEmailCc.length > 0 ? clinicEmailCc : undefined
