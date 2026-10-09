@@ -164,3 +164,8 @@ export function useAuth(): AuthState {
   }
   return ctx;
 }
+
+/** Static identity for the public, fictional training portal. No auth session is read. */
+export function DemoAuthProvider({ children }: { children: ReactNode }) {
+  return <AuthContext.Provider value={{ session: null, user: null, role: "rep", userType: "clinic", clinicId: "training-demo-clinic", allowedTabs: [], loading: false, ready: true, signIn: async () => ({ error: "Sign-in is unavailable in the demo." }), signOut: async () => {} }}>{children}</AuthContext.Provider>;
+}

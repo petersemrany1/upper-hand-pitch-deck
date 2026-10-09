@@ -36,5 +36,9 @@ export function PartnerViewSection() {
         </label>
         <button disabled={!clinicId} className="min-h-11 rounded-md bg-[#203b5c] px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">View as partner</button>
       </form>}
+    <div className="mt-5 pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3">
+      <p className="text-xs text-muted-foreground">Record training videos with fictional patients in Demo Clinic.</p>
+      <a href="/demo-clinic" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-primary underline underline-offset-4">Open demo clinic</a>
+    </div>
   </section>;
 }

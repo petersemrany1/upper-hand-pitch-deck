@@ -2,6 +2,7 @@ import { createRouter, useRouter, type ErrorComponentProps } from "@tanstack/rea
 import { useEffect, useRef } from "react";
 import { routeTree } from "./routeTree.gen";
 import { supabase } from "@/integrations/supabase/client";
+import { isDemoClinicPath } from "@/lib/demo-clinic";
 import { isModuleLoadError } from "@/lib/module-load-error";
 
 if (typeof window !== "undefined" && window.location.pathname === "/_dashboard/sales-call") {
@@ -15,7 +16,7 @@ function DefaultErrorComponent({ error, reset }: ErrorComponentProps) {
   const moduleLoadFailed = isModuleLoadError(err);
 
   useEffect(() => {
-    if (logged.current) return;
+    if (logged.current || (typeof window !== "undefined" && isDemoClinicPath(window.location.pathname))) return;
     logged.current = true;
     try {
       void supabase.from("error_logs").insert({

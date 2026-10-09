@@ -29,7 +29,7 @@ const SPACE_16 = 16;
 const SPACE_20 = 20;
 const SPACE_24 = 24;
 
-type Pack = {
+export type Pack = {
   id: string;
   clinic_id: string;
   pack_size: number;
@@ -49,14 +49,17 @@ type Props = {
   clinicId: string;
   isAdmin: boolean;
   refreshKey?: number;
+  demoData?: { packs: Pack[]; showedUp: number; upcoming: number };
 };
 
-export function ClinicPackBalanceCard({ clinicId, isAdmin, refreshKey = 0 }: Props) {
+export function ClinicPackBalanceCard({ clinicId, isAdmin: requestedAdmin, refreshKey = 0, demoData }: Props) {
+  const isAdmin = !demoData && requestedAdmin;
   const [showAdd, setShowAdd] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [editingPack, setEditingPack] = useState<Pack | null>(null);
 
   const fetchBalance = useCallback(async () => {
+    if (demoData) return demoData;
     const todayStr = sydneyTodayISO();
     const [{ data: packRows, error: packError }, { data: apptRows, error: apptError }] = await Promise.all([
       supabase
@@ -97,7 +100,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin, refreshKey = 0 }: Pro
       }
     }
     return { packs: allPacks, showedUp: showed, upcoming: up };
-  }, [clinicId]);
+  }, [clinicId, demoData]);
 
   // Follow saved outcomes, realtime appointment changes and portal refreshes.
   const { data, loading, error, reload: load } = useQuietRefresh({
