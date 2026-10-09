@@ -148,7 +148,7 @@ test("weeks begin Monday, end Sunday and arrows move seven days", async () => {
 test("settings opens a compact dialog and failed saves keep the draft visible", async () => {
   const schedule = calendarPreviewFixture();
   await render(schedule, async () => { throw new Error("Connection interrupted. Try again."); });
-  await click(host.querySelector<HTMLButtonElement>('.availability-settings-summary')!);
+  await click(host.querySelector<HTMLButtonElement>('.availability-settings-trigger')!);
   const dialog = document.querySelector('[role="dialog"]')!;
   expect(dialog.textContent).toContain("Calendar settings");
   expect(dialog.querySelectorAll('input[type="checkbox"]')).toHaveLength(7);
@@ -164,7 +164,7 @@ test("updating existing consultation lengths requires confirmation and preserves
   schedule.appointments[0].consultation_duration_minutes = 30;
   let attempts = 0;
   await render(schedule, async command => { attempts++; expect(command.action === "settings" && command.apply_to_existing).toBe(true); throw new Error("Connection interrupted"); });
-  await click(host.querySelector<HTMLButtonElement>('.availability-settings-summary')!);
+  await click(host.querySelector<HTMLButtonElement>('.availability-settings-trigger')!);
   await click(button("Save settings"));
   expect(attempts).toBe(0);
   expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Start times stay unchanged");
@@ -188,7 +188,7 @@ test("confirmed settings resize events and keep named conflicts in a review popu
     return h(ClinicAvailabilityCalendar, { schedule: current, initialDate: date, onSave: async command => { const next = applyScheduleCommand(current, command); setCurrent(next); return next; } });
   }
   await act(async () => root.render(h(Harness)));
-  await click(host.querySelector<HTMLButtonElement>('.availability-settings-summary')!);
+  await click(host.querySelector<HTMLButtonElement>('.availability-settings-trigger')!);
   await click(button("Save settings"));
   expect(host.querySelector('.availability-booked')?.textContent).toContain("9am–9:30am");
   await click(button("Yes, update all appointments"));
@@ -359,12 +359,12 @@ test("resize failure preserves the block; Escape and pointer cancellation never 
 });
 
 
-test("history opens above Settings, displays evidence and makes no calendar writes", async () => {
+test("history opens from the toolbar, displays evidence and makes no calendar writes", async () => {
   const schedule = calendarPreviewFixture(); let saves = 0;
   const loadHistory = async () => ({ started_at: "2026-10-10T00:00:00Z", entries: [{ id: "1", entity_id: "block", entity_type: "block" as const, operation: "changed" as const, recorded_at: "2026-10-10T00:15:02Z", actor_name: "Clinic account", actor_role: "clinic", before_data: { slot_date: "2026-10-30", slot_start: "11:30", slot_end: "12:00" }, after_data: { slot_date: "2026-10-30", slot_start: "12:00", slot_end: "13:00" } }] });
   await act(async () => root.render(h(ClinicAvailabilityCalendar, { schedule, onSave: async () => { saves++; return schedule; }, loadHistory })));
   const trigger = button("Calendar history");
-  expect(trigger.compareDocumentPosition(host.querySelector('.availability-settings-summary')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(trigger.compareDocumentPosition(host.querySelector('.availability-settings-trigger')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   await click(trigger);
   const dialog = document.querySelector('[role="dialog"]')!;
   expect(dialog.textContent).toContain("11:15:02am");
