@@ -1,0 +1,11 @@
+# Calendar history
+
+The partner Availability header includes Calendar history above Settings. It is read-only and scoped to the signed-in clinic or an administrator. Affected-date filtering checks both previous and new values, including recurring blocks and exclusions. Times display in Sydney time, including seconds and the daylight-saving abbreviation.
+
+Apply `20261010010000_calendar_history.sql` before publishing the UI. It installs database triggers for blocks, date-specific hours, weekly hours, consultation/buffer settings and appointments. Only meaningful scheduling fields are retained; patient phone numbers and medical notes are excluded. Account attribution comes from the authenticated database session. Background writes without a signed-in account are labelled System / integration.
+
+The first installation atomically records a starting snapshot alongside trigger activation. Starting entries are expressly not original creation events. No prior editing chronology can be reconstructed from these snapshots. Replaying the migration preserves the original start and does not duplicate snapshots. New changes are append-only and transactional: failed saves and rollbacks leave no entry, while later unblocking or Undo preserves earlier evidence. Existing calendar commands are unchanged; moving a non-recurring block currently deletes and replaces it, so the history shows the old block removed and the replacement added.
+
+Application roles cannot write history directly. Updates, deletes and truncation are rejected, even for table-owner operations unless that owner explicitly disables the guard. There is no UI to alter timestamps or remove entries. Database administrators remain able to administer the database; this is an application audit trail, not a cryptographic ledger. Reverting the UI should retain history storage and capture triggers.
+
+Validation is in `scripts/test-calendar-scheduling.mjs`, `src/lib/calendar-history.test.ts` and `src/components/ClinicAvailabilityCalendar.test.ts`. Database tests cover scoped reads, denied writes, migration replay, baseline honesty, transaction rollback, chronological paging, all calendar entity types and old/new date matching. UI checks cover before/after display, Sydney timestamps, retry and loading older entries.

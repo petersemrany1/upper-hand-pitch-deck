@@ -357,3 +357,47 @@ test("resize failure preserves the block; Escape and pointer cancellation never 
     expect(attempts).toBe(1);
   }
 });
+
+
+test("history opens above Settings, displays evidence and makes no calendar writes", async () => {
+  const schedule = calendarPreviewFixture(); let saves = 0;
+  const loadHistory = async () => ({ started_at: "2026-10-10T00:00:00Z", entries: [{ id: "1", entity_id: "block", entity_type: "block" as const, operation: "changed" as const, recorded_at: "2026-10-10T00:15:02Z", actor_name: "Clinic account", actor_role: "clinic", before_data: { slot_date: "2026-10-30", slot_start: "11:30", slot_end: "12:00" }, after_data: { slot_date: "2026-10-30", slot_start: "12:00", slot_end: "13:00" } }] });
+  await act(async () => root.render(h(ClinicAvailabilityCalendar, { schedule, onSave: async () => { saves++; return schedule; }, loadHistory })));
+  const trigger = button("Calendar history");
+  expect(trigger.compareDocumentPosition(host.querySelector('.availability-settings-summary')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  await click(trigger);
+  const dialog = document.querySelector('[role="dialog"]')!;
+  expect(dialog.textContent).toContain("11:15:02 am");
+  expect(dialog.textContent).toContain("11:30am–12:00pm");
+  expect(dialog.textContent).toContain("Before");
+  expect(dialog.textContent).toContain("After");
+  expect(dialog.textContent).toContain("12:00pm–1:00pm");
+  expect(dialog.textContent).toContain("Earlier edits aren’t available");
+  expect(saves).toBe(0);
+  await click(document.querySelector<HTMLButtonElement>('[aria-label="Close calendar history"]')!);
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+});
+
+test("history errors remain retryable rather than looking like an empty log", async () => {
+  const schedule = calendarPreviewFixture(); let calls = 0;
+  const loadHistory = async () => { calls++; if (calls === 1) throw new Error("offline"); return { started_at: "2026-10-10T00:00:00Z", entries: [] }; };
+  await act(async () => root.render(h(ClinicAvailabilityCalendar, { schedule, onSave: async () => schedule, loadHistory })));
+  await click(button("Calendar history"));
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain("Could not load");
+  expect(document.querySelector('[role="dialog"]')?.textContent).not.toContain("No recorded changes");
+  await click(button("Retry"));
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain("No recorded changes yet");
+  expect(calls).toBe(2);
+});
+
+test("loading older history uses the last displayed event as its cursor", async () => {
+  const schedule = calendarPreviewFixture(); const requests: unknown[] = [];
+  const entries = Array.from({length: 51}, (_, index) => ({ id: String(100-index), entity_id: "block", entity_type: "block" as const, operation: "added" as const, recorded_at: "2026-10-10T00:00:00Z", actor_name: "Admin", actor_role: "admin", before_data: null, after_data: { slot_date: "2026-10-30", slot_start: "11:30", slot_end: "12:00" } }));
+  const loadHistory = async (options: { before?: string; date?: string }) => { requests.push(options); return { started_at: "2026-10-10T00:00:00Z", entries: options.before ? entries.slice(50) : entries }; };
+  await act(async () => root.render(h(ClinicAvailabilityCalendar, { schedule, onSave: async () => schedule, loadHistory })));
+  await click(button("Calendar history"));
+  expect(document.querySelectorAll('.availability-history-list li')).toHaveLength(50);
+  await click(button("Load older entries"));
+  expect(requests[1]).toEqual({ before: "51", date: undefined });
+  expect(document.querySelectorAll('.availability-history-list li')).toHaveLength(51);
+});

@@ -1,3 +1,4 @@
+import { HISTORY_PAGE_SIZE, type CalendarHistoryPage } from "./calendar-history";
 import { supabase } from "@/integrations/supabase/client";
 import { applyScheduleCommand, futureScheduleSlots, type ClinicSchedule, type ScheduleCommand } from "./clinic-schedule";
 import type { AvailabilityOverride, BlockedSlot, TradingHours } from "./slot-generation";
@@ -6,6 +7,14 @@ import { createPreviewScheduleStore } from "./preview-schedule-store";
 import { identifyPreviewAppointments } from "./preview-appointment-identity";
 
 type RpcClient = { rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message: string } | null }> };
+export async function fetchCalendarHistory(clinicId: string, options: { before?: string; date?: string } = {}): Promise<CalendarHistoryPage> {
+  const { data, error } = await (supabase as unknown as RpcClient).rpc("get_clinic_calendar_history", {
+    p_clinic: clinicId, p_before: options.before ?? null, p_date: options.date ?? null, p_limit: HISTORY_PAGE_SIZE,
+  });
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Could not load calendar history.");
+  return data as CalendarHistoryPage;
+}
 export async function fetchClinicSchedule(clinicId: string): Promise<ClinicSchedule> {
   const { data, error } = await (supabase as unknown as RpcClient).rpc("get_clinic_schedule", { p_clinic: clinicId });
   if (error) throw new Error(error.message);
