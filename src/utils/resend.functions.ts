@@ -1034,10 +1034,14 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       rawNotes.split(/\r?\n/).filter((l: string) => l.trim().length > 0).every((l: string) => /^\s*[-•]\s+/.test(l));
 
     void isBulletList;
+    void fundingLabel;
+    // Clinics must not see money details in the email notes.
+    const MONEY_RE =
+      /\$|\bprice|\bpricing|\bcost|\bquote|\bpayment|\bpay\b|\bpaid|\bplan\b|\bfinanc|\bdeposit|\bincome|\bsalary|\bearn|\bwage|\bsuper(annuation)?\b|\bsavings?\b|\bafford|\bbudget|\bloan|\bcredit|\binstal/i;
     const noteLines = rawNotes
       .split(/\r?\n/)
       .map((l: string) => l.trim().replace(/^[-•]\s*/, ""))
-      .filter((l: string) => l.length > 0);
+      .filter((l: string) => l.length > 0 && !MONEY_RE.test(l));
     const text = [
       `New booking: ${fullName}`,
       "",
@@ -1051,12 +1055,6 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       "",
       "PATIENT NOTES",
       ...(noteLines.length > 0 ? noteLines.map((l) => `- ${l}`) : ["- No call notes recorded."]),
-      "",
-      "KEY FACTS",
-      `Funding method: ${fundingLabel}`,
-      "Finance eligible: Approved",
-      `Deposit paid: ${data.depositPaid ? "Yes - $75" : "No deposit recorded"}`,
-      "Understands cost: Yes - quoted range",
       "",
       "PATIENT CONTACT",
       `Phone: ${data.phone || "Not provided"}`,
