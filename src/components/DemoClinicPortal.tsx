@@ -7,7 +7,7 @@ import { AppointmentsTab, AppointmentDetailModal, TabBtn } from "./ClinicPortalV
 import { ClinicAvailabilityCalendar } from "./ClinicAvailabilityCalendar";
 import { ClinicPackBalanceCard, type Pack } from "./ClinicPackBalanceCard";
 
-export function DemoClinicPortal() {
+export function DemoClinicPortal({ partnerView = false }: { partnerView?: boolean }) {
   const [store] = useState(() => new DemoClinicStore());
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const [tab, setTab] = useState<"appointments" | "availability">("appointments");
@@ -28,7 +28,10 @@ export function DemoClinicPortal() {
     <main className="clinic-portal" style={{ background: "#f0f2f5", minHeight: "100vh", color: "#24364f", fontFamily: "'Plus Jakarta Sans',system-ui,sans-serif" }}>
       <div style={{ background: "#eaf1f9", borderBottom: "1px solid #ccdbee", padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div style={{ fontSize: 12 }}><strong>Training demo</strong><span style={{ marginLeft: 10 }}>Fictional patients · Changes reset on refresh · No messages or payments</span></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        {partnerView && <a href="/settings#partner-view" style={{ color: "#1a3a6b", fontSize: 12, fontWeight: 600, textDecoration: "underline" }}>Back to Settings</a>}
         <button onClick={reset} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", border: "1px solid #ccdbee", borderRadius: 6, padding: "7px 11px", fontSize: 12, fontWeight: 600 }}><RotateCcw size={13} />Reset demo</button>
+        </div>
       </div>
       <header style={{ background: "#1a3a6b", color: "#fff", padding: "14px 24px", display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}><div style={{ width: 32, height: 32, display: "grid", placeItems: "center", background: "#ffffff20", borderRadius: 6, fontWeight: 700 }}>HT</div><div><strong style={{ fontSize: 14 }}>Hair Transplant Group</strong><div style={{ fontSize: 11, opacity: .75 }}>Clinic Partner Portal</div></div></div>
