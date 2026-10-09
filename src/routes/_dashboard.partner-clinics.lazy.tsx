@@ -171,7 +171,8 @@ function PartnerClinicsPage() {
               Approved clinics the sales portal sends patients to. Separate from CRM outreach.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <a href="/demo-clinic" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 600, color: "#1a3a6b", textDecoration: "underline" }}>Open demo clinic</a>
             <label className="flex items-center gap-2" style={{ fontSize: 12, color: "#111", cursor: "pointer" }}>
               <input
                 type="checkbox"

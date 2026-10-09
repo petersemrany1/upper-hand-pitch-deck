@@ -24,6 +24,8 @@ import { addPreviewAppointment, loadApprovalSchedule, reschedulePreviewAppointme
 import { ClinicAvailabilityPanel } from "./ClinicAvailabilityPanel";
 import { CALENDAR_APPROVAL_ONLY, isCalendarApprovalHost } from "@/lib/calendar-release";
 import { ConnectedScheduleSlotPicker } from "./ConnectedScheduleSlotPicker";
+import { ClinicScheduleSlotPicker } from "./ClinicScheduleSlotPicker";
+import { useDemoClinic } from "./DemoClinicContext";
 
 export type ChaseStatus = "requested" | "rebooked" | "not_proceeding" | "no_answer" | "voicemail";
 
@@ -373,7 +375,7 @@ function ClinicPortalContent({ clinicId, clinicName, isAdmin = false }: ClinicPo
   );
 }
 
-function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
+export function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <button
       onClick={onClick}
@@ -395,7 +397,7 @@ function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick:
 
 /* ============== APPOINTMENTS TAB (List + Calendar views) ============== */
 
-function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicState, minGapMins, isAdmin, onChange, onSelect }: {
+export function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicState, minGapMins, isAdmin, onChange, onSelect }: {
   appts: ClinicAppointment[];
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
@@ -789,7 +791,7 @@ function buildMonthGrid(monthStart: Date): (Date | null)[] {
 
 /* ============== NOTES TRAIL ============== */
 
-type ApptNote = {
+export type ApptNote = {
   id: string;
   appointment_id: string;
   clinic_id: string;
@@ -803,12 +805,14 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
   appointmentId: string; clinicId: string; isAdmin: boolean;
 }) {
   const { userType } = useAuth();
+  const demo = useDemoClinic();
   const [notes, setNotes] = useState<ApptNote[]>([]);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
+    if (demo) { setNotes(demo.notesFor(appointmentId)); setLoading(false); return; }
     const { data, error } = await supabase
       .from("clinic_appointment_notes")
       .select("*")
@@ -823,6 +827,7 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
   const addNote = async () => {
     const body = draft.trim();
     if (!body) return;
+    if (demo) { demo.addNote(appointmentId, body); setDraft(""); void load(); return; }
     setSaving(true);
     const { data: userRes } = await supabase.auth.getUser();
     // Viewing the partner UI must not attribute an administrator's note to the clinic.
@@ -845,6 +850,7 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
 
   const deleteNote = async (id: string) => {
     if (!confirm("Delete this note?")) return;
+    if (demo) { demo.deleteNote(id); void load(); return; }
     const { error } = await supabase.from("clinic_appointment_notes").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
     void load();
@@ -939,6 +945,7 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
 /* ============== UNIFIED APPOINTMENT DETAIL MODAL ============== */
 
 function ChaseSection({ appt, onChange }: { appt: ClinicAppointment; onChange: () => void }) {
+  const demo = useDemoClinic();
   const [expanded, setExpanded] = useState(false);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -965,6 +972,7 @@ function ChaseSection({ appt, onChange }: { appt: ClinicAppointment; onChange: (
   const submit = async () => {
     setSaving(true);
     try {
+      if (demo) { demo.patchAppointment(appt.id, { chase_status: "requested", chase_requested_at: new Date().toISOString(), chase_note: note.trim() || null }); toast.success("Demo chase request saved — no message sent"); setExpanded(false); setNote(""); onChange(); return; }
       const r = await requestChase({ data: { appointmentId: appt.id, note: note.trim() || undefined } });
       if (!r.success) { toast.error(r.error || "Failed"); return; }
       if (!r.emailSent) toast.warning("Marked, but email notification failed");
@@ -1014,9 +1022,10 @@ function ChaseSection({ appt, onChange }: { appt: ClinicAppointment; onChange: (
   );
 }
 
-function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaultDeposit }: {
+export function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaultDeposit }: {
   appt: ClinicAppointment; isAdmin: boolean; onClose: () => void; onChange: () => void; clinicDefaultDeposit: number;
 }) {
+  const demo = useDemoClinic();
   const [summaryMode, setSummaryMode] = useState<null | "show" | "proceeded">(null);
   const [rescheduleMode, setRescheduleMode] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -1028,7 +1037,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   const openSummary = async (mode: "show" | "proceeded") => {
     setBusy(true);
     try {
-      const check = await checkOutcomeFree({ data: { appointmentId: appt.id } });
+      const check = demo ? demo.checkOutcome(appt.id) : await checkOutcomeFree({ data: { appointmentId: appt.id } });
       if (!check.success) { toast.error(check.error || "Could not open this consult"); onChange(); return; }
       setSummaryMode(mode);
     } catch (e) {
@@ -1041,7 +1050,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   const markNoShow = async () => {
     setBusy(true);
     try {
-      const result = await recordClinicNoShow({ data: { appointmentId: appt.id } });
+      const result = demo ? demo.recordOutcome(appt.id, "noshow") : await recordClinicNoShow({ data: { appointmentId: appt.id } });
       if (!result.success) { toast.error(result.error || "Could not save outcome"); onChange(); return; }
       toast.success("Outcome saved");
       onChange();
@@ -1056,7 +1065,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   const resetOutcome = async () => {
     setBusy(true);
     try {
-      const result = await resetClinicOutcome({ data: { appointmentId: appt.id } });
+      const result = demo ? demo.patchAppointment(appt.id, { outcome: null, consult_summary: null, refund_status: null, refund_processed_at: null }) : await resetClinicOutcome({ data: { appointmentId: appt.id } });
       if (!result.success) { toast.error(result.error || "Could not reset outcome"); onChange(); return; }
       toast.success("Outcome reset");
       onChange();
@@ -1076,6 +1085,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
     const trimmed = reason.trim();
     if (trimmed.length < 5) { toast.error("Reason must be at least 5 characters"); return; }
     try {
+      if (demo) { demo.patchAppointment(appt.id, { outcome: "disqualified", disqualified_reason: trimmed, refund_status: "refunded_manual" }); onChange(); onClose(); return; }
       const r = await disqualifyAppointment({ data: { appointmentId: appt.id, reason: trimmed } });
       if (!r.success) {
         if ("outcomeSaved" in r && r.outcomeSaved) {
@@ -1101,6 +1111,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
 
   const deleteAppt = async () => {
     if (!confirm("Delete this appointment?")) return;
+    if (demo) { demo.deleteAppointment(appt.id); onChange(); onClose(); return; }
     const { error } = await supabase.from("clinic_appointments").delete().eq("id", appt.id);
     if (error) { toast.error(error.message); return; }
     toast.success("Appointment deleted");
@@ -1125,6 +1136,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   const markRefundedManually = async () => {
     if (!confirm(`Mark $${depositAmount} deposit as refunded to ${appt.patient_name}?`)) return;
     try {
+      if (demo) { demo.patchAppointment(appt.id, { refund_status: "refunded_manual", refund_processed_at: new Date().toISOString() }); onChange(); onClose(); return; }
       const res = await markDepositRefundedManually({ data: { appointmentId: appt.id } });
       if (!res.success) { toast.error(res.error); return; }
       toast.success("Marked as refunded");
@@ -1148,10 +1160,10 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
         {new Date(appt.appointment_date).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })} · {fmtTime(appt.appointment_time)}
       </div>
       {appt.patient_phone && (
-        <a href={`tel:${appt.patient_phone}`} style={{ fontSize: 13, color: NAVY, fontWeight: 500, display: "block", marginBottom: appt.patient_email ? 4 : 10 }}>{appt.patient_phone}</a>
+        <a href={demo ? undefined : `tel:${appt.patient_phone}`} style={{ fontSize: 13, color: NAVY, fontWeight: 500, display: "block", marginBottom: appt.patient_email ? 4 : 10 }}>{appt.patient_phone}</a>
       )}
       {appt.patient_email && (
-        <a href={`mailto:${appt.patient_email}`} style={{ fontSize: 13, color: NAVY, fontWeight: 500, display: "block", marginBottom: 10, wordBreak: "break-all" }}>{appt.patient_email}</a>
+        <a href={demo ? undefined : `mailto:${appt.patient_email}`} style={{ fontSize: 13, color: NAVY, fontWeight: 500, display: "block", marginBottom: 10, wordBreak: "break-all" }}>{appt.patient_email}</a>
       )}
       <div style={{
         display: "inline-block", padding: "3px 10px", fontSize: 11, fontWeight: 600,
@@ -1307,6 +1319,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
 function RescheduleModal({ appt: liveAppt, onClose, onSaved }: {
   appt: ClinicAppointment; onClose: () => void; onSaved: () => void;
 }) {
+  const demo = useDemoClinic();
   const [appt] = useState(liveAppt); // Freeze the version the clinic actually reviewed.
   const [date, setDate] = useState<string>(appt.appointment_date);
   const timeInit = /^(\d{1,2}):(\d{2})/.exec(appt.appointment_time ?? "");
@@ -1319,6 +1332,11 @@ function RescheduleModal({ appt: liveAppt, onClose, onSaved }: {
     if (!date || !time) { toast.error("Pick a date and time"); return; }
     if (date === appt.appointment_date && time === appt.appointment_time) {
       toast.error("That's the same date and time");
+      return;
+    }
+    if (demo) {
+      try { demo.reschedule(appt.id, date, time); toast.success("Rescheduled"); onSaved(); }
+      catch (error) { toast.error((error as Error).message); }
       return;
     }
     if (isCalendarApprovalHost()) {
@@ -1350,7 +1368,7 @@ function RescheduleModal({ appt: liveAppt, onClose, onSaved }: {
       <div style={{ fontSize: 12, color: "#6b7785", marginBottom: 14 }}>{appt.patient_name} · currently {oldLabel}</div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {!CALENDAR_APPROVAL_ONLY || isCalendarApprovalHost() ? <ConnectedScheduleSlotPicker clinicId={appt.clinic_id} date={date} time={time} onDate={setDate} onTime={setTime} excludeAppointmentId={appt.id} consultationMinutes={appt.consultation_duration_minutes ?? (isCalendarApprovalHost() && appt.clinic_id === "9ac8fa05-c4b0-4faa-b519-f6a347956fb1" ? 90 : 30)} enforceBookingWindow={false} /> : <>
+        {demo ? <ClinicScheduleSlotPicker schedule={demo.getSnapshot().schedule} date={date} time={time} onDate={setDate} onTime={setTime} excludeAppointmentId={appt.id} consultationMinutes={appt.consultation_duration_minutes} /> : !CALENDAR_APPROVAL_ONLY || isCalendarApprovalHost() ? <ConnectedScheduleSlotPicker clinicId={appt.clinic_id} date={date} time={time} onDate={setDate} onTime={setTime} excludeAppointmentId={appt.id} consultationMinutes={appt.consultation_duration_minutes ?? (isCalendarApprovalHost() && appt.clinic_id === "9ac8fa05-c4b0-4faa-b519-f6a347956fb1" ? 90 : 30)} enforceBookingWindow={false} /> : <>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: NAVY, textTransform: "uppercase", letterSpacing: 0.5 }}>New date</span>
           <input
@@ -1375,7 +1393,7 @@ function RescheduleModal({ appt: liveAppt, onClose, onSaved }: {
       </div>
 
       <div style={{ fontSize: 11, color: "#6b7785", marginTop: 12, lineHeight: 1.5 }}>
-        Remaining reminder SMSes will follow the new date. Reminder times that have already passed are skipped. A note will be added to the Patient Intel for your records.
+        {demo ? "Demo only — no reminder SMSes are sent. The appointment and calendar update together." : "Remaining reminder SMSes will follow the new date. Reminder times that have already passed are skipped. A note will be added to the Patient Intel for your records."}
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
@@ -2173,6 +2191,7 @@ function LegendDot({ color, bg, label }: { color: string; bg: string; label: str
 type PaidVia = { processor: "square" | "stripe"; paymentId: string } | null;
 
 function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false, clinicDefaultDeposit }: { appt: ClinicAppointment; onClose: () => void; onSaved: () => void; defaultProceeded?: boolean; clinicDefaultDeposit: number }) {
+  const demo = useDemoClinic();
   const [notes, setNotes] = useState(appt.consult_summary ?? "");
   const [proceeded, setProceeded] = useState(defaultProceeded);
   const [saving, setSaving] = useState(false);
@@ -2191,6 +2210,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
   const [resolving, setResolving] = useState(!initialPaidVia && !alreadyRefunded);
 
   useEffect(() => {
+    if (demo) { setResolving(false); return; }
     if (initialPaidVia || alreadyRefunded) return;
     let cancelled = false;
     void (async () => {
@@ -2212,7 +2232,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
   const noPaymentIntent = !paidVia;
   const processorName = paidVia?.processor === "square" ? "Square" : "Stripe";
 
-  const submitLabel = alreadyRefunded
+  const submitLabel = demo ? "Save demo outcome" : alreadyRefunded
     ? "Save & close"
     : resolving
       ? "Checking payment…"
@@ -2224,6 +2244,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
     setSaving(true);
     setErrorMsg(null);
     try {
+      if (demo) { demo.recordOutcome(appt.id, proceeded ? "proceeded" : "show", notes); toast.success("Demo outcome saved — no payment or message sent"); setSaving(false); onSaved(); return; }
       const result = await processConsultOutcome({
         data: {
           appointmentId: appt.id,
@@ -2271,7 +2292,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
         The patient booked their procedure today
       </label>
 
-      {alreadyRefunded ? (
+      {demo ? <p style={{ fontSize: 12, color: "#617086", marginBottom: 14 }}>Demo only. Saving simulates the outcome and deposit refund; no money moves and no messages are sent.</p> : alreadyRefunded ? (
         <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 8, padding: 12, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "#1a7a4a" }}>Deposit already refunded</div>
           <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>{appt.square_refund_id ? `Square ref ${appt.square_refund_id}` : `Stripe ref ${appt.stripe_refund_id}`}</div>

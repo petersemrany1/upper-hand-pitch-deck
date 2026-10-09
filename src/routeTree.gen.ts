@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as CalendarPreviewRouteImport } from './routes/calendar-preview'
 import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
+import { Route as DemoClinicRouteImport } from './routes/demo-clinic'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PayDepositRouteImport } from './routes/pay-deposit'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -90,6 +91,11 @@ const ClinicPortalRoute = ClinicPortalRouteImport.update({
   path: '/clinic-portal',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/clinic-portal.lazy').then((d) => d.Route))
+const DemoClinicRoute = DemoClinicRouteImport.update({
+  id: '/demo-clinic',
+  path: '/demo-clinic',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/demo-clinic.lazy').then((d) => d.Route))
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -448,6 +454,7 @@ export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
   '/calendar-preview': typeof CalendarPreviewRoute
   '/clinic-portal': typeof ClinicPortalRoute
+  '/demo-clinic': typeof DemoClinicRoute
   '/login': typeof LoginRoute
   '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -514,6 +521,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/calendar-preview': typeof CalendarPreviewRoute
   '/clinic-portal': typeof ClinicPortalRoute
+  '/demo-clinic': typeof DemoClinicRoute
   '/login': typeof LoginRoute
   '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -582,6 +590,7 @@ export interface FileRoutesById {
   '/_dashboard': typeof DashboardRouteWithChildren
   '/calendar-preview': typeof CalendarPreviewRoute
   '/clinic-portal': typeof ClinicPortalRoute
+  '/demo-clinic': typeof DemoClinicRoute
   '/login': typeof LoginRoute
   '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -652,6 +661,7 @@ export interface FileRouteTypes {
     | '/'
     | '/calendar-preview'
     | '/clinic-portal'
+    | '/demo-clinic'
     | '/login'
     | '/pay-deposit'
     | '/reset-password'
@@ -718,6 +728,7 @@ export interface FileRouteTypes {
   to:
     | '/calendar-preview'
     | '/clinic-portal'
+    | '/demo-clinic'
     | '/login'
     | '/pay-deposit'
     | '/reset-password'
@@ -785,6 +796,7 @@ export interface FileRouteTypes {
     | '/_dashboard'
     | '/calendar-preview'
     | '/clinic-portal'
+    | '/demo-clinic'
     | '/login'
     | '/pay-deposit'
     | '/reset-password'
@@ -854,6 +866,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
   CalendarPreviewRoute: typeof CalendarPreviewRoute
   ClinicPortalRoute: typeof ClinicPortalRoute
+  DemoClinicRoute: typeof DemoClinicRoute
   LoginRoute: typeof LoginRoute
   PayDepositRoute: typeof PayDepositRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -902,6 +915,13 @@ declare module '@tanstack/react-router' {
       path: '/clinic-portal'
       fullPath: '/clinic-portal'
       preLoaderRoute: typeof ClinicPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo-clinic': {
+      id: '/demo-clinic'
+      path: '/demo-clinic'
+      fullPath: '/demo-clinic'
+      preLoaderRoute: typeof DemoClinicRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -1451,6 +1471,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
   CalendarPreviewRoute: CalendarPreviewRoute,
   ClinicPortalRoute: ClinicPortalRoute,
+  DemoClinicRoute: DemoClinicRoute,
   LoginRoute: LoginRoute,
   PayDepositRoute: PayDepositRoute,
   ResetPasswordRoute: ResetPasswordRoute,

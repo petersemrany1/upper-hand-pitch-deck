@@ -71,10 +71,14 @@ function setPreviewAccount(account: string) {
   stopStore = listeners.size ? activePreviewStore().subscribe(notify) : undefined;
   notify();
 }
-if (typeof window !== "undefined") {
+let previewAuthStarted = false;
+function startPreviewAuth() {
+  if (typeof window === "undefined" || previewAuthStarted) return;
+  previewAuthStarted = true;
   supabase.auth.onAuthStateChange((_event, session) => setPreviewAccount(session?.user.id ?? "anonymous"));
 }
 async function preparePreviewStore() {
+  startPreviewAuth();
   if (typeof window !== "undefined") {
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
@@ -83,6 +87,7 @@ async function preparePreviewStore() {
   return activePreviewStore();
 }
 export const subscribePreviewSchedules = (listener: () => void) => {
+  startPreviewAuth();
   listeners.add(listener);
   if (listeners.size === 1) stopStore = activePreviewStore().subscribe(notify);
   return () => { listeners.delete(listener); if (!listeners.size) { stopStore?.(); stopStore = undefined; } };

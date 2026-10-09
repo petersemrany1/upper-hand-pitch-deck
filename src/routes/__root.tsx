@@ -1,7 +1,8 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
-import { AuthProvider } from "@/hooks/useAuth";
+import { isDemoClinicPath } from "@/lib/demo-clinic";
+import { AuthProvider, DemoAuthProvider } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { GlobalCallLayer } from "@/components/GlobalCallLayer";
 import { Toaster } from "@/components/ui/sonner";
@@ -140,8 +141,10 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  const demo = isDemoClinicPath(useLocation().pathname);
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    // Demo text and actions must never enter the production error log.
+    if (typeof window === "undefined" || demo) return;
 
     // Vite emits this even when an action catches its import error. Never
     // reload automatically: a clinic may have unsaved consultation notes.
@@ -184,7 +187,9 @@ function RootComponent() {
       window.removeEventListener("unhandledrejection", onRejection);
       window.removeEventListener("vite:preloadError", onPreloadError);
     };
-  }, []);
+  }, [demo]);
+
+  if (demo) return <TooltipProvider delayDuration={200}><DemoAuthProvider><Outlet /><Toaster /></DemoAuthProvider></TooltipProvider>;
 
   return (
     <TooltipProvider delayDuration={200}>
