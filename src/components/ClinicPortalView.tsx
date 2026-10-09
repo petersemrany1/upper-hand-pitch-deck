@@ -310,7 +310,7 @@ function ClinicPortalContent({ clinicId, clinicName, isAdmin = false }: ClinicPo
   }, [appts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className={`clinic-portal${tab === "availability" ? " clinic-portal--availability" : ""}`} style={{ background: "#f0f2f5", minHeight: tab === "availability" ? 0 : "100vh", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+    <div className="clinic-portal" style={{ background: "#f0f2f5", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
       {showBilling && <ClinicPackBalanceCard clinicId={clinicId} isAdmin={isAdmin && role === "admin"} refreshKey={refresh} />}
       {isAdmin && role === "admin" && <ClinicTrialSettings clinicId={clinicId} onChange={reload} />}
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec", marginTop: 16 }}>
@@ -356,7 +356,7 @@ function ClinicPortalContent({ clinicId, clinicName, isAdmin = false }: ClinicPo
       )}
 
 
-      <div className="clinic-portal-footer" style={{ padding: 16, textAlign: "center", color: "#9aa5b1", fontSize: 11 }}>
+      <div style={{ padding: 16, textAlign: "center", color: "#9aa5b1", fontSize: 11 }}>
         {clinicName} · Clinic Partner Portal
       </div>
 
