@@ -37,8 +37,9 @@ const openPatient = async (name: string) => {
 };
 
 test("demo clinic workflows never read or write production", async () => {
-  await act(async () => root.render(h(DemoAuthProvider, null, h(DemoClinicPortal))));
+  await act(async () => root.render(h(DemoAuthProvider, null, h(DemoClinicPortal, { partnerView: true }))));
   expect(document.body.textContent).toContain("Demo Clinic");
+  expect(document.querySelector('a[href="/settings#partner-view"]')?.textContent).toBe("Back to Settings");
   expect(document.body.textContent).toContain("Alex Morgan");
   await click(button("All packs"));
   expect(document.body.textContent).toContain("Training example");

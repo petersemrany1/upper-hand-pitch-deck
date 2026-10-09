@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Eye } from "lucide-react";
 import { listPartnerViewClinics } from "@/lib/partner-view.functions";
+import { DEMO_CLINIC_ID, DEMO_CLINIC_NAME } from "@/lib/demo-clinic";
 import type { PartnerViewClinic } from "@/lib/partner-view";
 
 export function PartnerViewSection() {
@@ -26,16 +27,22 @@ export function PartnerViewSection() {
       <div><h2 id="partner-view-title" className="text-lg font-bold text-foreground">View as partner</h2>
         <p className="text-xs text-muted-foreground mt-0.5">See the portal your partner sees. You stay signed in as yourself.</p></div>
     </div>
-    {loading ? <p className="text-sm text-muted-foreground" role="status">Loading partner clinics…</p> : error ? <p className="text-sm text-destructive" role="alert">{error} <button className="underline underline-offset-2" onClick={() => setAttempt(n => n + 1)}>Retry</button></p> : !clinics.length ? <p className="text-sm text-muted-foreground">No partner clinics have been added yet.</p> :
-      <form className="flex flex-col sm:flex-row sm:items-end gap-3" onSubmit={event => { event.preventDefault(); if (clinicId) void navigate({ to: "/clinic-portal", search: { viewClinic: clinicId } }); }}>
+    {loading ? <p className="text-sm text-muted-foreground" role="status">Loading partner clinics…</p> : error ? <p className="text-sm text-destructive" role="alert">{error} <button className="underline underline-offset-2" onClick={() => setAttempt(n => n + 1)}>Retry</button></p> : null}
+      <form className="flex flex-col sm:flex-row sm:items-end gap-3" onSubmit={event => {
+        event.preventDefault();
+        // A full page load drops live providers and pending connections before training starts.
+        if (clinicId === DEMO_CLINIC_ID) { window.location.assign("/demo-clinic?from=partner-view"); return; }
+        if (clinicId) void navigate({ to: "/clinic-portal", search: { viewClinic: clinicId } });
+      }}>
         <label className="flex-1 text-sm font-medium" htmlFor="partner-view-clinic">Partner clinic
           <select id="partner-view-clinic" required value={clinicId} onChange={event => setClinicId(event.target.value)} className="mt-2 w-full min-h-11 rounded-md border border-border bg-background px-3 py-2 text-sm">
             <option value="" disabled>Choose a clinic</option>
+            <option value={DEMO_CLINIC_ID}>{DEMO_CLINIC_NAME} (training)</option>
             {clinics.map(clinic => <option key={clinic.id} value={clinic.id}>{clinic.clinic_name}{clinic.is_active ? "" : " (inactive)"}</option>)}
           </select>
         </label>
         <button disabled={!clinicId} className="min-h-11 rounded-md bg-[#203b5c] px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">View as partner</button>
-      </form>}
+      </form>
     <div className="mt-5 pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3">
       <p className="text-xs text-muted-foreground">Record training videos with fictional patients in Demo Clinic.</p>
       <a href="/demo-clinic" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-primary underline underline-offset-4">Open demo clinic</a>

@@ -1,6 +1,6 @@
 # Demo Clinic
 
-Open `/demo-clinic`, or use **Open demo clinic** in Partner Clinics or Settings → View as partner. This public training page contains fictional fixtures only; it does not create a clinic account or database row.
+Open `/demo-clinic`, select **Demo Clinic (training)** in Settings → View as partner, or use **Open demo clinic** in Partner Clinics. The Settings selector loads the isolated demo in the same tab with a **Back to Settings** link. This public training page contains fictional fixtures only; it does not create a clinic account or database row.
 
 The shared partner appointment list, calendar, detail forms, availability editor, history dialog and credit card use a per-page `DemoClinicStore`. The store has no database, auth, storage, payment or messaging dependencies. Each load seeds 12 patients, a 20-credit example pack, a block and example history. Upcoming appointments move with the date. Refresh or **Reset demo** clears all edits and notes. Separate browser tabs have independent demos.
 
