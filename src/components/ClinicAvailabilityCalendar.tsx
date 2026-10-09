@@ -11,6 +11,8 @@ import { calendarEventLayout, mergeCalendarBands } from "@/lib/calendar-event-la
 import { blockDragScrollDelta, projectBlockDrag, type BlockDragKind } from "@/lib/calendar-block-drag";
 import { calendarVisibleHours } from "@/lib/calendar-visible-hours";
 import { sydneyTodayISO } from "@/lib/timezone";
+import { CalendarHistory } from "./CalendarHistory";
+import type { CalendarHistoryLoader } from "@/lib/calendar-history";
 import "./clinic-availability-calendar.css";
 
 type Props = {
@@ -19,6 +21,7 @@ type Props = {
   onRefresh?: () => void;
   preview?: boolean;
   initialDate?: string;
+  loadHistory?: CalendarHistoryLoader;
 };
 type Editor = {
   kind: "block" | "hours" | "appointment" | "buffer";
@@ -29,7 +32,7 @@ const weekDays = [{ n: 1, label: "Mon" }, { n: 2, label: "Tue" }, { n: 3, label:
 const calendarTimeLabel = (minute: number) => timeLabel(minute).replace(/^(\d+)(am|pm)$/, "$1:00$2");
 const calendarRangeLabel = (from: number, until: number) => `${calendarTimeLabel(from)}–${calendarTimeLabel(until)}`;
 
-export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, preview = false, initialDate }: Props) {
+export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, preview = false, initialDate, loadHistory }: Props) {
   const root = useRef<HTMLElement>(null);
   const savedViewport = useRef<{ y: number; top: number; visible: boolean; left: number; minute: number; container: HTMLElement | null } | null>(null);
   const mondayOf = (date: string) => addDays(date, -((asDate(date).getDay() + 6) % 7));
@@ -259,7 +262,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
   return <section className="availability-calendar" ref={root} aria-label="Clinic availability">
     <div className="availability-heading">
       <div><h2>Availability</h2><p>{schedule.clinic_name}</p></div>
-      {preview && <span className="availability-preview">Approval preview · changes stay in this preview</span>}
+      {preview ? <span className="availability-preview">Approval preview · changes stay in this preview</span> : loadHistory && <CalendarHistory key={schedule.clinic_id} load={loadHistory} clinicName={schedule.clinic_name} />}
     </div>
     <div className="availability-settings">
       <button className="availability-settings-summary" aria-haspopup="dialog" aria-expanded={!!settings} onClick={() => { setError(""); setSettings(settings ? null : { duration: String(schedule.consultation_minutes), buffer: String(schedule.buffer_minutes), version: schedule.version, trading: Array.from({ length: 7 }, (_, day_of_week) => ({ day_of_week, open_time: "09:00", close_time: "17:00", is_closed: day_of_week > 4, consult_duration_mins: 30, ...schedule.trading.find(h => h.day_of_week === day_of_week) })) }); }} disabled={busy}>
