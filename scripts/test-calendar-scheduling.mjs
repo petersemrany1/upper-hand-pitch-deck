@@ -75,6 +75,7 @@ const historyStarted=(await db.query('select started_at from calendar_history_st
 await db.exec(sql('20261010010000_calendar_history.sql'));
 assert.equal((await db.query('select count(*)::int n from clinic_calendar_history')).rows[0].n,historyBaseline,'Migration replay does not create duplicate evidence');
 assert.deepEqual((await db.query('select started_at from calendar_history_start')).rows[0].started_at,historyStarted,'History start is stable');
+await db.exec(sql('20261010020000_simplify_calendar_history.sql'));
 const actor=async(n,email,role='authenticated')=>{await db.exec('RESET ROLE');await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:uid(n),email,role})]);await db.exec('SET ROLE '+role);};
 const snapshot=async(clinic=uid(10))=>(await db.query('select get_clinic_schedule($1) s',[clinic])).rows[0].s;
 const save=async(command,version,clinic=uid(10))=>{const s=version??(await snapshot(clinic)).version;return (await db.query('select save_clinic_schedule($1,$2,$3) s',[clinic,s,JSON.stringify(command)])).rows[0].s;};
@@ -84,6 +85,8 @@ const equal=(a,b,label)=>{assert.deepEqual(a,b,label);checks++;};
 const reject=async(promise,pattern)=>{await assert.rejects(promise,pattern);checks++;};
 if (nativePg) equal((await db.query("select tablename from pg_publication_tables where pubname='supabase_realtime' order by tablename")).rows.map(row=>row.tablename),['clinic_appointments','clinic_availability','clinic_blocked_slots','clinic_trading_hours','partner_clinics'],'Replayed migration publishes every schedule table without duplicate membership');
 
+await actor(1,'admin@fixture.test');
+equal((await db.query('select get_clinic_calendar_history($1) h',[uid(10)])).rows[0].h.entries,[],'Starting snapshots are excluded before pagination');
 await actor(2,'a@fixture.test');
 equal((await snapshot()).consultation_minutes,30,'Legacy clinics retain the 30 minute duration');
 equal('patient_name' in (await snapshot()).appointments[0],false,'Sales snapshot never leaks another patient');
@@ -248,6 +251,7 @@ const history=async(clinic=uid(10),before=null,date=null,limit=50)=>(await db.qu
 await actor(1,'admin@fixture.test');
 const baselineEntries=(await history()).entries;
 equal(baselineEntries.length>0,true,'Admin can inspect history');
+equal(baselineEntries.every(e=>e.operation!=='baseline'),true,'Only real changes are returned');
 await actor(5,'clinic@fixture.test');
 await reject(history(uid(11)),/access/);
 await reject(db.query("insert into clinic_calendar_history(clinic_id,entity_type,entity_id,operation,actor_name,actor_role) values($1,'block',$2,'added','Fake','admin')",[uid(10),uid(99)]),/permission denied/);
