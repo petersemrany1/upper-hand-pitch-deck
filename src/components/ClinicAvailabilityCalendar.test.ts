@@ -367,12 +367,12 @@ test("history opens above Settings, displays evidence and makes no calendar writ
   expect(trigger.compareDocumentPosition(host.querySelector('.availability-settings-summary')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   await click(trigger);
   const dialog = document.querySelector('[role="dialog"]')!;
-  expect(dialog.textContent).toContain("11:15:02 am");
-  expect(dialog.textContent).toContain("11:30am–12:00pm");
-  expect(dialog.textContent).toContain("Before");
-  expect(dialog.textContent).toContain("After");
-  expect(dialog.textContent).toContain("12:00pm–1:00pm");
-  expect(dialog.textContent).toContain("Earlier edits aren’t available");
+  expect(dialog.textContent).toContain("11:15:02am");
+  expect(dialog.textContent).toContain("11:30am–12pm");
+  expect(dialog.textContent).toContain("Blocked time changed from");
+  expect(dialog.textContent).not.toContain("Starting state");
+  expect(dialog.textContent).toContain("12pm–1pm");
+  expect(dialog.textContent).not.toContain("Recording began");
   expect(saves).toBe(0);
   await click(document.querySelector<HTMLButtonElement>('[aria-label="Close calendar history"]')!);
   expect(document.querySelector('[role="dialog"]')).toBeNull();
