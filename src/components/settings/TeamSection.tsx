@@ -145,7 +145,8 @@ export function TeamSection() {
     const t = toast.loading(`Signing in as ${rep.name}…`);
     const r = await impersonateRep({ data: { id: rep.id } });
     if (!r.success) { toast.error(r.error, { id: t }); return; }
-    await supabase.auth.signOut();
+    const { error: signOutError } = await supabase.auth.signOut({ scope: "local" });
+    if (signOutError) { toast.error(signOutError.message, { id: t }); return; }
     const { error } = await supabase.auth.verifyOtp({
       token_hash: r.tokenHash,
       type: "magiclink",
