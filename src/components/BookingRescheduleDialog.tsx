@@ -1,3 +1,4 @@
+import { clinicRescheduleEmail,validClinicEmail } from "@/lib/clinic-reschedule-email";
 import { useEffect, useState } from "react";
 import { Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -6,19 +7,20 @@ import { availableRescheduleSlots,clinicNow,rescheduleText,type RescheduleSnapsh
 import { toast } from "sonner";
 
 export function BookingRescheduleDialog({appointmentId,onClose,onSaved}:{appointmentId:string;onClose:()=>void;onSaved:()=>void}) {
- const [details,setDetails]=useState<{snapshot:RescheduleSnapshot;version:string}|null>(null);
+ const [details,setDetails]=useState<{snapshot:RescheduleSnapshot;version:string;clinicEmail:string}|null>(null);
  const [date,setDate]=useState("");const [time,setTime]=useState("");const [reason,setReason]=useState("");
  const [review,setReview]=useState(false);const [saving,setSaving]=useState(false);const [error,setError]=useState("");
+ const [emailSubject,setEmailSubject]=useState("");const [emailBody,setEmailBody]=useState("");
  const [requestId,setRequestId]=useState(()=>crypto.randomUUID());
  const load=async()=>{setDetails(null);setError("");setReview(false);setRequestId(crypto.randomUUID());try{const d=await getRescheduleDetails({data:{appointmentId}});setDetails(d);setDate(d.snapshot.appointment.appointment_date);setTime("");}catch(e){setError(e instanceof Error?e.message:"Could not load appointment");}};
  useEffect(()=>{void load();},[appointmentId]);
  const s=details?.snapshot;const slots=s?availableRescheduleSlots(s,date):[];
- const choose=()=>{setError("");setRequestId(crypto.randomUUID());setReview(true);};
+ const choose=()=>{if(!s)return;const email=clinicRescheduleEmail(s,date,time);setEmailSubject(email.subject);setEmailBody(email.body);setError("");setRequestId(crypto.randomUUID());setReview(true);};
  const save=async()=>{
   if(!details||saving)return;setSaving(true);setError("");
-  try{const result=await rescheduleBooking({data:{appointmentId,requestId,version:details.version,date,time,reason}});
-    if(result.status==="accepted")toast.success("Appointment rescheduled. Patient confirmation accepted for sending.");
-    else toast.warning("Appointment rescheduled, but the patient SMS needs attention. Check its status on the booking.");
+  try{const result=await rescheduleBooking({data:{appointmentId,requestId,version:details.version,date,time,reason,emailSubject,emailBody,clinicEmail:details.clinicEmail}});
+    if(result.status==="accepted"&&result.email.status==="accepted")toast.success("Appointment rescheduled. Patient text and clinic email accepted for sending.");
+    else toast.warning(`Appointment rescheduled. ${[result.status!=="accepted"?"Patient text":null,result.email.status!=="accepted"?"Clinic email":null].filter(Boolean).join(" and ")} needs attention. Check the booking's delivery status.`);
     onSaved();
   }catch(e){setError(e instanceof Error?e.message:"Could not reschedule");}finally{setSaving(false);}
  };
@@ -35,8 +37,14 @@ export function BookingRescheduleDialog({appointmentId,onClose,onSaved}:{appoint
  <Button disabled={!time||(date===s.appointment.appointment_date&&time===s.appointment.appointment_time.slice(0,5))||!!s.appointment.outcome||s.reminder?.status!=="confirmed"} onClick={choose}>Review reschedule</Button></>:<>
  <p>Move <strong>{s.appointment.patient_name}</strong> at <strong>{s.clinic.clinic_name}</strong> from <strong>{label(s.appointment.appointment_date,s.appointment.appointment_time)}</strong> to <strong>{label(date,time)}</strong>?</p>
  <div className="rounded-lg bg-slate-50 p-3 text-sm"><p className="font-semibold mb-2">Text to the patient</p><p>{rescheduleText(s,date,time)}</p></div>
+ <div className="rounded-lg border p-3 space-y-3 text-sm">
+ <div><p className="font-semibold">Email to the clinic</p><p className="text-muted-foreground">To: {details?.clinicEmail||"No email address saved"}</p></div>
+ {!validClinicEmail(details?.clinicEmail)&&<p role="alert" className="text-red-700">Add a valid email address in the clinic settings, then refresh these details.</p>}
+ <label className="grid gap-1">Subject<input disabled={saving} maxLength={200} className="rounded border p-2" value={emailSubject} onChange={e=>setEmailSubject(e.target.value)}/></label>
+ <label className="grid gap-1">Message<textarea disabled={saving} rows={10} maxLength={5000} className="rounded border p-2 leading-relaxed" value={emailBody} onChange={e=>setEmailBody(e.target.value)}/></label>
+ </div>
  <p className="text-sm text-muted-foreground">The clinic portal will show the new time. Remaining reminders will follow the new date. The booking owner and deposit stay unchanged.</p>
- <div className="flex justify-end gap-2"><Button variant="outline" disabled={saving} onClick={()=>setReview(false)}>Back</Button><Button disabled={saving} onClick={save}>{saving?"Saving…":"Confirm reschedule and send text"}</Button></div>
+ <div className="flex justify-end gap-2"><Button variant="outline" disabled={saving} onClick={()=>setReview(false)}>Back</Button><Button disabled={saving||!emailSubject.trim()||!emailBody.trim()||!validClinicEmail(details?.clinicEmail)} onClick={save}>{saving?"Saving…":"Confirm reschedule & send"}</Button></div>
  </>}
  </>}
  </DialogContent></Dialog>;

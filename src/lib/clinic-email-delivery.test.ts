@@ -1,0 +1,14 @@
+import {test,expect} from "bun:test";
+import {deliverClinicEmailOnce,deliverRescheduleNotifications,type EmailSendResult} from "./clinic-email-delivery";
+function fixture(send:()=>Promise<EmailSendResult>=async()=>({status:"accepted",receipt:"test"})) {
+ let status="pending",sends=0;
+ const deps={claim:async()=>{if(!["pending","failed"].includes(status))return null;status="sending";return {id:"event",email_to:"clinic@example.invalid",email_subject:"Edited subject",email_body:"Edited body"};},existing:async()=>({status,error:null}),send:async()=>{sends++;return send();},finish:async(r:EmailSendResult)=>{status=r.status;}};
+ return {deps,read:()=>({status,sends})};
+}
+test("double click, concurrent requests and repeated confirmations send one email",async()=>{const f=fixture();await Promise.all([deliverClinicEmailOnce(f.deps),deliverClinicEmailOnce(f.deps)]);await deliverClinicEmailOnce(f.deps);expect(f.read()).toEqual({status:"accepted",sends:1});});
+test("definite email rejection can be retried independently",async()=>{let n=0;const f=fixture(async()=>++n===1?{status:"failed",error:"Rejected"}:{status:"accepted"});expect((await deliverClinicEmailOnce(f.deps)).status).toBe("failed");expect((await deliverClinicEmailOnce(f.deps)).status).toBe("accepted");expect(f.read().sends).toBe(2);});
+test("timeout cannot cause automatic duplicate email",async()=>{const f=fixture(async()=>{throw new Error("timeout")});await deliverClinicEmailOnce(f.deps);await deliverClinicEmailOnce(f.deps);expect(f.read()).toEqual({status:"uncertain",sends:1});});
+test("receipt persistence failure keeps the claim",async()=>{const f=fixture();f.deps.finish=async()=>{throw new Error("database down")};expect((await deliverClinicEmailOnce(f.deps)).status).toBe("uncertain");await deliverClinicEmailOnce(f.deps);expect(f.read()).toEqual({status:"sending",sends:1});});
+test("failed/stale booking claim never sends email",async()=>{const f=fixture();f.deps.claim=async()=>{throw new Error("The appointment has changed again")};await expect(deliverClinicEmailOnce(f.deps)).rejects.toThrow("changed");expect(f.read().sends).toBe(0);});
+test("SMS exception does not prevent clinic email or misreport saved appointment",async()=>{let emails=0;const r=await deliverRescheduleNotifications(async()=>{throw new Error("SMS DB issue")},async()=>{emails++;return {status:"accepted",error:null}});expect(r.status).toBe("uncertain");expect(r.email.status).toBe("accepted");expect(emails).toBe(1);});
+test("email exception does not repeat or change patient text",async()=>{let texts=0;const r=await deliverRescheduleNotifications(async()=>{texts++;return {status:"accepted",error:null}},async()=>{throw new Error("email DB issue")});expect(r.status).toBe("accepted");expect(r.email.status).toBe("uncertain");expect(texts).toBe(1);});
