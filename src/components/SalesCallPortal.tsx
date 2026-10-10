@@ -1,3 +1,7 @@
+import { useSessionCompletion } from "./sales-call/useSessionCompletion";
+import { leadLocationText, mayFinishReview } from "./sales-call/session-review";
+import { SkipLeadDialog } from "./sales-call/SkipLeadDialog";
+import { fetchUntouchedLeads, loadLeadSkips, type LeadSkipEvent } from "./sales-call/lead-skips";
 import { bookingConfirmationSms, clinicSmsAddress } from "@/lib/booking-confirmation-sms";
 import { consultationMemberLabel, consultationProviders, treatingSurgeons } from "@/lib/consultation-team";
 import { useSearch, useNavigate, Link } from "@tanstack/react-router";
@@ -39,7 +43,7 @@ import NorwoodPricingCalculator from "@/components/NorwoodPricingCalculator";
 import { GRO_SYDNEY_SELLING_POINTS, isGroSydney } from "@/lib/gro-sydney";
 import { getClinicBookingWindow } from "@/utils/clinic-booking-window.functions";
 import { dateInBookingWindow, type ClinicBookingWindow } from "@/lib/clinic-booking-window";
-import { sydneyTodayISO } from "@/lib/timezone";
+import { sydneyTodayISO, formatSydney } from "@/lib/timezone";
 import { CALENDAR_APPROVAL_ONLY, isCalendarApprovalHost } from "@/lib/calendar-release";
 import { addPreviewAppointment, fetchClinicSchedule, loadApprovalSchedule } from "@/lib/clinic-schedule-api";
 import { futureScheduleSlots } from "@/lib/clinic-schedule";
@@ -68,23 +72,6 @@ type Lead = {
 
 };
 
-// All text a lead's location could hide in: Meta targeting fields plus the
-// website booking form's own location answer (sometimes nested one level).
-function leadLocationText(l: Lead): string {
-  const rp = (l.raw_payload && typeof l.raw_payload === "object")
-    ? (l.raw_payload as Record<string, unknown>)
-    : null;
-  const nested = rp && typeof rp.raw_payload === "object" && rp.raw_payload !== null
-    ? (rp.raw_payload as Record<string, unknown>)
-    : null;
-  return [
-    l.ad_set_name ?? "",
-    l.campaign_name ?? "",
-    l.ad_name ?? "",
-    typeof rp?.location === "string" ? rp.location : "",
-    typeof nested?.location === "string" ? nested.location : "",
-  ].join(" ").toLowerCase();
-}
 
 
 function leadHasBookedSale(lead: Lead) {
@@ -660,6 +647,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     typeof sessionRestored?.startedAt === "string" ? sessionRestored.startedAt : null
   );
   const sessionEndRequestedRef = useRef(false);
+  const [sessionId, setSessionId] = useState<string | null>(sessionRestored?.sessionId ?? null);
+  const sessionSkipsRef = useRef(new Set<string>());
+  const requeuedOtherLeadsRef = useRef(new Set<string>());
 
   // On mount: ask the server whether this rep has an open session and, if so,
   // hydrate sessionStartedAt + sessionSeconds from `started_at`. This is what
@@ -687,6 +677,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           }
           return;
         }
+        setSessionId(row.id);
         setSessionStartedAt(row.started_at);
         // Breaks taken earlier in this session stay off the clock.
         const bankedBreak = Number(sessionRestored?.breakSeconds) > 0 ? Number(sessionRestored?.breakSeconds) : 0;
@@ -763,10 +754,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     sessionStorage.setItem("salesCall.session", JSON.stringify({
       active: sessionActive, manualMode, queue: sessionQueue, index: sessionIndex,
       calls: sessionCalls, bookings: sessionBookings, paused: sessionPaused, seconds: sessionSeconds,
-      startedAt: sessionStartedAt, plannedHours,
+      startedAt: sessionStartedAt, sessionId, plannedHours,
       breakSeconds, breakStartedAt,
     }));
-  }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds, sessionStartedAt, plannedHours, breakSeconds, breakStartedAt]);
+  }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds, sessionStartedAt, sessionId, plannedHours, breakSeconds, breakStartedAt]);
   // Presence continues through paid breaks. A disconnected/sleeping browser
   // creates an audit flag; we never silently count that gap as verified work.
   useEffect(() => {
@@ -1546,13 +1537,13 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const q = sessionQueueRef.current;
     let i = Math.max(0, from);
     let skipped = 0;
-    while (i < q.length && !dueSetRef.current.has(q[i])) { i += 1; skipped += 1; }
-    if (skipped > 0) toast(`Skipped ${skipped} lead${skipped === 1 ? "" : "s"} already called today`);
+    while (i < q.length && (!dueSetRef.current.has(q[i]) || sessionSkipsRef.current.has(q[i]))) { i += 1; skipped += 1; }
+    if (skipped > 0) toast(`Passed ${skipped} lead${skipped === 1 ? "" : "s"} already handled or deferred`);
     return i;
   }, []);
   useEffect(() => {
     if (!sessionActive) return;
-    const fresh = dueLeadIds.filter((id) => dueQueue.group[id] === "new");
+    const fresh = dueLeadIds.filter((id) => dueQueue.group[id] === "new" && !sessionSkipsRef.current.has(id));
     if (fresh.length === 0) return;
     setSessionQueue((q) => {
       const known = new Set(q);
@@ -1563,16 +1554,44 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     });
   }, [dueLeadIds, dueQueue.group, sessionActive, sessionIndex]);
 
-  // New leads the exhausted queue has already been topped up with. Each lead
-  // is re-served at most once per session so a rep who keeps skipping a lead
-  // can't be trapped in a loop, and the session can still end.
-  const requeuedOnceRef = useRef<Set<string>>(new Set());
-  // Queued leads that weren't in the loaded list and have been fetched by id
-  // (once each) before the portal is allowed to skip past them.
   const missingLeadTriedRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (sessionActive) requeuedOnceRef.current = new Set();
-  }, [sessionActive]);
+
+  // All automatic exits converge here. The database check is authoritative;
+  // failed reads retain the session, and cleanup cancels stale async results.
+  const queueExhausted = sessionActive && !active && !sessionQueue[sessionIndex];
+  const { error: completionError, retry: retryCompletion } = useSessionCompletion<Lead>(queueExhausted && !sessionPaused && !practiceMode, {
+    load: async () => {
+      // Older browser caches may predate sessionId. Resolve the real session.
+      const currentSession = sessionId || (await getCurrentRepSession({ data: undefined as never }))?.id;
+      if (!currentSession && testLeadIds.length === 0) throw new Error("Session could not be verified");
+      const fresh = testLeadIds.length ? [] : await fetchUntouchedLeads<Lead>(currentSession!, SALES_CALL_LEAD_SELECT);
+      return fresh.filter(l => !sessionSkipsRef.current.has(l.id));
+    },
+    stillCurrent: () => mayFinishReview({ cancelled: sessionEndRequestedRef.current, active: sessionActiveRef.current,
+      leadId: activeIdRef.current, queuedAhead: Boolean(sessionQueueRef.current[sessionIndexRef.current]) }),
+    restore: fresh => {
+      const byId = new Map(fresh.map(l => [l.id,l]));
+      setLeads(prev => [...prev.filter(l => !byId.has(l.id)), ...fresh]);
+      setSessionQueue(q => [...q, ...fresh.map(l => l.id)]);
+      toast("New leads still need a call — bringing them up now");
+    },
+    complete: () => {
+      // Preserve the existing once-per-session top-up for older follow-ups.
+      const otherDue = dueLeadIds.filter(id => dueQueue.group[id] !== "new"
+        && !requeuedOtherLeadsRef.current.has(id) && !sessionSkipsRef.current.has(id));
+      if (otherDue.length) {
+        otherDue.forEach(id => requeuedOtherLeadsRef.current.add(id));
+        setSessionQueue(q => [...q, ...otherDue]);
+        return;
+      }
+      setSessionActive(false);
+      setSessionPaused(false);
+      setSessionStartedAt(null);
+      if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+      closeRepSession();
+      toast.success("Session complete — great work!");
+    },
+  });
 
   const endSessionNow = useCallback(() => {
     sessionEndRequestedRef.current = true;
@@ -1685,6 +1704,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
 
       const beginSession = async () => {
         sessionEndRequestedRef.current = false;
+        sessionSkipsRef.current.clear();
+        requeuedOtherLeadsRef.current.clear();
         // Tidy the "new" list first: leads dialled hours ago with
         // nobody answering become no_answer (rule in abandoned.ts).
         try {
@@ -1698,9 +1719,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         try {
           const row = await startRepSession({ data: undefined as never });
           startedAt = row.started_at;
+          setSessionId(row.id);
         } catch (err) {
           console.error("startRepSession failed", err);
-          startedAt = new Date().toISOString();
+          toast.error("Could not start your calling session. Please retry.");
+          return;
         }
         setSessionQueue(q);
         setSessionIndex(0);
@@ -1838,7 +1861,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         {callbackBanner}
         {sessionBar}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40, background: "#f7f7f5", gap: 14 }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: "#111" }}>Lining up your next lead…</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "#111" }}>{completionError || (queueExhausted ? "Checking for new leads…" : "Lining up your next lead…")}</div>
+          {completionError && <button onClick={retryCompletion} style={{ padding: "8px 16px", cursor: "pointer" }}>Retry check</button>}
           <button
             onClick={() => endSessionNow()}
             style={{ fontSize: 13, fontWeight: 600, color: "#555", background: "transparent", border: "1px solid #ccc", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontFamily: "inherit" }}
@@ -1885,31 +1909,6 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       return holding;
     }
 
-    // Queue ran dry. If new leads still haven't been dialled today (they
-    // arrived mid-session or were skipped), put them back on the end of the
-    // queue — once each — so the day doesn't finish with fresh leads sitting
-    // there. Only leads the queue builder still considers eligible qualify.
-    const requeue = dueLeadIds.filter((id) => !requeuedOnceRef.current.has(id));
-    if (requeue.length > 0) {
-      queueMicrotask(() => {
-        for (const id of requeue) requeuedOnceRef.current.add(id);
-        setSessionQueue((q) => {
-          const ahead = new Set(q.slice(sessionIndex));
-          const add = requeue.filter((id) => !ahead.has(id));
-          return add.length ? [...q, ...add] : q;
-        });
-      });
-      return holding;
-    }
-
-    queueMicrotask(() => {
-      setSessionActive(false);
-      setSessionPaused(false);
-      setSessionStartedAt(null);
-      if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
-      closeRepSession();
-      toast.success("Session complete — great work!");
-    });
     return holding;
   }
 
@@ -2003,12 +2002,6 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
                   armAutoDial();
                 } else {
                   setActiveId(null);
-                  setSessionActive(false);
-                  setSessionPaused(false);
-                  setSessionStartedAt(null);
-                  if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
-                  closeRepSession();
-                  toast.success("Session complete — great work!");
                 }
               }
             }}
@@ -2052,6 +2045,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           );
         })()}
         <RightPanel
+          sessionId={sessionActive ? sessionId : null}
+          onLeadSkipped={(id) => sessionSkipsRef.current.add(id)}
           practiceMode={practiceMode}
           active={active}
           repId={repId}
@@ -2103,12 +2098,6 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
                 armAutoDial();
               } else {
                 setActiveId(null);
-                setSessionActive(false);
-                setSessionPaused(false);
-                setSessionStartedAt(null);
-                if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
-                closeRepSession();
-                toast.success("Session complete — great work!");
               }
             } else {
               setActiveId(null);
@@ -2192,12 +2181,6 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
                 armAutoDial();
               } else {
                 setActiveId(null);
-                setSessionActive(false);
-                setSessionPaused(false);
-                setSessionStartedAt(null);
-                if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
-                closeRepSession();
-                toast.success("Session complete — great work!");
               }
               return;
             }
@@ -6889,12 +6872,15 @@ function ReturningLeadBanner({ leadId, previousLeadId }: { leadId: string; previ
 
 
 function RightPanel({
+  sessionId, onLeadSkipped,
   active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead, onPreviousLead, hasPreviousLead,
   onOutcomeRequiredChange, onOutcomePendingChange, onAfterOutcomeApplied, onCallStarted, practiceMode = false,
   pendingOutcomeLeadId, onPendingOutcomeArmed,
   autoDialEnabled = false, autoDialArmToken = 0,
   onGoToStep,
 }: {
+  sessionId: string | null;
+  onLeadSkipped: (id: string) => void;
   active: Lead;
   repId: string | null;
   mmsImages: { name: string; url: string }[];
@@ -7157,7 +7143,20 @@ function RightPanel({
 
 
   // Customer journey modal
+  const [showSkip, setShowSkip] = useState(false);
+  const [journeySkips, setJourneySkips] = useState<LeadSkipEvent[]>([]);
+  const [skipHistoryError, setSkipHistoryError] = useState(false);
   const [showJourney, setShowJourney] = useState(false);
+  useEffect(() => { setShowSkip(false); }, [active.id]);
+  useEffect(() => {
+    let cancelled = false;
+    setJourneySkips([]);
+    setSkipHistoryError(false);
+    if (showJourney) void loadLeadSkips(active.id).then(rows => {
+      if (!cancelled) setJourneySkips(rows);
+    }).catch(() => { if (!cancelled) setSkipHistoryError(true); });
+    return () => { cancelled = true; };
+  }, [showJourney, active.id]);
   const [journeyCalls, setJourneyCalls] = useState<{
     id: string; called_at: string; direction: string; status: string | null;
     duration: number | null; outcome: string | null;
@@ -7504,7 +7503,7 @@ function RightPanel({
   dialLeadRef.current = active.id;
   const callNow = async () => {
     console.log("[callNow] click", { phone: active.phone, leadId: active.id, deviceStatus });
-    if (inCall || preparingCallRef.current || savingHoldRef.current) return;
+    if (inCall || preparingCallRef.current || savingHoldRef.current || showSkip) return;
     if (onHoldRef.current) { toast.error("This client is on hold and cannot be called."); return; }
     if (!active.phone) { toast.error("No phone number"); return; }
     // Backstop: even if this lead somehow surfaced in the queue, never let a rep
@@ -7717,13 +7716,20 @@ function RightPanel({
       {!practiceMode && active.previous_lead_id && (
         <ReturningLeadBanner leadId={active.id} previousLeadId={active.previous_lead_id} />
       )}
+      {showSkip && <SkipLeadDialog key={active.id} leadId={active.id} sessionId={sessionId}
+        leadName={[active.first_name, active.last_name].filter(Boolean).join(" ")}
+        onCancel={() => setShowSkip(false)} onSaved={() => {
+          onLeadSkipped(active.id);
+          setShowSkip(false);
+          onChangeLead();
+        }} />}
       {/* Lead navigation — top of right column */}
       {!practiceMode && (
       <div style={{ padding: "12px 18px 0", display: "flex", justifyContent: "flex-end", gap: 12 }}>
         {!handoverBlocksNextLead && (
         <button
           onClick={() => {
-            if (inCall) {
+            if (inCall || preparingCallRef.current) {
               toast.error("End the call first");
               return;
             }
@@ -7750,6 +7756,11 @@ function RightPanel({
             }
             if (outcomeRequired) {
               toast.error("Please set a call outcome first");
+              return;
+            }
+            if (callAttemptLeadIdRef.current !== active.id) {
+              cancelAutoDial("Auto-dial paused");
+              setShowSkip(true);
               return;
             }
             onChangeLead();
@@ -8937,11 +8948,18 @@ function RightPanel({
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#888", marginBottom: 8 }}>
                 Timeline (newest first)
               </div>
+              {skipHistoryError && <div role="alert" style={{ color: "#b45309", fontSize: 12 }}>Skip history couldn’t load. Close and reopen Customer Journey to retry.</div>}
               {loadingJourney ? (
                 <div style={{ fontSize: 13, color: "#666" }}>Loading…</div>
               ) : (() => {
                 type Item = { ts: string; node: React.ReactNode };
-                const items: Item[] = [];
+                const items: Item[] = journeySkips.map(e => ({ ts: e.created_at, node: (
+                  <div key={e.id} style={{ borderLeft: "3px solid #d97706", background: "#fffbeb", padding: "8px 10px", marginBottom: 6, borderRadius: 4 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600 }}>Skipped by {e.rep_name}</div>
+                    <div style={{ fontSize: 12, color: "#666" }}>{formatSydney(e.created_at, { dateStyle: "medium", timeStyle: "long" })}</div>
+                    <div style={{ fontSize: 13, marginTop: 4, whiteSpace: "pre-wrap" }}>{e.reason}</div>
+                  </div>
+                ) }));
                 journeyCalls.forEach((c) => {
                   const transcript = (c.call_analysis?.transcript || "").trim();
                   const rawSummary = (c.call_analysis?.patient_summary || c.call_analysis?.summary || c.call_analysis?.notes || "").trim();
