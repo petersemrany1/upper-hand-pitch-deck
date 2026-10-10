@@ -1,7 +1,7 @@
 import { periodDates } from "@/lib/reporting-period";
 import { sydneyTodayISO } from "@/lib/timezone";
 import { BookingRescheduleDialog } from "@/components/BookingRescheduleDialog";
-import { retryRescheduleSms } from "@/utils/booking-reschedule.functions";
+import { retryRescheduleSms,retryRescheduleEmail } from "@/utils/booking-reschedule.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
@@ -22,7 +22,7 @@ type Reminder = {
   appointment_id: string | null;
   schedule_changed_at: string | null;
   clinic_name?: string;
-  reschedule_event?: {id:string;sms_status:string;sms_error:string|null;created_at:string;actor_name:string;new_date:string;new_time:string};
+  reschedule_event?: {id:string;sms_status:string;sms_error:string|null;created_at:string;actor_name:string;new_date:string;new_time:string;email_status:string|null;email_error:string|null;email_to:string|null};
   lead_id: string | null;
   booking_date: string | null;
   booking_time: string | null;
@@ -155,7 +155,7 @@ function BookedAppointmentsPage() {
       setLoading(false);
       return;
     }
-    const {data:history} = await (supabase as any).from("appointment_reschedules").select("id,appointment_id,sms_status,sms_error,created_at,actor_name,new_date,new_time").order("created_at",{ascending:false});
+    const {data:history} = await (supabase as any).from("appointment_reschedules").select("id,appointment_id,sms_status,sms_error,created_at,actor_name,new_date,new_time,email_status,email_error,email_to").order("created_at",{ascending:false});
     const list = (data ?? []).map((r:any) => ({...r,
       status:r.appointment?.disqualified_at ? "cancelled" : r.appointment?.outcome === "noshow" ? "no_show" : ["show","proceeded"].includes(r.appointment?.outcome) ? "showed_up" : r.status,
       clinic_name:r.appointment?.clinic?.clinic_name,
@@ -506,6 +506,10 @@ function Card({
   onRetrySms: () => void;
   busy: boolean;
 }) {
+  const [emailBusy,setEmailBusy]=useState(false);
+  const [emailResult,setEmailResult]=useState<{status:string;error:string|null}|null>(null);
+  useEffect(()=>setEmailResult(null),[r.reschedule_event?.id]);
+  const emailEvent=r.reschedule_event ? {...r.reschedule_event,...(emailResult?{email_status:emailResult.status,email_error:emailResult.error}:{})} : undefined;
   const d = r.booking_date ? parseBookingDate(r.booking_date) : null;
   const diff = d ? daysBetween(new Date(today), new Date(d)) : null;
 
@@ -666,6 +670,11 @@ function Card({
         </div>
       </div>
 
+      {emailEvent?.email_status && <div style={{fontSize:12,marginTop:12,padding:10,background:COLOR.greyBg,borderRadius:8}}>
+        Clinic email to {emailEvent.email_to}: {emailEvent.email_status === "accepted" ? "accepted for sending" : emailEvent.email_status === "sending" ? "sending — check delivery if this persists" : emailEvent.email_status}.
+        {emailEvent.email_error && <span> {emailEvent.email_error}</span>}
+        {["pending","failed"].includes(emailEvent.email_status) && r.status === "confirmed" && r.booking_date === emailEvent.new_date && r.booking_time?.slice(0,5) === emailEvent.new_time.slice(0,5) && <button disabled={emailBusy} onClick={async()=>{if(emailBusy||!emailEvent)return;setEmailBusy(true);try{const result=await retryRescheduleEmail({data:{eventId:emailEvent.id}});setEmailResult(result);result.status==="accepted"?toast.success("Clinic email accepted for sending"):toast.warning(result.error||"Check email delivery");}catch(e){toast.error(e instanceof Error?e.message:"Could not send clinic email");}finally{setEmailBusy(false);}}} style={{marginLeft:8,textDecoration:"underline"}}>{emailBusy?"Sending…":"Send clinic email"}</button>}
+      </div>}
       {r.reschedule_event && <div style={{fontSize:12,marginTop:12,padding:10,background:COLOR.greyBg,borderRadius:8}}>
         Rescheduled by {r.reschedule_event.actor_name} · Patient text: {r.reschedule_event.sms_status === "accepted" ? "accepted for sending" : r.reschedule_event.sms_status === "sending" ? "sending — check the inbox if this persists" : r.reschedule_event.sms_status}.
         {r.reschedule_event.sms_error && <span> {r.reschedule_event.sms_error}</span>}

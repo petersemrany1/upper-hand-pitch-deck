@@ -39,3 +39,10 @@ test("duplicate transport logs retain photo attachments and message text",()=>{
  const rows=journeyItems({...empty,messages:[message({id:"text-copy",twilio_message_sid:"same",body:"Clinic details"}),message({id:"photo-copy",twilio_message_sid:"same",media_urls:["https://example.com/photo.jpg"]})]});
  expect(rows).toHaveLength(1);expect(rows[0].summary).toBe("Clinic details");expect(rows[0].media).toHaveLength(1);
 });
+
+test("clinic email history shows recipient, edited copy and truthful delivery status",()=>{
+ const e={id:"email1",created_at:"2026-10-10T03:00:00Z",email_accepted_at:null,email_to:"clinic@example.invalid",email_subject:"Revised consultation",email_body:"Hi team, the patient requested Friday.",email_status:"failed",email_error:"Rejected"};
+ const items=journeyItems({...empty,emails:[e,e]});
+ expect(items).toHaveLength(1);expect(items[0].title).toBe("Clinic email — Revised consultation");expect(items[0].status).toBe("Not delivered");expect(items[0].detail).toContain(e.email_body);expect(items[0].summary).toContain(e.email_to);
+ expect(journeyItems({...empty,emails:[{...e,email_status:"accepted"}]})[0].status).toBe("Accepted for sending");
+});

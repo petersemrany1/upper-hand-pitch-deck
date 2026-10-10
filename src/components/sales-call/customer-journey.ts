@@ -2,8 +2,9 @@ import type { LeadSkipEvent } from "./lead-skips";
 export type JourneyCall = { id: string; called_at: string; direction: string; status: string | null; duration: number | null; outcome: string | null; rep_name: string | null;
   call_analysis: { summary?: string; patient_summary?: string; notes?: string; transcript?: string } | null };
 export type JourneyMessage = { id: string; created_at: string; sent_at: string | null; direction: string; body: string | null; media_urls: unknown; status: string | null; twilio_message_sid?: string | null };
-export type CustomerJourney = { leadIds: string[]; threadIds: string[]; phoneKey: string | null; calls: JourneyCall[]; messages: JourneyMessage[]; skips: LeadSkipEvent[] };
-export type JourneyItem = { id: string; at: string; kind: "call" | "message" | "skip"; title: string; summary: string; detail?: string; transcript?: string; status?: string; media?: string[]; rep?: string | null; duration?: string };
+export type JourneyEmail = {id:string;created_at:string;email_accepted_at:string|null;email_to:string;email_subject:string;email_body:string;email_status:string;email_error:string|null};
+export type CustomerJourney = { leadIds: string[]; threadIds: string[]; phoneKey: string | null; calls: JourneyCall[]; messages: JourneyMessage[]; skips: LeadSkipEvent[]; emails?: JourneyEmail[] };
+export type JourneyItem = { id: string; at: string; kind: "call" | "message" | "skip" | "email"; title: string; summary: string; detail?: string; transcript?: string; status?: string; media?: string[]; rep?: string | null; duration?: string };
 export function journeyPhone(value: unknown): string | null {
   const n = typeof value === "string" ? value.replace(/[^0-9]/g, "") : "";
   if (/^0[23478][0-9]{8}$/.test(n)) return "61"+n.slice(1);
@@ -51,7 +52,7 @@ export function journeyItems(data: CustomerJourney): JourneyItem[] {
     byProvider.set(key,prior ? {...prior,body:prior.body||m.body,media_urls:[...new Set([...mediaUrls(prior.media_urls),...mediaUrls(m.media_urls)])]} : m);
   }
   const messages=[...byProvider.values()];
-  return [...unique(data.calls).map(callItem),...messages.map(messageItem),...unique(data.skips).map(e=>({id:`skip-${e.id}`,at:e.created_at,kind:"skip" as const,title:`Skipped by ${e.rep_name}`,summary:e.reason}))]
+  return [...unique(data.calls).map(callItem),...messages.map(messageItem),...unique(data.emails||[]).map(e=>({id:`email-${e.id}`,at:e.email_accepted_at||e.created_at,kind:"email" as const,title:`Clinic email — ${e.email_subject}`,summary:`To: ${e.email_to}\n${shortText(e.email_body)}`,detail:`To: ${e.email_to}\n\n${e.email_body}`,status:e.email_status==="accepted"?"Accepted for sending":e.email_status==="failed"?"Not delivered":e.email_status==="pending"?"Pending delivery":"Check delivery"})),...unique(data.skips).map(e=>({id:`skip-${e.id}`,at:e.created_at,kind:"skip" as const,title:`Skipped by ${e.rep_name}`,summary:e.reason}))]
     .sort((a,b)=>Date.parse(b.at)-Date.parse(a.at)||a.id.localeCompare(b.id));
 }
 export function relevantJourneyChange(row: Record<string,unknown>, leadId:string, phone:string|null, data:CustomerJourney|null): boolean {
