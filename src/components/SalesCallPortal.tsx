@@ -1,7 +1,10 @@
+import { CustomerJourneyTimeline } from "./sales-call/CustomerJourneyTimeline";
+import { useCustomerJourney, refreshCustomerJourney } from "./sales-call/useCustomerJourney";
+import { mediaUrls, messageItem } from "./sales-call/customer-journey";
 import { useSessionCompletion } from "./sales-call/useSessionCompletion";
 import { leadLocationText, mayFinishReview } from "./sales-call/session-review";
 import { SkipLeadDialog } from "./sales-call/SkipLeadDialog";
-import { fetchUntouchedLeads, loadLeadSkips, type LeadSkipEvent } from "./sales-call/lead-skips";
+import { fetchUntouchedLeads } from "./sales-call/lead-skips";
 import { bookingConfirmationSms, clinicSmsAddress } from "@/lib/booking-confirmation-sms";
 import { consultationMemberLabel, consultationProviders, treatingSurgeons } from "@/lib/consultation-team";
 import { useSearch, useNavigate, Link } from "@tanstack/react-router";
@@ -3130,7 +3133,7 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
     setSendingIdx(idx);
     const r = await sendLeadMms({ data: { leadId: lead.id, mediaUrl: url, body: "" } });
     setSendingIdx(null);
-    if (r.success) toast.success("Image sent"); else toast.error(r.error);
+    if (r.success) { toast.success("Image sent"); refreshCustomerJourney(lead.id); } else toast.error(r.error);
   };
 
   const img1 = mmsImages[0];
@@ -5664,27 +5667,6 @@ function isNoAnswerOutcome(v: string | null | undefined): boolean {
   return NO_ANSWER_OUTCOMES.has((v ?? "").trim().toLowerCase());
 }
 
-/* Friendly label for a stored call outcome, used in the lead journey. */
-const CALL_OUTCOME_LABELS: Record<string, string> = {
-  no_answer: "No answer",
-  "no-answer": "No answer",
-  connected: "Spoke with lead",
-  callback_scheduled: "Callback scheduled",
-  had_convo_chase_up: "Had convo — chase up",
-  had_convo_no_sale: "Had convo — no sale",
-  not_interested: "Not interested",
-  dropped: "Dropped",
-  booked_deposit_paid: "Booked — deposit paid",
-  intake: "Intake",
-  completed: "Call completed",
-};
-function callOutcomeLabel(v: string | null | undefined): string | null {
-  const key = (v ?? "").trim().toLowerCase();
-  if (!key) return null;
-  return CALL_OUTCOME_LABELS[key] ?? key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
-}
-
-
 // Map any legacy / loose status string we might find in the DB onto the new key set.
 function statusMeta(s: string | null | undefined, l?: Lead) {
   const key = normaliseStatus(s, l);
@@ -7068,8 +7050,6 @@ function RightPanel({
   const [outcomeBusy, setOutcomeBusy] = useState(false);
 
   const [condensingNotes, setCondensingNotes] = useState(false);
-  const [comprehensiveUpdate, setComprehensiveUpdate] = useState<string | null>(null);
-  const [generatingUpdate, setGeneratingUpdate] = useState(false);
   const [openObjection, setOpenObjection] = useState<string | null>(null);
   const [keypadOpen, setKeypadOpen] = useState(false);
   const [panelClinics, setPanelClinics] = useState<Clinic[]>([]);
@@ -7106,7 +7086,6 @@ function RightPanel({
   const [sendingDepositLink, setSendingDepositLink] = useState(false);
   const [confirmDepositOpen, setConfirmDepositOpen] = useState(false);
   const [chargeCardOpen, setChargeCardOpen] = useState(false);
-  const [smsHistory, setSmsHistory] = useState<{ body: string; sent_at: string | null; created_at: string; direction: string }[]>([]);
 
   // Live deposit-payment indicator (driven by Stripe webhook → meta_leads update)
   // NOTE: never auto-changes lead status — only mirrors payment receipt.
@@ -7144,55 +7123,10 @@ function RightPanel({
 
   // Customer journey modal
   const [showSkip, setShowSkip] = useState(false);
-  const [journeySkips, setJourneySkips] = useState<LeadSkipEvent[]>([]);
-  const [skipHistoryError, setSkipHistoryError] = useState(false);
   const [showJourney, setShowJourney] = useState(false);
   useEffect(() => { setShowSkip(false); }, [active.id]);
-  useEffect(() => {
-    let cancelled = false;
-    setJourneySkips([]);
-    setSkipHistoryError(false);
-    if (showJourney) void loadLeadSkips(active.id).then(rows => {
-      if (!cancelled) setJourneySkips(rows);
-    }).catch(() => { if (!cancelled) setSkipHistoryError(true); });
-    return () => { cancelled = true; };
-  }, [showJourney, active.id]);
-  const [journeyCalls, setJourneyCalls] = useState<{
-    id: string; called_at: string; direction: string; status: string | null;
-    duration: number | null; outcome: string | null;
-    call_analysis: { summary?: string; notes?: string; patient_summary?: string; transcript?: string } | null;
-  }[]>([]);
-  const [loadingJourney, setLoadingJourney] = useState(false);
-
-  // Load SMS history for this lead
-  useEffect(() => {
-    void (async () => {
-      const { data } = await supabase
-        .from("sms_messages")
-        .select("body, sent_at, created_at, direction")
-        .eq("lead_id", active.id)
-        .order("created_at", { ascending: true })
-        .limit(50);
-      setSmsHistory((data ?? []) as typeof smsHistory);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active.id]);
-
-  // Load call history for this lead (for the customer journey view)
-  useEffect(() => {
-    setLoadingJourney(true);
-    void (async () => {
-      const { data } = await supabase
-        .from("call_records")
-        .select("id, called_at, direction, status, duration, outcome, call_analysis")
-        .eq("lead_id", active.id)
-        .order("called_at", { ascending: true })
-        .limit(50);
-      setJourneyCalls((data ?? []) as typeof journeyCalls);
-      setLoadingJourney(false);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active.id]);
+  const journey = useCustomerJourney(active.id, active.phone, !practiceMode && (showJourney || showSms));
+  const smsHistory = journey.data?.messages ?? [];
 
   const loadDoctorForClinic = useCallback(async (clinicId: string | null) => {
     const request = ++panelTeamRequest.current;
@@ -7698,7 +7632,7 @@ function RightPanel({
 
   const sendImage = async (url: string) => {
     const r = await sendLeadMms({ data: { leadId: active.id, mediaUrl: url, body: "" } });
-    if (r.success) toast.success("Sent"); else toast.error(r.error);
+    if (r.success) { toast.success("Sent"); refreshCustomerJourney(active.id); } else toast.error(r.error);
   };
 
   const day = pipelineDay(active, firstCallAt);
@@ -7823,7 +7757,7 @@ function RightPanel({
           </div>
           {!practiceMode && (
           <button
-            onClick={() => { setComprehensiveUpdate(null); setShowJourney(true); }}
+            onClick={() => { setShowJourney(true); journey.refresh(); }}
             style={{
               fontSize: 11,
               fontWeight: 600,
@@ -8651,12 +8585,7 @@ function RightPanel({
                   if (r.success) {
                     toast.success("$75 deposit link sent via SMS ✓");
                     window.dispatchEvent(new CustomEvent("lead-payment-link-sent", { detail: { leadId: active.id } }));
-                    setSmsHistory((prev) => [...prev, {
-                      body: `Deposit link sent: ${r.depositUrl}`,
-                      sent_at: new Date().toISOString(),
-                      created_at: new Date().toISOString(),
-                      direction: "outbound",
-                    }]);
+                    refreshCustomerJourney(active.id);
                   } else {
                     toast.error(r.error || "Failed to send deposit link");
                   }
@@ -8720,18 +8649,21 @@ function RightPanel({
         </div>
         {showSms && (
           <div style={{ marginTop: 10 }}>
+            {journey.loading && <div role="status" style={{ fontSize: 12 }}>Loading messages…</div>}
+            {journey.error && <div role="alert" style={{ fontSize: 12 }}>Message history couldn’t refresh. <button onClick={journey.refresh}>Retry</button></div>}
             {smsHistory.length > 0 && (
               <div style={{ maxHeight: 160, overflowY: "auto", marginBottom: 10, padding: 8, background: "#fafaf9", borderRadius: 6, border: `0.5px solid ${COLORS.line}` }}>
-                {smsHistory.map((m, i) => (
-                  <div key={i} style={{
+                {[...smsHistory].reverse().map((m) => (
+                  <div key={m.id} style={{
                     fontSize: 12, padding: "6px 8px", marginBottom: 4, borderRadius: 6,
                     background: m.direction === "outbound" ? "#eff6ff" : "#f3f3f3",
                     color: "#111",
                   }}>
                     <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>
-                      {m.direction === "outbound" ? "→ Sent" : "← Received"} · {new Date(m.sent_at ?? m.created_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+                      {messageItem(m).title} · {formatSydney(m.sent_at ?? m.created_at)}
                     </div>
                     {m.body}
+                    {mediaUrls(m.media_urls).map((url,i) => <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block underline">View attachment {i+1}</a>)}
                   </div>
                 ))}
               </div>
@@ -8769,7 +8701,7 @@ function RightPanel({
                   setSendingSms(false);
                   if (r.success) {
                     toast.success("SMS sent");
-                    setSmsHistory((prev) => [...prev, { body: smsText, sent_at: new Date().toISOString(), created_at: new Date().toISOString(), direction: "outbound" }]);
+                    refreshCustomerJourney(active.id);
                     setSmsText("");
                   } else toast.error(r.error);
                 }}
@@ -8810,7 +8742,7 @@ function RightPanel({
                   {fullName} — Journey
                 </div>
                 <div style={{ fontSize: 11, color: "#888", marginTop: 1 }}>
-                  Quick scan view
+                  Calls, texts and photos · Newest first
                 </div>
               </div>
               <button
@@ -8829,10 +8761,10 @@ function RightPanel({
                 if (active.funding_preference) chips.push({ label: `💰 ${active.funding_preference}`, bg: "#ecfdf5", fg: "#065f46" });
                 if (active.booking_date) chips.push({ label: `📅 ${active.booking_date}${active.booking_time ? " " + active.booking_time : ""}`, bg: "#fef3c7", fg: "#92400e" });
                 if (active.callback_scheduled_at) chips.push({ label: `⏰ ${fmtTime(active.callback_scheduled_at)}`, bg: "#fee2e2", fg: "#991b1b" });
-                const callCount = journeyCalls.length;
-                const smsCount = smsHistory.length;
+                const callCount = journey.data?.calls.length ?? 0;
+                const smsCount = journey.data?.messages.length ?? 0;
                 if (callCount) chips.push({ label: `📞 ${callCount} call${callCount === 1 ? "" : "s"}`, bg: "#f1f5f9", fg: "#334155" });
-                if (smsCount) chips.push({ label: `💬 ${smsCount} SMS`, bg: "#f1f5f9", fg: "#334155" });
+                if (smsCount) chips.push({ label: `💬 ${smsCount} message${smsCount === 1 ? "" : "s"}`, bg: "#f1f5f9", fg: "#334155" });
                 chips.push({ label: `🆕 ${fmtTime(active.created_at)}`, bg: "#f9fafb", fg: "#6b7280" });
                 return (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
@@ -8845,57 +8777,6 @@ function RightPanel({
                   </div>
                 );
               })()}
-
-              {/* Comprehensive Update — AI recap of everything */}
-              <div style={{ marginBottom: 14 }}>
-                <button
-                  type="button"
-                  disabled={generatingUpdate}
-                  onClick={async () => {
-                    setGeneratingUpdate(true);
-                    setComprehensiveUpdate(null);
-                    try {
-                      // invoke() attaches the signed-in user's JWT so the
-                      // function's sales-role guard can authorise the caller.
-                      const { data: j, error: invErr } = await supabase.functions.invoke(
-                        "comprehensive-lead-update",
-                        { body: { leadId: active.id } },
-                      );
-                      if (invErr || !(j as { summary?: string } | null)?.summary) {
-                        throw new Error((j as { error?: string } | null)?.error || invErr?.message || "Failed");
-                      }
-                      setComprehensiveUpdate((j as { summary: string }).summary);
-                    } catch (e) {
-                      toast.error(`Couldn't generate update: ${e instanceof Error ? e.message : "unknown"}`);
-                    } finally {
-                      setGeneratingUpdate(false);
-                    }
-                  }}
-                  style={{
-                    width: "100%",
-                    fontSize: 13, fontWeight: 600,
-                    color: "#fff",
-                    background: generatingUpdate ? "#94a3b8" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                    border: "none", borderRadius: 8,
-                    padding: "10px 14px",
-                    cursor: generatingUpdate ? "wait" : "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  }}
-                >
-                  {generatingUpdate ? "✨ Generating recap…" : comprehensiveUpdate ? "✨ Regenerate Comprehensive Update" : "✨ Comprehensive Update"}
-                </button>
-                {comprehensiveUpdate && (
-                  <div style={{
-                    marginTop: 10, padding: "12px 14px",
-                    background: "#faf5ff", border: "1px solid #e9d5ff", borderRadius: 8,
-                    fontSize: 13, lineHeight: 1.55, color: "#1f2937",
-                    whiteSpace: "pre-wrap", maxHeight: 360, overflowY: "auto",
-                  }}>
-                    {comprehensiveUpdate}
-                  </div>
-                )}
-              </div>
-
 
               {active.call_notes && active.call_notes.trim() && (
                 <details open={active.call_notes.length < 220} style={{ marginBottom: 14 }}>
@@ -8948,113 +8829,7 @@ function RightPanel({
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#888", marginBottom: 8 }}>
                 Timeline (newest first)
               </div>
-              {skipHistoryError && <div role="alert" style={{ color: "#b45309", fontSize: 12 }}>Skip history couldn’t load. Close and reopen Customer Journey to retry.</div>}
-              {loadingJourney ? (
-                <div style={{ fontSize: 13, color: "#666" }}>Loading…</div>
-              ) : (() => {
-                type Item = { ts: string; node: React.ReactNode };
-                const items: Item[] = journeySkips.map(e => ({ ts: e.created_at, node: (
-                  <div key={e.id} style={{ borderLeft: "3px solid #d97706", background: "#fffbeb", padding: "8px 10px", marginBottom: 6, borderRadius: 4 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600 }}>Skipped by {e.rep_name}</div>
-                    <div style={{ fontSize: 12, color: "#666" }}>{formatSydney(e.created_at, { dateStyle: "medium", timeStyle: "long" })}</div>
-                    <div style={{ fontSize: 13, marginTop: 4, whiteSpace: "pre-wrap" }}>{e.reason}</div>
-                  </div>
-                ) }));
-                journeyCalls.forEach((c) => {
-                  const transcript = (c.call_analysis?.transcript || "").trim();
-                  const rawSummary = (c.call_analysis?.patient_summary || c.call_analysis?.summary || c.call_analysis?.notes || "").trim();
-                  const dur = typeof c.duration === "number" ? c.duration : 0;
-                  const outcomeRaw = (c.outcome || "").toLowerCase();
-                  const outcomeVoicemail = /voicemail|no[_\s-]?answer|missed|no answer/.test(outcomeRaw);
-                  const transcriptVoicemail = dur > 0 && dur <= 10 && /unable to (answer|come)|leave (a |your )?message|voicemail|you've called/i.test(transcript);
-                  const inbound = c.direction === "inbound";
-                  // Only treat outbound short calls (≤10s) as voicemail; never grey out inbound calls based on duration alone.
-                  const looksLikeVoicemail = outcomeVoicemail || transcriptVoicemail || (!inbound && dur > 0 && dur <= 10);
-                  const isPlaceholder = /too brief to capture|don'?t have enough information|not enough information/i.test(rawSummary);
-                  let shortSummary = "";
-                  if (!looksLikeVoicemail && rawSummary && !isPlaceholder) {
-                    const firstSentence = rawSummary.split(/(?<=[.!?])\s/)[0];
-                    shortSummary = firstSentence.length > 160 ? firstSentence.slice(0, 160).trimEnd() + "…" : firstSentence;
-                  }
-                  const fullDetail = looksLikeVoicemail ? "" : (rawSummary || transcript);
-                  const accent = looksLikeVoicemail ? "#d1d5db" : inbound ? "#22c55e" : "#3b82f6";
-                  const icon = looksLikeVoicemail ? "📭" : inbound ? "📞" : "📱";
-                  const label = looksLikeVoicemail
-                    ? "Voicemail / no answer"
-                    : (callOutcomeLabel(c.outcome) || (inbound ? "Inbound call" : "Outbound call"));
-                  const durStr = dur > 0 ? `${Math.floor(dur / 60)}m ${dur % 60}s` : "";
-                  const bg = looksLikeVoicemail ? "#f9fafb" : "#fafafa";
-                  const labelColor = looksLikeVoicemail ? "#9ca3af" : "#111";
-                  const timeColor = looksLikeVoicemail ? "#b0b6c0" : "#666";
-                  const itemOpacity = looksLikeVoicemail ? 0.7 : 1;
-                  items.push({
-                    ts: c.called_at,
-                    node: (
-                      <div key={`c-${c.id}`} style={{ display: "flex", gap: 8, padding: "8px 10px", borderLeft: `3px solid ${accent}`, background: bg, borderRadius: 4, marginBottom: 6, alignItems: "flex-start", opacity: itemOpacity }}>
-                        <div style={{ fontSize: 14, lineHeight: "18px", filter: looksLikeVoicemail ? "grayscale(1)" : undefined }}>{icon}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-                            <span style={{ color: timeColor }}>{fmtTime(c.called_at)}</span>
-                            <span style={{ fontWeight: 600, color: labelColor }}>{label}</span>
-                            {durStr && <span style={{ color: "#9ca3af", fontSize: 11 }}>{durStr}</span>}
-                          </div>
-                          {shortSummary && <div style={{ fontSize: 12.5, marginTop: 2, color: "#374151", lineHeight: 1.4 }}>{shortSummary}</div>}
-                          {fullDetail && (
-                            <details style={{ marginTop: 6 }}>
-                              <summary style={{ cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#2563eb" }}>
-                                Full call detail
-                              </summary>
-                              {rawSummary && (
-                                <div style={{ marginTop: 6, fontSize: 12.5, color: "#1f2937", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
-                                  {rawSummary}
-                                </div>
-                              )}
-                              {transcript && (
-                                <details style={{ marginTop: 8 }}>
-                                  <summary style={{ cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#64748b" }}>
-                                    Full transcript
-                                  </summary>
-                                  <div style={{ marginTop: 6, maxHeight: 260, overflowY: "auto", fontSize: 11.5, color: "#475569", lineHeight: 1.55, whiteSpace: "pre-wrap", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 6, padding: 8 }}>
-                                    {transcript}
-                                  </div>
-                                </details>
-                              )}
-                            </details>
-                          )}
-                        </div>
-                      </div>
-                    ),
-                  });
-                });
-
-                smsHistory.forEach((s, i) => {
-                  const inbound = s.direction === "inbound";
-                  const accent = inbound ? "#a855f7" : "#f97316";
-                  const icon = inbound ? "💬" : "✉️";
-                  const oneLine = (s.body || "").replace(/\s+/g, " ").trim();
-                  const preview = oneLine.length > 140 ? oneLine.slice(0, 140) + "…" : oneLine;
-                  items.push({
-                    ts: s.created_at,
-                    node: (
-                      <div key={`s-${i}`} style={{ display: "flex", gap: 8, padding: "8px 10px", borderLeft: `3px solid ${accent}`, background: "#fafafa", borderRadius: 4, marginBottom: 6, alignItems: "flex-start" }}>
-                        <div style={{ fontSize: 14, lineHeight: "18px" }}>{icon}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-                            <span style={{ color: "#666" }}>{fmtTime(s.created_at)}</span>
-                            <span style={{ fontWeight: 600, color: "#111" }}>{inbound ? "SMS in" : "SMS out"}</span>
-                          </div>
-                          <div style={{ fontSize: 12.5, marginTop: 2, color: "#374151", lineHeight: 1.4 }}>{preview}</div>
-                        </div>
-                      </div>
-                    ),
-                  });
-                });
-                items.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
-                if (items.length === 0) {
-                  return <div style={{ fontSize: 13, color: "#666" }}>No previous calls or messages yet — this is your first contact.</div>;
-                }
-                return <div>{items.map((i) => i.node)}</div>;
-              })()}
+              <CustomerJourneyTimeline data={journey.data} loading={journey.loading} error={journey.error} onRetry={journey.refresh} />
             </div>
           </div>
         </div>

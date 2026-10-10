@@ -167,7 +167,7 @@ export const sendLeadMms = createServerFn({ method: "POST" })
     }
     if (threadId) {
       await supabaseAdmin.from("sms_messages").insert({
-        thread_id: threadId, direction: "outbound",
+        thread_id: threadId, lead_id: data.leadId, phone: to, direction: "outbound",
         body: data.body || null, media_urls: [data.mediaUrl],
         twilio_message_sid: twilioResult.sid ?? null, status: twilioResult.status ?? "queued",
         from_number: TWILIO_FROM, to_number: to,
