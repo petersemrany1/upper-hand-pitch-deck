@@ -2,6 +2,8 @@ import { CustomerJourneyTimeline } from "./sales-call/CustomerJourneyTimeline";
 import { useCustomerJourney, refreshCustomerJourney } from "./sales-call/useCustomerJourney";
 import { mediaUrls, messageItem } from "./sales-call/customer-journey";
 import { useSessionCompletion } from "./sales-call/useSessionCompletion";
+import { recoverSessionCheck, type SessionConnection } from "./sales-call/session-connection";
+import { createRefreshQueue } from "@/lib/refresh-queue";
 import { leadLocationText, mayFinishReview } from "./sales-call/session-review";
 import { SkipLeadDialog } from "./sales-call/SkipLeadDialog";
 import { fetchUntouchedLeads } from "./sales-call/lead-skips";
@@ -372,7 +374,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     return Boolean(allowed && (!leadId || !allowed.has(leadId)));
   };
 
-  const { user } = useAuth();
+  const { user, ready: authReady } = useAuth();
   const search = useSearch({ strict: false }) as { leadId?: string; phone?: string };
   const navigate = useNavigate();
   // Read the active call's lead so the ?leadId= switch effect can tell when
@@ -426,17 +428,17 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // booking updates this screen too.
   const [clinicCapacity, setClinicCapacity] = useState<{ all: string[]; available: string[] }>({ all: [], available: [] });
   useEffect(() => {
-    let cancelled = false;
-    let latestRequest = 0;
-    const load = async (fresh = false) => {
-      const request = ++latestRequest;
+    let initial = true;
+    const refreshes = createRefreshQueue(async (isCurrent) => {
+      const fresh = !initial;
+      initial = false;
       try {
         const [{ data, error }, remaining] = await Promise.all([
           supabase.from("partner_clinics").select("id, location, city").eq("is_active", true),
           fetchClinicRemainingSlots({ fresh }),
         ]);
         if (error) throw error;
-        if (cancelled || request !== latestRequest) return;
+        if (!isCurrent()) return;
         const all: string[] = [];
         const available: string[] = [];
         for (const c of (data ?? []) as { id: string; location: string | null; city: string | null }[]) {
@@ -450,10 +452,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         // A failed capacity read must never hide leads — keep the last known state.
         console.warn("clinic capacity refresh failed", err);
       }
-    };
-    void load();
-    // Realtime must bypass the 30-second cache, including any older in-flight read.
-    const onChanged = () => void load(true);
+    });
+    refreshes.refresh();
+    // Keep the existing refresh cadence and realtime updates without overlapping
+    // database reads during a slowdown. A queued refresh bypasses the cache.
+    const onChanged = () => refreshes.refresh();
     window.addEventListener("clinic-capacity-changed", onChanged);
     window.addEventListener("focus", onChanged);
     const poll = window.setInterval(onChanged, 15_000);
@@ -467,7 +470,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       })
       .subscribe();
     return () => {
-      cancelled = true;
+      refreshes.stop();
       window.removeEventListener("clinic-capacity-changed", onChanged);
       window.removeEventListener("focus", onChanged);
       window.clearInterval(poll);
@@ -650,6 +653,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     typeof sessionRestored?.startedAt === "string" ? sessionRestored.startedAt : null
   );
   const sessionEndRequestedRef = useRef(false);
+  const sessionStartRequestedRef = useRef(false);
+  const [restoreConnection, setRestoreConnection] = useState<SessionConnection>("connected");
+  const [presenceConnection, setPresenceConnection] = useState<SessionConnection>("connected");
   const [sessionId, setSessionId] = useState<string | null>(sessionRestored?.sessionId ?? null);
   const sessionSkipsRef = useRef(new Set<string>());
   const requeuedOtherLeadsRef = useRef(new Set<string>());
@@ -658,10 +664,13 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // hydrate sessionStartedAt + sessionSeconds from `started_at`. This is what
   // fixes the timer resetting after a refresh / new tab.
   useEffect(() => {
-    let cancelled = false;
-    void getCurrentRepSession({ data: undefined as never })
-      .then((row) => {
-        if (cancelled || !row || sessionEndRequestedRef.current) return;
+    if (!authReady || !user?.id) return;
+    return recoverSessionCheck({
+      check: () => getCurrentRepSession({ data: undefined as never }),
+      status: setRestoreConnection,
+      stillCurrent: () => !sessionEndRequestedRef.current && !sessionStartRequestedRef.current,
+      accept: (row) => {
+        if (!row) return;
         // Only resume if sessionStorage also has an in-progress queue. Without
         // this guard, opening the tab on a new browser (or after clearing site
         // data) would flip sessionActive=true with an empty queue, falling
@@ -671,8 +680,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         // that day. Close it and start the day fresh.
         const startedToday = localDateKey(new Date(row.started_at)) === localDateKey(new Date());
         if (!hasLocalQueue || !startedToday) {
-          try { closeRepSession(); } catch { /* noop */ }
+          // Another browser (including an admin viewing this rep) does not own
+          // today's open queue and must not end the rep's working session.
           if (!startedToday) {
+            try { closeRepSession(); } catch { /* noop */ }
             setSessionActive(false);
             setSessionQueue([]);
             setSessionIndex(0);
@@ -688,11 +699,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         const openBreak = Number.isFinite(openBreakStart) ? Math.max(0, Math.floor((Date.now() - openBreakStart) / 1000)) : 0;
         setSessionSeconds(Math.max(0, Math.floor((Date.now() - new Date(row.started_at).getTime()) / 1000) - bankedBreak - openBreak));
         setSessionActive(true);
-      })
-      .catch(() => { /* not signed in / no rep — ignore */ });
-    return () => { cancelled = true; };
+      },
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authReady, user?.id]);
 
   // Practice mode: inject a synthetic "Dave AI" lead and auto-activate the
   // session so the rep lands directly inside the call cockpit without having
@@ -764,12 +774,15 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // Presence continues through paid breaks. A disconnected/sleeping browser
   // creates an audit flag; we never silently count that gap as verified work.
   useEffect(() => {
-    if (!sessionActive || !sessionStartedAt) return;
-    const ping = () => { heartbeatRepSession({ data: undefined as never }).catch(err => console.error("Session presence could not be saved", err)); };
-    ping();
-    const interval = setInterval(ping, 60000);
-    return () => clearInterval(interval);
-  }, [sessionActive, sessionStartedAt]);
+    if (!sessionActive || !sessionStartedAt || !authReady || !user?.id) return;
+    return recoverSessionCheck({
+      check: () => heartbeatRepSession({ data: undefined as never }),
+      accept: () => {},
+      status: setPresenceConnection,
+      stillCurrent: () => !sessionEndRequestedRef.current,
+      intervalMs: 60_000,
+    });
+  }, [sessionActive, sessionStartedAt, authReady, user?.id]);
   const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionActiveRef = useRef(false);
   useEffect(() => { sessionActiveRef.current = sessionActive; }, [sessionActive]);
@@ -1630,6 +1643,13 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // including the holding screen — so the numbers never vanish mid-session.
   const sessionBar = (
     <>
+      {sessionActive && !practiceMode && (restoreConnection !== "connected" || presenceConnection !== "connected") && (
+        <div role="status" style={{ padding: "8px 18px", background: "#fff7df", color: "#704f13", fontSize: 13 }}>
+          {restoreConnection === "needs-sign-in" || presenceConnection === "needs-sign-in"
+            ? "Your sign-in needs attention. Please sign in again to reconnect."
+            : "Reconnecting to the portal — your place in this calling session is saved."}
+        </div>
+      )}
       {sessionActive && !practiceMode && (
         <div style={{ background: '#0b0b0b', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, minHeight: 58, borderBottom: '1px solid #2a2a2a', boxShadow: '0 1px 0 rgba(255,255,255,0.06)' }}>
           <div style={{ display: 'flex', gap: 28, alignItems: 'center' }}>
@@ -1706,6 +1726,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const queueCount = buildSessionQueue().length;
 
       const beginSession = async () => {
+        sessionStartRequestedRef.current = true;
+        setRestoreConnection("connected");
+        setPresenceConnection("connected");
         sessionEndRequestedRef.current = false;
         sessionSkipsRef.current.clear();
         requeuedOtherLeadsRef.current.clear();
