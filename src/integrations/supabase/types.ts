@@ -280,6 +280,21 @@ export type Database = {
           },
         ]
       }
+      calendar_history_start: {
+        Row: {
+          singleton: boolean
+          started_at: string
+        }
+        Insert: {
+          singleton?: boolean
+          started_at?: string
+        }
+        Update: {
+          singleton?: boolean
+          started_at?: string
+        }
+        Relationships: []
+      }
       call_records: {
         Row: {
           analysis_stage: string | null
@@ -793,6 +808,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      clinic_calendar_history: {
+        Row: {
+          actor_id: string | null
+          actor_name: string
+          actor_role: string
+          after_data: Json | null
+          before_data: Json | null
+          clinic_id: string
+          entity_id: string
+          entity_type: string
+          id: number
+          operation: string
+          recorded_at: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_name: string
+          actor_role: string
+          after_data?: Json | null
+          before_data?: Json | null
+          clinic_id: string
+          entity_id: string
+          entity_type: string
+          id?: never
+          operation: string
+          recorded_at?: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_name?: string
+          actor_role?: string
+          after_data?: Json | null
+          before_data?: Json | null
+          clinic_id?: string
+          entity_id?: string
+          entity_type?: string
+          id?: never
+          operation?: string
+          recorded_at?: string
+        }
+        Relationships: []
       }
       clinic_contacts: {
         Row: {
@@ -2013,6 +2070,36 @@ export type Database = {
           id?: string
           phone?: string | null
           reason?: string | null
+        }
+        Relationships: []
+      }
+      lead_skip_events: {
+        Row: {
+          created_at: string
+          id: string
+          lead_id: string
+          reason: string
+          rep_id: string
+          rep_name: string
+          session_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          lead_id: string
+          reason: string
+          rep_id: string
+          rep_name: string
+          session_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lead_id?: string
+          reason?: string
+          rep_id?: string
+          rep_name?: string
+          session_id?: string | null
         }
         Relationships: []
       }
@@ -3370,6 +3457,14 @@ export type Database = {
         }[]
       }
       booking_schedule_snapshot: { Args: { p_id: string }; Returns: Json }
+      calendar_history_fields: {
+        Args: { kind: string; row_data: Json }
+        Returns: Json
+      }
+      calendar_history_on_date: {
+        Args: { kind: string; target: string; value: Json }
+        Returns: boolean
+      }
       can_manage_booking: { Args: { p_id: string }; Returns: boolean }
       claim_appointment_reminder: {
         Args: {
@@ -3419,6 +3514,7 @@ export type Database = {
       current_clinic_id: { Args: never; Returns: string }
       current_sales_rep_id: { Args: never; Returns: string }
       current_sales_rep_role: { Args: never; Returns: string }
+      customer_journey: { Args: { p_lead: string }; Returns: Json }
       dashboard_conversion_stats: {
         Args: { p_city?: string; p_from: string; p_rep: string }
         Returns: {
@@ -3440,6 +3536,15 @@ export type Database = {
         Returns: number
       }
       get_booking_reschedule: { Args: { p_id: string }; Returns: Json }
+      get_clinic_calendar_history: {
+        Args: {
+          p_before?: number
+          p_clinic: string
+          p_date?: string
+          p_limit?: number
+        }
+        Returns: Json
+      }
       get_clinic_schedule: { Args: { p_clinic: string }; Returns: Json }
       get_dashboard_stats: { Args: never; Returns: Json }
       has_sales_role: { Args: { _roles: string[] }; Returns: boolean }
@@ -3513,6 +3618,29 @@ export type Database = {
           read_ct: number
         }[]
       }
+      record_lead_skip: {
+        Args: {
+          p_id: string
+          p_lead: string
+          p_reason: string
+          p_session?: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          lead_id: string
+          reason: string
+          rep_id: string
+          rep_name: string
+          session_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "lead_skip_events"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       rep_hours_report: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
@@ -3559,6 +3687,7 @@ export type Database = {
           shows: number
         }[]
       }
+      sales_journey_phone: { Args: { p: string }; Returns: string }
       save_clinic_schedule: {
         Args: { p_clinic: string; p_command: Json; p_version: string }
         Returns: Json
@@ -3594,6 +3723,60 @@ export type Database = {
           p_rep: string
         }
         Returns: Json
+      }
+      untouched_sales_leads: {
+        Args: { p_before: string; p_session: string }
+        Returns: {
+          ad_name: string | null
+          ad_set_name: string | null
+          booking_date: string | null
+          booking_time: string | null
+          call_notes: string | null
+          callback_scheduled_at: string | null
+          campaign_name: string | null
+          clinic_id: string | null
+          created_at: string
+          creative_time: string | null
+          day_number: number
+          deposit_amount: number | null
+          deposit_paid_at: string | null
+          deposit_token: string | null
+          email: string | null
+          expectations_set: boolean | null
+          expectations_set_at: string | null
+          expectations_set_by: string | null
+          finance_eligible: boolean | null
+          finance_form_answers: Json | null
+          first_name: string | null
+          funding_preference: string | null
+          handover_sent_at: string | null
+          id: string
+          last_name: string | null
+          lead_class: string
+          lead_class_reason: string | null
+          lead_id: string | null
+          norwood_level: number | null
+          payment_processor: string | null
+          phone: string | null
+          pipeline_summary: string | null
+          pipeline_summary_updated_at: string | null
+          previous_lead_id: string | null
+          raw_payload: Json | null
+          rep_id: string | null
+          square_order_id: string | null
+          square_payment_id: string | null
+          status: string
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          superseded_by_lead_id: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "meta_leads"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
     }
     Enums: {
