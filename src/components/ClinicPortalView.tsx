@@ -1,4 +1,5 @@
 import "./clinic-portal.css";
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuietRefresh } from "@/hooks/useQuietRefresh";
 import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock } from "lucide-react";
@@ -2398,7 +2399,8 @@ function ModalShell({ onClose, children }: { onClose: () => void; children: Reac
   // Track where the mousedown started so a text selection that ends outside
   // the modal (drag-release on backdrop) does NOT close the modal.
   const downOnBackdropRef = useRef(false);
-  return (
+  // Escape the scrolling, animated patient dialog so nested forms stay viewport-centred.
+  return createPortal(
     <div
       onMouseDown={(e) => { downOnBackdropRef.current = e.target === e.currentTarget; }}
       onMouseUp={(e) => {
@@ -2410,7 +2412,8 @@ function ModalShell({ onClose, children }: { onClose: () => void; children: Reac
       <div className="clinic-modal" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 12, padding: 24, maxWidth: 480, width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
