@@ -25,7 +25,7 @@ export function TodayBookingsCard({ bookings, error, onRetry }: {
       {!!bookings?.length && <div style={{ overflowX: "auto" }}>
         <table aria-label="Bookings made today" style={{ width: "100%", minWidth: 560, borderCollapse: "collapse", textAlign: "left" }}>
           <thead style={{ background: "#fafaf9", fontSize: 11, color: "#777", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            <tr>{["Patient", "City", "Source ad", "Booked"].map(label => <th key={label} scope="col" style={{ padding: "10px 20px", fontWeight: 500 }}>{label}</th>)}</tr>
+            <tr>{["Patient", "City", "Source", "Booked"].map(label => <th key={label} scope="col" style={{ padding: "10px 20px", fontWeight: 500 }}>{label}</th>)}</tr>
           </thead>
           <tbody>{bookings.map(booking => <tr key={booking.id} style={{ borderTop: "0.5px solid #f0f0ee", fontSize: 13, color: "#111", verticalAlign: "top" }}>
             <td style={{ padding: "14px 20px", fontWeight: 600 }}>
@@ -36,7 +36,7 @@ export function TodayBookingsCard({ bookings, error, onRetry }: {
               {booking.cityFromClinic && <div style={{ fontSize: 11, color: "#777", marginTop: 3 }}>Clinic city</div>}
             </td>
             <td style={{ padding: "14px 20px", maxWidth: 350, overflowWrap: "anywhere" }}>
-              <div style={{ color: booking.ad ? "#111" : "#777" }}>{booking.ad || "Not recorded"}</div>
+              <div style={{ color: booking.source ? "#111" : "#777" }}>{booking.source || "Not recorded"}</div>
               {booking.campaign && <div style={{ fontSize: 11, color: "#777", marginTop: 3 }}>Campaign: {booking.campaign}</div>}
             </td>
             <td style={{ padding: "14px 20px", color: "#777", whiteSpace: "nowrap" }}>{booking.bookedAt ? formatSydney(booking.bookedAt, { hour: "numeric", minute: "2-digit" }) : "—"}</td>

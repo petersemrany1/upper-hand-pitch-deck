@@ -8,7 +8,7 @@ export type DashboardBooking = {
   name: string;
   city: string;
   cityFromClinic: boolean;
-  ad: string | null;
+  source: string | null;
   campaign: string | null;
   bookedAt: string | null;
 };
@@ -63,7 +63,8 @@ export async function loadDashboardBookingsToday(
         name: row.patient_name?.trim() || "Unknown patient",
         city: sourceCity || clinicCity || "Not recorded",
         cityFromClinic: !sourceCity && !!clinicCity,
-        ad: row.lead?.ad_name?.trim() || rawString(row.lead?.raw_payload, "ad_name"),
+        source: row.lead?.ad_name?.trim() || rawString(row.lead?.raw_payload, "ad_name")
+          || (rawString(row.lead?.raw_payload, "source") === "website-booking" ? "Website booking form" : null),
         campaign,
         bookedAt: row.booked_at,
       });
