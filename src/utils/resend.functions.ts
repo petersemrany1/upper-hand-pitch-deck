@@ -1100,6 +1100,8 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       "— Bold Patients",
     ].join("\n");
 
+    const CORAL = "#f4522d";
+    const LIGHT_CORAL = "#fff5f3";
     const esc = (v: string) =>
       v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     let intelBody: string;
