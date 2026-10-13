@@ -149,6 +149,8 @@ export function buildQueue<L extends QueueLead>(input: {
   now: Date;
   isPaused?: (l: L) => boolean;
   isPriority?: (l: L) => boolean;
+  /** Unknown history is not evidence that a lead has never been called. */
+  requireHistory?: boolean;
 }): BuiltQueue {
   const { leads, history, now } = input;
   const isPaused: (l: L) => boolean = input.isPaused ?? (() => false);
@@ -156,6 +158,7 @@ export function buildQueue<L extends QueueLead>(input: {
   const afternoon = isAfternoon(now);
 
   const eligible = leads.filter((l) => {
+    if (input.requireHistory && history[l.id] === undefined) return false;
     if (isPaused(l) || isExcluded(l, now)) return false;
     // A scheduled callback that hasn't expired is served by dueCallbackIds().
     const w = callbackWindow(l, now);

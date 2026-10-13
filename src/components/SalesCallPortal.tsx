@@ -22,7 +22,8 @@ import type { Json } from "@/integrations/supabase/types";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
-import { CALLBACK_WINDOW_MS, buildHistory, buildQueue, dueCallbackIds, type HistoryMap } from "./sales-call/queue";
+import { CALLBACK_WINDOW_MS, buildQueue, dueCallbackIds, type HistoryMap } from "./sales-call/queue";
+import { createCallHistoryLoader } from "./sales-call/call-history";
 import { isReturningLead, normaliseStatus, requiresManualDial, type StatusKey } from "./sales-call/status";
 import { toast } from "sonner";
 import {
@@ -586,6 +587,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const [firstCallByLead, setFirstCallByLead] = useState<Record<string, string>>({});
   // Per-lead call history the queue rules run on (attempts, first/last, today).
   const [callHistory, setCallHistory] = useState<HistoryMap>({});
+  const [historyLoadedKey, setHistoryLoadedKey] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState(false);
+  const callHistoryReady = historyLoadedKey === loadedLeadIdsKey && !historyError;
+  const callHistoryReadyRef = useRef(false);
+  callHistoryReadyRef.current = callHistoryReady;
   // Read inside timers/effects that must NOT re-run (and refetch) every time
   // the history object is rebuilt.
   const callHistoryRef = useRef<HistoryMap>({});
@@ -988,7 +994,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           return add.length ? [...add, ...prev] : prev;
         });
       }
-      const live = new Set(dueCallbackIds(rows, callHistoryRef.current, now, isLeadUnavailableRef.current));
+      // Unknown history must not re-surface an already actioned callback.
+      if (!callHistoryReadyRef.current) return;
+      const knownRows = rows.filter((l) => callHistoryRef.current[l.id] !== undefined);
+      const live = new Set(dueCallbackIds(knownRows, callHistoryRef.current, now, isLeadUnavailableRef.current));
       const surfaced = callbackSurfacedRef.current;
       // Withdraw surfaced callbacks that are no longer live (hour passed, or dialled).
       const stale = Array.from(surfaced).filter((id) => !live.has(id));
@@ -1021,104 +1030,72 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   }, [isLeadLocationPaused, isLeadClinicFull]);
 
   useEffect(() => {
-    const leadIds = loadedLeadIdsKey.split(",").filter(Boolean);
-    if (leadIds.length === 0) return;
+    const leadIds = loadedLeadIdsKey.split(",").filter((id) => id && id !== PRACTICE_LEAD_ID);
+    if (leadIds.length === 0) {
+      setAttemptCounts({});
+      setAttemptsByDay({});
+      setFirstCallByLead({});
+      setCallHistory({});
+      setHistoryLoadedKey(loadedLeadIdsKey);
+      setHistoryError(false);
+      return;
+    }
 
     let cancelled = false;
-    // The all-time history is thousands of rows for hundreds of leads. It only
-    // matters for "first ever call" / lifetime attempt counts, which barely
-    // move, so cache it and refresh at most every 5 minutes instead of
-    // refetching it on every single call_records change (that was hammering
-    // the database and making the whole portal crawl).
-    let allTimeRows: { lead_id: string | null; called_at: string | null; direction?: string | null }[] | null = null;
-    let allTimeAt = 0;
-    const ALL_TIME_TTL_MS = 5 * 60 * 1000;
-
+    const controller = new AbortController();
+    const fetchHistory = createCallHistoryLoader(supabase, leadIds, controller.signal);
+    let loading = false;
+    let reloadRequested = false;
     const load = async () => {
-      // Last 3 days of call attempts so we can show "no answer yesterday",
-      // count today's attempts (auto-bump after 3), etc.
-      const since = new Date();
-      since.setHours(0, 0, 0, 0);
-      since.setDate(since.getDate() - 2); // covers yesterday + today
-      const { data } = await supabase
-        .from("call_records")
-        .select("lead_id, called_at, outcome, status, direction")
-        .in("lead_id", leadIds)
-        .gte("called_at", since.toISOString())
-        .order("called_at", { ascending: true });
       if (cancelled) return;
-
-      const today = new Date(); today.setHours(0, 0, 0, 0);
-      const counts: Record<string, number> = {};
-      const byDay: Record<string, Record<string, { count: number; lastOutcome: string | null }>> = {};
-
-      for (const row of data ?? []) {
-        if (!row.lead_id || !row.called_at) continue;
-        const d = new Date(row.called_at);
-        const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-        const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
-        // Attempts = dials WE made. A lead ringing in is not an attempt.
-        const isDial = (row.direction as string | null ?? "outbound") !== "inbound";
-        if (isDial && dayStart.getTime() === today.getTime()) {
-          counts[row.lead_id] = (counts[row.lead_id] ?? 0) + 1;
-        }
-        byDay[row.lead_id] = byDay[row.lead_id] ?? {};
-        const slot = byDay[row.lead_id][dayKey] ?? { count: 0, lastOutcome: null };
-        if (isDial) slot.count += 1;
-        slot.lastOutcome = (row.outcome as string | null) ?? (row.status as string | null) ?? slot.lastOutcome;
-        byDay[row.lead_id][dayKey] = slot;
-      }
-      setAttemptCounts(counts);
-      setAttemptsByDay(byDay);
-
-      // First-ever call timestamp per lead (across all history, ascending order
-      // so the first row per lead wins). Drives the "Day N" pipeline counter.
-      if (!allTimeRows || Date.now() - allTimeAt > ALL_TIME_TTL_MS) {
-        const { data: firstRows } = await supabase
-          .from("call_records")
-          .select("lead_id, called_at, direction")
-          .in("lead_id", leadIds)
-          .order("called_at", { ascending: true })
-          .limit(10000);
+      if (loading) { reloadRequested = true; return; }
+      loading = true;
+      try {
+        const snapshot = await fetchHistory();
         if (cancelled) return;
-        allTimeRows = firstRows ?? [];
-        allTimeAt = Date.now();
+        setAttemptCounts(snapshot.counts);
+        setAttemptsByDay(snapshot.byDay);
+        setFirstCallByLead(snapshot.firsts);
+        setCallHistory(snapshot.history);
+        callHistoryRef.current = snapshot.history;
+        setHistoryLoadedKey(loadedLeadIdsKey);
+        setHistoryError(false);
+      } catch (error) {
+        if (cancelled) return;
+        console.error("sales-call history load failed", error);
+        // Keep the last successful counts. A failed read is not zero attempts.
+        setHistoryError(true);
+      } finally {
+        loading = false;
+        if (reloadRequested && !cancelled) {
+          reloadRequested = false;
+          void load();
+        }
       }
-      const rows = allTimeRows ?? [];
-      const firsts: Record<string, string> = {};
-      for (const row of rows) {
-        if (!row.lead_id || !row.called_at) continue;
-        if (!firsts[row.lead_id]) firsts[row.lead_id] = row.called_at as string;
-      }
-      setFirstCallByLead(firsts);
-      // All-time figures from the cached full history; today's figures from the
-      // 3-day query above, which is small enough never to be truncated.
-      const nowTs = new Date();
-      const history = buildHistory(rows, nowTs);
-      const recent = buildHistory(data ?? [], nowTs);
-      for (const [leadId, h] of Object.entries(recent)) {
-        if (!h) continue;
-        const base = history[leadId] ?? h;
-        history[leadId] = { ...base, todayAttempts: h.todayAttempts, todayFirstAttemptAt: h.todayFirstAttemptAt };
-      }
-      setCallHistory(history);
     };
 
-    // Coalesce bursts of realtime events (a single dial writes several rows:
-    // insert, status updates, outcome stamp) into one reload.
+    // Coalesce realtime bursts without overlapping loads or stale responses.
     let debounce: ReturnType<typeof setTimeout> | null = null;
     const scheduleLoad = () => {
       if (debounce) clearTimeout(debounce);
       debounce = setTimeout(() => { debounce = null; void load(); }, 2000);
     };
-
+    const refreshVisible = () => { if (document.visibilityState === "visible") void load(); };
     void load();
+    // Recover missed realtime events and roll today's counters over at midnight.
+    const interval = setInterval(refreshVisible, 60_000);
+    window.addEventListener("online", scheduleLoad);
+    document.addEventListener("visibilitychange", refreshVisible);
     const ch = supabase.channel("attempt-counts")
       .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, scheduleLoad)
       .subscribe();
     return () => {
       cancelled = true;
+      controller.abort();
       if (debounce) clearTimeout(debounce);
+      clearInterval(interval);
+      window.removeEventListener("online", scheduleLoad);
+      document.removeEventListener("visibilitychange", refreshVisible);
       void supabase.removeChannel(ch);
     };
   }, [loadedLeadIdsKey]);
@@ -1468,7 +1445,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     setDiscoveryNotes("");
   }, [activeId]);
 
-  const callbackBanner = null;
+  const callbackBanner = !practiceMode && !callHistoryReady ? (
+    <div role="status" style={{ padding: "10px 16px", background: "#fff7ed", color: "#9a3412", fontSize: 13 }}>
+      {historyError ? "Call history could not refresh. Automatic calling is paused while we retry." : "Checking call history before automatic calling…"}
+    </div>
+  ) : null;
 
   // Today's callbacks (overdue + scheduled-for-today) for the at-a-glance panel
   const todaysCallbacks = useMemo(() => {
@@ -1495,7 +1476,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // served separately at their time — see the callback watcher below.
   const buildSessionQueue = useCallback(
     (): string[] =>
-      buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadUnavailable, isPriority: isPriorityLead }).order,
+      buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadUnavailable, isPriority: isPriorityLead, requireHistory: true }).order,
     // clockTick re-evaluates noon / callback windows once a minute.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [leads, callHistory, isLeadUnavailable, isPriorityLead, clockTick],
@@ -1506,7 +1487,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // after the lead the rep is on. Anything else that becomes due mid-session
   // (a young lead's afternoon turn) is appended when the queue runs dry.
   const dueQueue = useMemo(
-    () => buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadUnavailable, isPriority: isPriorityLead }),
+    () => buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadUnavailable, isPriority: isPriorityLead, requireHistory: true }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [leads, callHistory, isLeadUnavailable, isPriorityLead, clockTick],
   );
@@ -1539,7 +1520,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const dueLeadIds = dueQueue.order;
   const dueSet = useMemo(() => new Set(dueLeadIds), [dueLeadIds]);
   const dueSetRef = useRef(dueSet);
-  useEffect(() => { dueSetRef.current = dueSet; }, [dueSet]);
+  dueSetRef.current = dueSet;
   // From a queue position, find the next lead still worth serving: skip any
   // that is no longer due (called today by someone — reps share one pool —
   // or since booked / retired). Callbacks and ring-backs arrive through the
@@ -1575,7 +1556,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // All automatic exits converge here. The database check is authoritative;
   // failed reads retain the session, and cleanup cancels stale async results.
   const queueExhausted = sessionActive && !active && !sessionQueue[sessionIndex];
-  const { error: completionError, retry: retryCompletion } = useSessionCompletion<Lead>(queueExhausted && !sessionPaused && !practiceMode, {
+  const { error: completionError, retry: retryCompletion } = useSessionCompletion<Lead>(queueExhausted && !sessionPaused && !practiceMode && callHistoryReady, {
     load: async () => {
       // Older browser caches may predate sessionId. Resolve the real session.
       const currentSession = sessionId || (await getCurrentRepSession({ data: undefined as never }))?.id;
@@ -1583,7 +1564,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const fresh = testLeadIds.length ? [] : await fetchUntouchedLeads<Lead>(currentSession!, SALES_CALL_LEAD_SELECT);
       return fresh.filter(l => !sessionSkipsRef.current.has(l.id));
     },
-    stillCurrent: () => mayFinishReview({ cancelled: sessionEndRequestedRef.current, active: sessionActiveRef.current,
+    stillCurrent: () => callHistoryReadyRef.current && mayFinishReview({ cancelled: sessionEndRequestedRef.current, active: sessionActiveRef.current,
       leadId: activeIdRef.current, queuedAhead: Boolean(sessionQueueRef.current[sessionIndexRef.current]) }),
     restore: fresh => {
       const byId = new Map(fresh.map(l => [l.id,l]));
@@ -1709,16 +1690,15 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // Show start-session screen / advance queue when no active lead
   if (!active) {
     if (!sessionActive && !manualMode) {
-      // Don't let a session start before leads AND the paused/priority location
-      // settings have landed — a snapshot queue built on partial data locks the
-      // rep into a tiny queue (and can surface paused cities).
-      if (!leadsLoaded || !settingsLoaded) {
+      // Wait for leads, location settings AND complete call history before
+      // taking a queue snapshot, or people already called can be served again.
+      if (!leadsLoaded || !settingsLoaded || !callHistoryReady) {
         return (
           <>
             {callbackBanner}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40, background: "#f7f7f5", gap: 14 }}>
-              <div style={{ fontSize: 16, fontWeight: 600, color: "#111" }}>Loading your leads…</div>
-              <div style={{ fontSize: 13, color: "#888" }}>Hang on — building your call queue.</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "#111" }}>{historyError ? "Call history is unavailable" : "Loading your leads…"}</div>
+              <div style={{ fontSize: 13, color: "#888" }}>{historyError ? "Calling is paused while we retry, so people already called are not queued again." : "Hang on — checking previous calls and building your queue."}</div>
             </div>
           </>
         );
@@ -1726,6 +1706,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const queueCount = buildSessionQueue().length;
 
       const beginSession = async () => {
+        if (!callHistoryReadyRef.current) return;
         sessionStartRequestedRef.current = true;
         setRestoreConnection("connected");
         setPresenceConnection("connected");
@@ -1740,6 +1721,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         } catch (err) {
           console.error("sweepAbandonedCalls failed", err);
         }
+        if (!callHistoryReadyRef.current) return;
         const q = buildSessionQueue();
         let startedAt: string;
         try {
@@ -1898,8 +1880,13 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         </div>
       </>
     );
+    if (!callHistoryReady) return holding;
     if (nextId) {
       const queuedLead = leads.find((l) => l.id === nextId);
+      if (queuedLead && !missedCallQueue.includes(nextId) && !dueSet.has(nextId)) {
+        queueMicrotask(() => setSessionIndex(advanceIndexFrom(sessionIndex)));
+        return holding;
+      }
       if (queuedLead && normaliseStatus(queuedLead.status, queuedLead) === "on_hold") {
         queueMicrotask(() => setSessionIndex((i) => i === sessionIndex ? i + 1 : i));
         return holding;
@@ -2017,6 +2004,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             onDepositPaid={() => {
               if (sessionActive) {
                 setSessionBookings((b) => b + 1);
+                if (!callHistoryReadyRef.current) return;
                 const nextIndex = advanceIndexFrom(sessionIndex + 1);
                 setSessionIndex(nextIndex);
                 const nextId = sessionQueue[nextIndex];
@@ -2081,6 +2069,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           firstCallAt={firstCallByLead[active.id] ?? null}
           onLocalLeadUpdate={updateLocalLead}
           onChangeLead={() => {
+            if (sessionActive && !callHistoryReadyRef.current) {
+              toast.error("Waiting for call history before choosing the next lead");
+              return;
+            }
             // Missed-call priority: if anyone rang us back, jump to them
             // FIRST — regardless of whether a formal session is running.
             // NOTE: the 10-minute double-dial guard is deliberately NOT applied
@@ -2159,13 +2151,18 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
           onOutcomePendingChange={(val) => { outcomePendingRef.current = val; }}
           onCallStarted={() => {}}
-          autoDialEnabled={sessionActive && !manualMode && !sessionPaused}
+          autoDialEnabled={sessionActive && !manualMode && !sessionPaused && callHistoryReady}
           autoDialArmToken={autoDialArmToken}
           onGoToStep={(next) => setStep(next)}
           pendingOutcomeLeadId={pendingOutcomeLeadId}
           onPendingOutcomeArmed={(leadId) => setPendingOutcomeLeadId(leadId)}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
             setPendingOutcomeLeadId(null);
+            if (sessionActive && !callHistoryReadyRef.current) {
+              if (wasBooked) setSessionBookings((b) => b + 1);
+              toast("Outcome saved. Waiting for call history before the next lead.");
+              return;
+            }
             // Missed-call priority also applies right after logging an outcome.
             // Same as above: no recent-dial filter — a ring-back always wins.
             const mcq = missedCallQueue;
@@ -6299,7 +6296,7 @@ function LeadChooser({
     const u = leadUrgency(l);
     const day = pipelineDay(l, firstCallByLead[l.id]);
     const attempts = ATTEMPTS_PER_DAY(day);
-    const todayCount = attemptCounts[l.id] ?? 0;
+    const todayCount = attemptCounts[l.id];
     const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
     const cb = l.callback_scheduled_at ? new Date(l.callback_scheduled_at) : null;
     const cbTime = cb ? cb.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }) : null;
@@ -6395,7 +6392,7 @@ function LeadChooser({
             <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 8 }}>
               {renderStatusBadge(l)}
               <span style={{ fontSize: 11, color: "#666" }}>
-                Day {day} · Attempt {Math.min(todayCount, attempts)} of {attempts}
+                {todayCount === undefined ? "Call attempts unavailable" : `Day ${day} · Attempt ${Math.min(todayCount, attempts)} of ${attempts}`}
               </span>
             </div>
           </div>
@@ -7926,7 +7923,7 @@ function RightPanel({
           Created {fmtTime(active.created_at)}
         </div>
         <div style={{ marginTop: 4, fontSize: 12, color: "#111" }}>
-          Day {day} · Attempt {Math.min(attemptCounts[active.id] ?? 0, attempts)} of {attempts} today
+          {attemptCounts[active.id] === undefined ? "Call attempts unavailable" : `Day ${day} · Attempt ${Math.min(attemptCounts[active.id], attempts)} of ${attempts} today`}
         </div>
         </>
         )}
