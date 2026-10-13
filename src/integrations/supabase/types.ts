@@ -208,6 +208,14 @@ export type Database = {
           actor_role: string
           appointment_id: string | null
           created_at: string
+          email_accepted_at: string | null
+          email_attempt_at: string | null
+          email_body: string | null
+          email_error: string | null
+          email_receipt: string | null
+          email_status: string | null
+          email_subject: string | null
+          email_to: string | null
           id: string
           new_date: string
           new_time: string
@@ -226,6 +234,14 @@ export type Database = {
           actor_role: string
           appointment_id?: string | null
           created_at?: string
+          email_accepted_at?: string | null
+          email_attempt_at?: string | null
+          email_body?: string | null
+          email_error?: string | null
+          email_receipt?: string | null
+          email_status?: string | null
+          email_subject?: string | null
+          email_to?: string | null
           id: string
           new_date: string
           new_time: string
@@ -244,6 +260,14 @@ export type Database = {
           actor_role?: string
           appointment_id?: string | null
           created_at?: string
+          email_accepted_at?: string | null
+          email_attempt_at?: string | null
+          email_body?: string | null
+          email_error?: string | null
+          email_receipt?: string | null
+          email_status?: string | null
+          email_subject?: string | null
+          email_to?: string | null
           id?: string
           new_date?: string
           new_time?: string
@@ -3475,6 +3499,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      claim_reschedule_email: { Args: { p_event: string }; Returns: Json }
       clinic_pack_economics: {
         Args: never
         Returns: {
@@ -3501,6 +3526,23 @@ export type Database = {
         Args: {
           p_actor: string
           p_date: string
+          p_id: string
+          p_phone: string
+          p_reason: string
+          p_request: string
+          p_sms: string
+          p_time: string
+          p_version: string
+        }
+        Returns: string
+      }
+      commit_booking_reschedule_email: {
+        Args: {
+          p_actor: string
+          p_date: string
+          p_email_body: string
+          p_email_subject: string
+          p_expected_email: string
           p_id: string
           p_phone: string
           p_reason: string
