@@ -377,7 +377,7 @@ async function sendViaResend(
 
 
 // Booking handover emails go through an external mailer, not Resend.
-async function sendViaHandoverMailer(subject: string, text: string) {
+async function sendViaHandoverMailer(to: string, cc: string[], subject: string, text: string) {
   const url = process.env.HANDOVER_MAILER_URL;
   const secret = process.env.HANDOVER_MAILER_SECRET;
   if (!url || !secret) {
@@ -393,7 +393,8 @@ async function sendViaHandoverMailer(subject: string, text: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         secret,
-        to: "scott@PositiveEV.onmicrosoft.com",
+        to,
+        ...(cc.length > 0 ? { cc } : {}),
         subject,
         html,
         text,
@@ -1173,9 +1174,9 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       return { success: false, error: message };
     }
 
-    void clinicEmailTo;
-    void clinicEmailCc;
     const result = await sendViaHandoverMailer(
+      clinicEmailTo,
+      clinicEmailCc,
       `New Booking: ${fullName} — ${bookingDisplay}`,
       text,
     );
