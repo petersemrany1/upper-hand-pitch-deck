@@ -1,3 +1,4 @@
+import { notifyDepositReceived } from '@/utils/deposit-received.server';
 import { createClient } from "@supabase/supabase-js";
 import type { SquarePayment } from "@/lib/square.server";
 import { opsAlertEmail } from "@/utils/ops-alert.server";
@@ -40,6 +41,7 @@ export async function fulfilSquareDeposit(
 
   // Idempotency — Square retries webhooks and the browser also fulfils inline.
   if (existing.deposit_paid_at && existing.square_payment_id === payment.id) {
+    await notifyDepositReceived(supabase, origin, serviceKey, leadId, 'square', payment.id);
     return { ok: true, detail: "already processed" };
   }
 
@@ -87,6 +89,8 @@ export async function fulfilSquareDeposit(
   } catch (e) {
     console.warn("square fulfilment: appointment/status update non-fatal error", e);
   }
+
+  await notifyDepositReceived(supabase, origin, serviceKey, leadId, 'square', payment.id);
 
   // Only notify Peter when payment has not resulted in the booked/paid status.
   try {

@@ -1,3 +1,4 @@
+import { notifyDepositReceived } from '@/utils/deposit-received.server';
 // Stripe webhook: marks a lead as deposit-paid the moment Stripe confirms
 // the $75 checkout. Per project rule (mem://rules/lead-status-no-auto-change),
 // this does NOT touch meta_leads.status — only the deposit_* columns. The
@@ -132,6 +133,7 @@ export const Route = createFileRoute("/api/public/hooks/stripe-deposit")({
         }
 
         if (existing.deposit_paid_at && existing.stripe_checkout_session_id === session.id) {
+          await notifyDepositReceived(supabase, new URL(request.url).origin, serviceKey, leadId, 'stripe', session.id);
           return new Response(JSON.stringify({ already_processed: true }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
@@ -191,6 +193,8 @@ export const Route = createFileRoute("/api/public/hooks/stripe-deposit")({
         } catch (e) {
           console.warn("stripe-deposit webhook: appointment/status update non-fatal error", e);
         }
+
+        await notifyDepositReceived(supabase, new URL(request.url).origin, serviceKey, leadId, 'stripe', session.id);
 
         // Notify only when the paid lead is not yet marked Booked — Deposit Paid.
         // Fixed recipient is baked into the payment-received template (peter@gobold.com.au).

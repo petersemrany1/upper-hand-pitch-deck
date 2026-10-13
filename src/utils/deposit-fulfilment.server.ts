@@ -1,3 +1,4 @@
+import { notifyDepositReceived } from '@/utils/deposit-received.server';
 import { createClient } from "@supabase/supabase-js";
 import { needsPaymentBookingAlert } from "./payment-booking-alert.server";
 
@@ -42,6 +43,7 @@ export async function fulfilDepositPayment(
 
   // Idempotency — Stripe retries and sends both sync + async events.
   if (existing.deposit_paid_at && existing.stripe_checkout_session_id === session.id) {
+    await notifyDepositReceived(supabase, origin, serviceKey, leadId, 'stripe', session.id);
     return { ok: true, detail: "already processed" };
   }
 
@@ -87,6 +89,8 @@ export async function fulfilDepositPayment(
   } catch (e) {
     console.warn("deposit fulfilment: appointment/status update non-fatal error", e);
   }
+
+  await notifyDepositReceived(supabase, origin, serviceKey, leadId, 'stripe', session.id);
 
   // Only notify Peter when payment has not resulted in the booked/paid status.
   try {
