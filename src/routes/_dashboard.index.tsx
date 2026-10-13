@@ -1,3 +1,5 @@
+import { TodayBookingsCard } from "@/components/TodayBookingsCard";
+import { loadDashboardBookingsToday, type DashboardBooking } from "@/lib/dashboard-bookings";
 import { conversionPercent } from "@/lib/leaderboard-metrics";
 import { getDashboardConversion } from "@/utils/sales-call.functions";
 import { MyBookingResults } from "@/components/MyBookingResults";
@@ -263,6 +265,8 @@ function DashboardHome() {
 
 
   const [bookingsToday, setBookingsToday] = useState(0);
+  const [todayBookings, setTodayBookings] = useState<DashboardBooking[] | null>(null);
+  const [todayBookingsError, setTodayBookingsError] = useState(false);
   const [bookingsMonth, setBookingsMonth] = useState(0);
   const [revenueMonth, setRevenueMonth] = useState(0);
   const [newLeads, setNewLeads] = useState<Lead[]>([]);
@@ -302,24 +306,13 @@ function DashboardHome() {
         .select("id, name")
         .ilike("email", session.user.email)
         .maybeSingle();
-      if (repError) { console.warn("Dashboard refresh failed", repError); return; }
+      if (repError) { setTodayBookingsError(true); console.warn("Dashboard refresh failed", repError); return; }
       repId = repRow?.id ?? null;
       if (repRow?.name) setRepName(repRow.name);
     }
     const scopeId = !isAdmin ? (repId ?? "00000000-0000-0000-0000-000000000000") : null;
 
-    const bookingsTodayQ = scopeId
-      ? supabase
-          .from("clinic_appointments")
-          .select("id, patient_name", { count: "exact", head: true })
-          .gte("booked_at", todayIso)
-          .eq("booking_rep_id", scopeId)
-          .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%")
-      : supabase
-          .from("clinic_appointments")
-          .select("id, patient_name", { count: "exact", head: true })
-          .gte("booked_at", todayIso)
-          .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%");
+    const bookingsTodayQ = loadDashboardBookingsToday(supabase, scopeId);
 
     const bookingsMonthQ = scopeId
       ? supabase
@@ -386,6 +379,7 @@ function DashboardHome() {
 
     const refreshError = [bookingsTodayRes, bookingsMonthRes, newLeadsRes, newLeadsCountRes, clinicsRes, settingsRes, targetRes, repsRes, packsRes, apptsRes].find((result) => result.error)?.error;
     if (refreshError) {
+      setTodayBookingsError(true);
       console.warn("Dashboard refresh failed; keeping previous figures", refreshError);
       return;
     }
@@ -397,6 +391,8 @@ function DashboardHome() {
     }
 
     setBookingsToday(bookingsTodayRes.count ?? 0);
+    setTodayBookings(bookingsTodayRes.data);
+    setTodayBookingsError(false);
 
     const monthBookings = (bookingsMonthRes.data ?? []) as { id: string; clinic_id: string | null; is_free_trial?: boolean }[];
     setBookingsMonth(monthBookings.length);
@@ -677,6 +673,8 @@ function DashboardHome() {
             sub=""
           />
         </div>
+
+        <TodayBookingsCard bookings={todayBookings} error={todayBookingsError} onRetry={() => { void loadData(); }} />
 
         {/* Conversion rate — leads→bookings and calls→bookings */}
         <Card>
