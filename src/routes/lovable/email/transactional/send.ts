@@ -105,6 +105,22 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
           )
         }
 
+        // Owner payment receipts are server-only and share a stable message ID
+        // across browser fulfilment, webhook retries and duplicate queue entries.
+        if (templateName === 'deposit-received') {
+          if (token !== supabaseServiceKey) return Response.json({ error: 'Forbidden' }, { status: 403 })
+          if (!/^deposit-received-(stripe|square)-.+$/.test(idempotencyKey)) {
+            return Response.json({ error: 'Payment reference required' }, { status: 400 })
+          }
+          const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(idempotencyKey))
+          const hex = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('')
+          messageId = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`
+          const { data: sent, error } = await supabase.from('email_send_log').select('id')
+            .eq('message_id', messageId).eq('status', 'sent').limit(1)
+          if (error) return Response.json({ error: 'Could not check receipt delivery' }, { status: 500 })
+          if (sent?.length) return Response.json({ success: true, queued: false, already_sent: true })
+        }
+
         // Resolve effective recipient: template-level `to` takes precedence over
         // the caller-provided recipientEmail. This allows notification templates
         // to always send to a fixed address (e.g., site owner from env var).

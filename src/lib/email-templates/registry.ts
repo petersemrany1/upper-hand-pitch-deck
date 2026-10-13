@@ -17,10 +17,12 @@ export interface TemplateEntry {
  *   import { template as welcomeTemplate } from './welcome'
  *   // then add to TEMPLATES: 'welcome': welcomeTemplate
  */
+import { template as depositReceivedTemplate } from './deposit-received'
 import { template as paymentReceivedTemplate } from './payment-received'
 import { template as packRenewalTemplate } from './pack-renewal'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
+  'deposit-received': depositReceivedTemplate,
   'payment-received': paymentReceivedTemplate,
   'pack-renewal': packRenewalTemplate,
 }
