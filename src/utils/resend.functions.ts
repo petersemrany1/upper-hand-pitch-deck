@@ -376,6 +376,45 @@ async function sendViaResend(
 }
 
 
+// Booking handover emails go through an external mailer, not Resend.
+async function sendViaHandoverMailer(subject: string, text: string) {
+  const url = process.env.HANDOVER_MAILER_URL;
+  const secret = process.env.HANDOVER_MAILER_SECRET;
+  if (!url || !secret) {
+    return { success: false as const, error: "Handover mailer not configured", rawResponse: null as unknown };
+  }
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8" /></head><body><pre style="font-family:inherit;white-space:pre-wrap">${esc(text)}</pre></body></html>`;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      redirect: "follow",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        secret,
+        to: "scott@PositiveEV.onmicrosoft.com",
+        subject,
+        html,
+        text,
+        fromName: "Hair Transplant Group",
+        replyTo: "peter@gobold.com.au",
+      }),
+    });
+    const raw = await response.text();
+    let parsed: unknown = null;
+    try { parsed = JSON.parse(raw); } catch { /* not JSON */ }
+    if (parsed && typeof parsed === "object" && (parsed as { ok?: unknown }).ok === true) {
+      return { success: true as const, id: null };
+    }
+    console.error("Handover mailer failure:", response.status, raw.slice(0, 500));
+    return { success: false as const, error: `Handover mailer failed [${response.status}]`, rawResponse: raw.slice(0, 500) as unknown };
+  } catch (error) {
+    console.error("Handover mailer request failed:", error);
+    return { success: false as const, error: "Handover mailer request failed", rawResponse: String(error) as unknown };
+  }
+}
+
 // ─── SERVER FUNCTIONS ───
 
 export const sendContractEmail = createServerFn({ method: "POST" })
@@ -1134,19 +1173,18 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       return { success: false, error: message };
     }
 
-    const result = await sendViaResend(
-      clinicEmailTo,
+    void clinicEmailTo;
+    void clinicEmailCc;
+    const result = await sendViaHandoverMailer(
       `New Booking: ${fullName} — ${bookingDisplay}`,
-      { text },
-      undefined,
-      undefined,
-      clinicEmailCc.length > 0 ? clinicEmailCc : undefined
+      text,
     );
 
     if (!result.success) {
-      await logError("sendClinicHandoverEmail", result.error || "Resend failed", {
+      await logError("sendClinicHandoverEmail", result.error || "Handover mailer failed", {
         leadId: data.leadId,
         clinicName: data.clinicName,
+        response: result.rawResponse,
       });
       return result;
     }
