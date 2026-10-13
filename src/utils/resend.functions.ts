@@ -394,7 +394,7 @@ async function sendViaHandoverMailer(to: string, cc: string[], subject: string, 
       body: JSON.stringify({
         secret,
         to,
-        ...(cc.length > 0 ? { cc } : {}),
+        ...(cc.length > 0 ? { cc: cc.join(", ") } : {}),
         subject,
         html,
         text,
