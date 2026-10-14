@@ -14,6 +14,11 @@ async function getSupabaseAdmin() {
   return supabaseAdmin;
 }
 
+async function persistRefundState(db: Awaited<ReturnType<typeof getSupabaseAdmin>>, appointmentId: string, patch: Database["public"]["Tables"]["clinic_appointments"]["Update"]) {
+  const { data, error } = await db.from("clinic_appointments").update(patch).eq("id", appointmentId).select("id");
+  if (error || !data?.length) throw new Error("Refund status could not be saved. Check the payment provider before trying again.");
+}
+
 function normalizePhone(p: string | null | undefined): string {
   return (p || "").replace(/[^0-9]/g, "");
 }
@@ -221,24 +226,21 @@ export async function settleAppointmentRefund(
 
   const payment = await resolveDepositForAppointment(supabaseAdmin, appt);
   if (!payment) {
-    await supabaseAdmin
-      .from("clinic_appointments")
-      .update({ refund_status: "manual_required" })
-      .eq("id", appointmentId);
+    await persistRefundState(supabaseAdmin, appointmentId, { refund_status: "manual_required", refund_error: "No card payment is recorded. Check the deposit and arrange a manual refund if it was paid." });
     return { status: "manual", reason: "No card payment on file for this booking." };
   }
 
   // Mark the attempt BEFORE talking to the processor. If this request dies
   // mid-flight the row shows refund_pending instead of looking untouched.
-  await supabaseAdmin
+  const { error: pendingError } = await supabaseAdmin
     .from("clinic_appointments")
-    .update({ refund_status: "refund_pending" })
+    .update({ refund_status: "refund_pending", refund_error: null })
     .eq("id", appointmentId)
     .is("square_refund_id", null)
     .is("stripe_refund_id", null);
+  if (pendingError) return { status: "failed", error: "Could not save the refund request. No refund was attempted." };
 
   const { refundDeposit } = await import("./deposit-refund.server");
-  const { sendRefundFailureAlert } = await import("./ops-alert.server");
   const outcome = await refundDeposit(payment.paymentId, appointmentId, payment.processor, {
     amountCents: payment.depositAmount != null ? Math.round(payment.depositAmount * 100) : null,
     reason,
@@ -246,18 +248,8 @@ export async function settleAppointmentRefund(
 
   if (outcome.status === "manual" || outcome.status === "failed") {
     const message = outcome.status === "manual" ? outcome.reason : outcome.error;
-    await supabaseAdmin
-      .from("clinic_appointments")
-      .update({ refund_status: outcome.status === "manual" ? "manual_required" : "failed" })
-      .eq("id", appointmentId);
+    await persistRefundState(supabaseAdmin, appointmentId, { refund_status: outcome.status === "manual" ? "manual_required" : "failed", refund_error: message });
     await logError(source, message, { appointmentId, paymentId: payment.paymentId });
-    await sendRefundFailureAlert({
-      leadId: appt.lead_id,
-      appointmentId,
-      processor: payment.processor,
-      paymentId: payment.paymentId,
-      error: message,
-    });
     return outcome.status === "manual"
       ? { status: "manual", reason: message }
       : { status: "failed", error: message };
@@ -265,14 +257,12 @@ export async function settleAppointmentRefund(
 
   const isSquare = payment.processor === "square";
   const pending = outcome.status === "pending";
-  await supabaseAdmin
-    .from("clinic_appointments")
-    .update({
+  await persistRefundState(supabaseAdmin, appointmentId, {
       refund_status: pending ? "refund_pending" : "refunded",
+      refund_error: null,
       ...(isSquare ? { square_refund_id: outcome.refundId } : { stripe_refund_id: outcome.refundId }),
       ...(pending ? {} : { refund_processed_at: new Date().toISOString() }),
-    })
-    .eq("id", appointmentId);
+    });
 
   return { status: "refunded", refundId: outcome.refundId, pending };
 }
@@ -412,42 +402,29 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
     }
 
     const { refundDeposit } = await import("./deposit-refund.server");
-    const { sendRefundFailureAlert } = await import("./ops-alert.server");
 
     const payment = await resolveDepositForAppointment(supabaseAdmin, appt);
 
     if (!payment) {
       // No processor path exists — this needs a bank transfer, which is a
       // different thing from a processor error.
-      await supabaseAdmin
-        .from("clinic_appointments")
-        .update({ refund_status: "manual_required" })
-        .eq("id", appointmentId);
+      await persistRefundState(supabaseAdmin, appointmentId, { refund_status: "manual_required", refund_error: "No card payment is recorded. Check the deposit and arrange a manual refund if it was paid." });
       return { success: true as const, refunded: false as const, manual: true as const };
     }
 
     const isSquare = payment.processor === "square";
     const paymentId = payment.paymentId;
 
+    await persistRefundState(supabaseAdmin, appointmentId, { refund_status: "refund_pending", refund_error: null });
     const outcome = await refundDeposit(paymentId, appointmentId, payment.processor, {
       amountCents: payment.depositAmount != null ? Math.round(payment.depositAmount * 100) : null,
     });
 
     if (outcome.status === "manual") {
-      await supabaseAdmin
-        .from("clinic_appointments")
-        .update({ refund_status: "manual_required" })
-        .eq("id", appointmentId);
+      await persistRefundState(supabaseAdmin, appointmentId, { refund_status: "manual_required", refund_error: outcome.reason });
       await logError("processConsultOutcome", `Manual refund required: ${outcome.reason}`, {
         appointmentId,
         paymentIntentId: paymentId,
-      });
-      await sendRefundFailureAlert({
-        leadId: appt.lead_id,
-        appointmentId,
-        processor: isSquare ? "square" : "stripe",
-        paymentId,
-        error: outcome.reason,
       });
       return {
         success: true as const,
@@ -458,31 +435,18 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
     }
 
     if (outcome.status === "failed") {
-      await supabaseAdmin
-        .from("clinic_appointments")
-        .update({ refund_status: "failed" })
-        .eq("id", appointmentId);
+      await persistRefundState(supabaseAdmin, appointmentId, { refund_status: "failed", refund_error: outcome.error });
       await logError("processConsultOutcome", outcome.error, {
         appointmentId,
         paymentIntentId: paymentId,
       });
-      await sendRefundFailureAlert({
-        leadId: appt.lead_id,
-        appointmentId,
-        processor: isSquare ? "square" : "stripe",
-        paymentId,
-        error: outcome.error,
-      });
       return { success: false as const, error: outcome.error, outcomeSaved: true as const };
     }
 
-    // Square accepts the refund then settles asynchronously; refund.updated
-    // flips it to 'refunded' and stamps refund_processed_at.
+    // Both processors can accept a refund before it completes. The refund
+    // notification worker verifies settlement and stamps refund_processed_at.
     if (outcome.status === "pending") {
-      await supabaseAdmin
-        .from("clinic_appointments")
-        .update({ refund_status: "refund_pending", square_refund_id: outcome.refundId })
-        .eq("id", appointmentId);
+      await persistRefundState(supabaseAdmin, appointmentId, { refund_status: "refund_pending", refund_error: null, ...(payment.processor === "square" ? { square_refund_id: outcome.refundId } : { stripe_refund_id: outcome.refundId }) });
       return {
         success: true as const,
         refunded: true as const,
@@ -492,16 +456,14 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
     }
 
     const processedAt = new Date().toISOString();
-    await supabaseAdmin
-      .from("clinic_appointments")
-      .update({
+    await persistRefundState(supabaseAdmin, appointmentId, {
         refund_status: "refunded",
+        refund_error: null,
         ...(isSquare
           ? { square_refund_id: outcome.refundId }
           : { stripe_refund_id: outcome.refundId }),
         refund_processed_at: processedAt,
-      })
-      .eq("id", appointmentId);
+      });
 
     return {
       success: true as const,
@@ -613,77 +575,48 @@ export const disqualifyAppointment = createServerFn({ method: "POST" })
     const payment = await resolveDepositForAppointment(supabaseAdmin, appt);
     if (!payment) {
       // No card payment on file — admin marks the manual refund separately.
-      await supabaseAdmin
-        .from("clinic_appointments")
-        .update({ refund_status: "manual_required" })
-        .eq("id", data.appointmentId);
+      await persistRefundState(supabaseAdmin, data.appointmentId, { refund_status: "manual_required", refund_error: "No card payment is recorded. Check the deposit and arrange a manual refund if it was paid." });
       return { success: true as const, refunded: false as const, manual: true as const };
     }
 
     const { refundDeposit } = await import("./deposit-refund.server");
-    const { sendRefundFailureAlert } = await import("./ops-alert.server");
+    await persistRefundState(supabaseAdmin, data.appointmentId, { refund_status: "refund_pending", refund_error: null });
     const outcome = await refundDeposit(payment.paymentId, data.appointmentId, payment.processor, {
       amountCents: payment.depositAmount != null ? Math.round(payment.depositAmount * 100) : null,
       reason: "Disqualified at consultation — booking fee refund",
     });
 
     if (outcome.status === "manual") {
-      await supabaseAdmin
-        .from("clinic_appointments")
-        .update({ refund_status: "manual_required" })
-        .eq("id", data.appointmentId);
+      await persistRefundState(supabaseAdmin, data.appointmentId, { refund_status: "manual_required", refund_error: outcome.reason });
       await logError("disqualifyAppointment", `Manual refund required: ${outcome.reason}`, {
         appointmentId: data.appointmentId,
         paymentId: payment.paymentId,
-      });
-      await sendRefundFailureAlert({
-        leadId: appt.lead_id,
-        appointmentId: data.appointmentId,
-        processor: payment.processor,
-        paymentId: payment.paymentId,
-        error: outcome.reason,
       });
       return { success: true as const, refunded: false as const, manual: true as const, manualReason: outcome.reason };
     }
 
     if (outcome.status === "failed") {
-      await supabaseAdmin
-        .from("clinic_appointments")
-        .update({ refund_status: "failed" })
-        .eq("id", data.appointmentId);
+      await persistRefundState(supabaseAdmin, data.appointmentId, { refund_status: "failed", refund_error: outcome.error });
       await logError("disqualifyAppointment", outcome.error, {
         appointmentId: data.appointmentId,
         paymentId: payment.paymentId,
-      });
-      await sendRefundFailureAlert({
-        leadId: appt.lead_id,
-        appointmentId: data.appointmentId,
-        processor: payment.processor,
-        paymentId: payment.paymentId,
-        error: outcome.error,
       });
       return { success: false as const, error: outcome.error, outcomeSaved: true as const };
     }
 
     if (outcome.status === "pending") {
-      await supabaseAdmin
-        .from("clinic_appointments")
-        .update({ refund_status: "refund_pending", square_refund_id: outcome.refundId })
-        .eq("id", data.appointmentId);
+      await persistRefundState(supabaseAdmin, data.appointmentId, { refund_status: "refund_pending", refund_error: null, ...(payment.processor === "square" ? { square_refund_id: outcome.refundId } : { stripe_refund_id: outcome.refundId }) });
       return { success: true as const, refunded: true as const, refundId: outcome.refundId, pending: true as const };
     }
 
-    await supabaseAdmin
-      .from("clinic_appointments")
-      .update({
+    await persistRefundState(supabaseAdmin, data.appointmentId, {
         refund_status: "refunded",
+        refund_error: null,
         ...(payment.processor === "square"
           ? { square_refund_id: outcome.refundId }
           : { stripe_refund_id: outcome.refundId }),
         refund_processed_at: new Date().toISOString(),
-      })
-      .eq("id", data.appointmentId);
+      });
 
     return { success: true as const, refunded: true as const, refundId: outcome.refundId };
   });
-

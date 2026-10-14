@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { createHmac, timingSafeEqual } from "crypto";
+import { recordRefundSmsStatus } from "@/utils/refund-notifications.server";
 
 function safeEqualHexOrBase64(a: string, b: string): boolean {
   const ab = Buffer.from(a);
@@ -23,6 +24,7 @@ const CANONICAL_CALLBACK_URL =
 function candidateUrls(request: Request): string[] {
   const url = new URL(request.url);
   const candidates = new Set<string>([CANONICAL_CALLBACK_URL, url.toString()]);
+  if (url.search) candidates.add(CANONICAL_CALLBACK_URL + url.search);
   const xfProto = request.headers.get("x-forwarded-proto");
   const xfHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
   if (xfProto || xfHost) {
@@ -92,6 +94,15 @@ export const Route = createFileRoute("/api/public/hooks/twilio-message-status")(
         });
 
         const finalStatus = errorCode ? `${status} (${errorCode}${errorMessage ? `: ${errorMessage}` : ""})` : status;
+        const refundNotificationId = new URL(request.url).searchParams.get("refund_notification_id");
+        if (refundNotificationId && /^[0-9a-f-]{36}$/i.test(refundNotificationId)) {
+          try { await recordRefundSmsStatus(supabase, refundNotificationId, messageSid, status, errorCode ? finalStatus : errorMessage); }
+          catch (error) {
+            console.error("twilio-message-status: refund status update failed", error);
+            return new Response("DB update failed", { status: 500 });
+          }
+          return new Response("OK", { status: 200 });
+        }
         const { error } = await supabase
           .from("sms_messages")
           .update({ status: finalStatus })

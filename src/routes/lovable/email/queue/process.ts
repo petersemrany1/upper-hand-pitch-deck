@@ -91,6 +91,10 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
         }
 
         const supabase = createClient(supabaseUrl, supabaseServiceKey) as any
+        // This mode is used only by the authenticated refund-alert scheduler.
+        // Other callers retain their original auth + transactional queue behaviour.
+        let refundAlertsOnly = false
+        try { refundAlertsOnly = (await request.json())?.refundAlertsOnly === true } catch { /* Existing callers use empty bodies. */ }
 
         // 1. Check rate-limit cooldown and read queue config
         const { data: state } = await supabase
@@ -107,12 +111,13 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
         const ttlMinutes: Record<string, number> = {
           auth_emails: state?.auth_email_ttl_minutes ?? DEFAULT_AUTH_TTL_MINUTES,
           transactional_emails: state?.transactional_email_ttl_minutes ?? DEFAULT_TRANSACTIONAL_TTL_MINUTES,
+          refund_alert_emails: 1440,
         }
 
         let totalProcessed = 0
 
         // 2. Process auth_emails first (priority), then transactional_emails
-        for (const queue of ['auth_emails', 'transactional_emails']) {
+        for (const queue of (refundAlertsOnly ? ['refund_alert_emails'] : ['auth_emails', 'transactional_emails'])) {
           const { data: messages, error: readError } = await supabase.rpc('read_email_batch', {
             queue_name: queue,
             batch_size: batchSize,
@@ -255,7 +260,7 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
             }
 
             try {
-              await sendLovableEmail(
+              const receipt = await sendLovableEmail(
                 {
                   run_id: payload.run_id,
                   to: payload.to,
@@ -272,6 +277,7 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
                 },
                 { apiKey, sendUrl: process.env.LOVABLE_SEND_URL }
               )
+              if (queue === 'refund_alert_emails' && receipt.success !== true) throw new Error('Refund alert email was not accepted by the email provider')
 
               // Log success
               await supabase.from('email_send_log').insert({
