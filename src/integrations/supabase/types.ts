@@ -590,6 +590,7 @@ export type Database = {
           patient_phone: string | null
           payment_processor: string | null
           refund_processed_at: string | null
+          refund_error: string | null
           refund_status: string | null
           square_payment_id: string | null
           square_refund_id: string | null
@@ -630,6 +631,7 @@ export type Database = {
           patient_phone?: string | null
           payment_processor?: string | null
           refund_processed_at?: string | null
+          refund_error?: string | null
           refund_status?: string | null
           square_payment_id?: string | null
           square_refund_id?: string | null
@@ -670,6 +672,7 @@ export type Database = {
           patient_phone?: string | null
           payment_processor?: string | null
           refund_processed_at?: string | null
+          refund_error?: string | null
           refund_status?: string | null
           square_payment_id?: string | null
           square_refund_id?: string | null

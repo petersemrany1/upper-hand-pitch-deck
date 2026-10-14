@@ -69,6 +69,7 @@ import { Route as DashboardTrainingSalesFrameworkIndexRouteImport } from './rout
 import { Route as ApiPublicHooksEnqueuePracticeRecordingRouteImport } from './routes/api.public.hooks.enqueue-practice-recording'
 import { Route as ApiPublicHooksProcessPracticeRecordingsRouteImport } from './routes/api.public.hooks.process-practice-recordings'
 import { Route as ApiPublicHooksReconcileCallDurationsRouteImport } from './routes/api.public.hooks.reconcile-call-durations'
+import { Route as ApiPublicHooksRefundNotificationsRouteImport } from './routes/api.public.hooks.refund-notifications'
 import { Route as ApiPublicHooksSpendStaleCheckRouteImport } from './routes/api.public.hooks.spend-stale-check'
 import { Route as ApiPublicHooksStripeDepositRouteImport } from './routes/api.public.hooks.stripe-deposit'
 import { Route as ApiPublicHooksTwilioMessageStatusRouteImport } from './routes/api.public.hooks.twilio-message-status'
@@ -408,6 +409,12 @@ const ApiPublicHooksReconcileCallDurationsRoute =
     path: '/api/public/hooks/reconcile-call-durations',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksRefundNotificationsRoute =
+  ApiPublicHooksRefundNotificationsRouteImport.update({
+    id: '/api/public/hooks/refund-notifications',
+    path: '/api/public/hooks/refund-notifications',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksSpendStaleCheckRoute =
   ApiPublicHooksSpendStaleCheckRouteImport.update({
     id: '/api/public/hooks/spend-stale-check',
@@ -515,6 +522,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/enqueue-practice-recording': typeof ApiPublicHooksEnqueuePracticeRecordingRoute
   '/api/public/hooks/process-practice-recordings': typeof ApiPublicHooksProcessPracticeRecordingsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
+  '/api/public/hooks/refund-notifications': typeof ApiPublicHooksRefundNotificationsRoute
   '/api/public/hooks/spend-stale-check': typeof ApiPublicHooksSpendStaleCheckRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
@@ -583,6 +591,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/enqueue-practice-recording': typeof ApiPublicHooksEnqueuePracticeRecordingRoute
   '/api/public/hooks/process-practice-recordings': typeof ApiPublicHooksProcessPracticeRecordingsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
+  '/api/public/hooks/refund-notifications': typeof ApiPublicHooksRefundNotificationsRoute
   '/api/public/hooks/spend-stale-check': typeof ApiPublicHooksSpendStaleCheckRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
@@ -654,6 +663,7 @@ export interface FileRoutesById {
   '/api/public/hooks/enqueue-practice-recording': typeof ApiPublicHooksEnqueuePracticeRecordingRoute
   '/api/public/hooks/process-practice-recordings': typeof ApiPublicHooksProcessPracticeRecordingsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
+  '/api/public/hooks/refund-notifications': typeof ApiPublicHooksRefundNotificationsRoute
   '/api/public/hooks/spend-stale-check': typeof ApiPublicHooksSpendStaleCheckRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
@@ -725,6 +735,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/enqueue-practice-recording'
     | '/api/public/hooks/process-practice-recordings'
     | '/api/public/hooks/reconcile-call-durations'
+    | '/api/public/hooks/refund-notifications'
     | '/api/public/hooks/spend-stale-check'
     | '/api/public/hooks/stripe-deposit'
     | '/api/public/hooks/twilio-message-status'
@@ -793,6 +804,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/enqueue-practice-recording'
     | '/api/public/hooks/process-practice-recordings'
     | '/api/public/hooks/reconcile-call-durations'
+    | '/api/public/hooks/refund-notifications'
     | '/api/public/hooks/spend-stale-check'
     | '/api/public/hooks/stripe-deposit'
     | '/api/public/hooks/twilio-message-status'
@@ -863,6 +875,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/enqueue-practice-recording'
     | '/api/public/hooks/process-practice-recordings'
     | '/api/public/hooks/reconcile-call-durations'
+    | '/api/public/hooks/refund-notifications'
     | '/api/public/hooks/spend-stale-check'
     | '/api/public/hooks/stripe-deposit'
     | '/api/public/hooks/twilio-message-status'
@@ -897,6 +910,7 @@ export interface RootRouteChildren {
   ApiPublicHooksEnqueuePracticeRecordingRoute: typeof ApiPublicHooksEnqueuePracticeRecordingRoute
   ApiPublicHooksProcessPracticeRecordingsRoute: typeof ApiPublicHooksProcessPracticeRecordingsRoute
   ApiPublicHooksReconcileCallDurationsRoute: typeof ApiPublicHooksReconcileCallDurationsRoute
+  ApiPublicHooksRefundNotificationsRoute: typeof ApiPublicHooksRefundNotificationsRoute
   ApiPublicHooksSpendStaleCheckRoute: typeof ApiPublicHooksSpendStaleCheckRoute
   ApiPublicHooksStripeDepositRoute: typeof ApiPublicHooksStripeDepositRoute
   ApiPublicHooksTwilioMessageStatusRoute: typeof ApiPublicHooksTwilioMessageStatusRoute
@@ -1329,6 +1343,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksReconcileCallDurationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/refund-notifications': {
+      id: '/api/public/hooks/refund-notifications'
+      path: '/api/public/hooks/refund-notifications'
+      fullPath: '/api/public/hooks/refund-notifications'
+      preLoaderRoute: typeof ApiPublicHooksRefundNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/spend-stale-check': {
       id: '/api/public/hooks/spend-stale-check'
       path: '/api/public/hooks/spend-stale-check'
@@ -1514,6 +1535,8 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicHooksProcessPracticeRecordingsRoute,
   ApiPublicHooksReconcileCallDurationsRoute:
     ApiPublicHooksReconcileCallDurationsRoute,
+  ApiPublicHooksRefundNotificationsRoute:
+    ApiPublicHooksRefundNotificationsRoute,
   ApiPublicHooksSpendStaleCheckRoute: ApiPublicHooksSpendStaleCheckRoute,
   ApiPublicHooksStripeDepositRoute: ApiPublicHooksStripeDepositRoute,
   ApiPublicHooksTwilioMessageStatusRoute:

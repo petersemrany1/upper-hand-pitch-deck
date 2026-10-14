@@ -9,6 +9,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { createHmac, timingSafeEqual } from "crypto";
 import { needsPaymentBookingAlert } from "@/utils/payment-booking-alert.server";
+import { applyRecordedRefundWebhook } from "@/utils/refund-notifications.server";
 
 // Verify Stripe signature header: "t=<ts>,v1=<sig>[,v1=<sig>...]"
 // Spec: https://stripe.com/docs/webhooks/signatures
@@ -80,6 +81,12 @@ export const Route = createFileRoute("/api/public/hooks/stripe-deposit")({
           event = JSON.parse(rawBody) as StripeEvent;
         } catch {
           return new Response("Invalid JSON", { status: 400 });
+        }
+
+        if (["refund.created", "refund.updated", "refund.failed"].includes(event.type)) {
+          if (!event.data?.object?.id) return new Response("Missing refund id", { status: 400 });
+          try { return Response.json(await applyRecordedRefundWebhook("stripe", event.data.object.id)); }
+          catch (error) { console.error("Stripe refund status could not be saved", error); return new Response("Refund status failed", { status: 500 }); }
         }
 
         // Only act on successful checkout completion.

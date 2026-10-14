@@ -52,12 +52,13 @@ export const Route = createFileRoute("/api/public/square/webhook")({
           if (!refund?.id || !refund.status) {
             return Response.json({ received: true, ignored: "no refund" });
           }
-          const result = await applySquareRefundUpdate({
-            id: refund.id,
-            status: refund.status,
-            payment_id: refund.payment_id ?? null,
-          });
-          return Response.json({ received: true, ...result });
+          try {
+            const result = await applySquareRefundUpdate({ id: refund.id, status: refund.status, payment_id: refund.payment_id ?? null });
+            return Response.json({ received: true, ...result }, { status: result.ok ? 200 : 500 });
+          } catch (error) {
+            console.error("Square refund status could not be saved", error);
+            return new Response("Refund status failed", { status: 500 });
+          }
         }
 
         return Response.json({ received: true, ignored: event.type ?? "unknown" });

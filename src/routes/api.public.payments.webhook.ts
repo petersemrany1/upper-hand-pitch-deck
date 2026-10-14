@@ -5,6 +5,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { type StripeEnv, verifyWebhook } from "@/lib/stripe.server";
 import { fulfilDepositPayment } from "@/utils/deposit-fulfilment.server";
+import { applyRecordedRefundWebhook } from "@/utils/refund-notifications.server";
 
 export const Route = createFileRoute("/api/public/payments/webhook")({
   server: {
@@ -28,6 +29,13 @@ export const Route = createFileRoute("/api/public/payments/webhook")({
         try {
           const origin = new URL(request.url).origin;
           switch (event.type) {
+            case "refund.created":
+            case "refund.updated":
+            case "refund.failed": {
+              const id = event.data.object.id;
+              if (typeof id !== "string") return new Response("Missing refund id", { status: 400 });
+              return Response.json(await applyRecordedRefundWebhook("stripe", id));
+            }
             case "checkout.session.completed": {
               const session = event.data.object as {
                 id: string;

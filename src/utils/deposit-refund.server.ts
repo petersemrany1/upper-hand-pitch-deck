@@ -8,11 +8,12 @@
 // appointment for a manual refund instead of pretending it worked.
 
 import { createStripeClient, getStripeErrorMessage, resolveStripeEnv } from "@/lib/stripe.server";
+import { checkRefundObject } from "@/lib/refund-notifications";
 
 export type RefundOutcome =
   | { status: "refunded"; refundId: string; account: "managed" | "htg" | "square" }
-  // Square settles asynchronously: accepted now, confirmed by refund.updated.
-  | { status: "pending"; refundId: string; account: "square" }
+  // Both providers can accept a refund before it completes.
+  | { status: "pending"; refundId: string; account: "managed" | "htg" | "square" }
   | { status: "manual"; reason: string }
   | { status: "failed"; error: string };
 
@@ -42,9 +43,11 @@ async function refundOnManaged(
     const refund = await stripe.refunds.create({
       payment_intent: paymentIntentId,
       metadata: { appointment_id: appointmentId },
-    });
+    }, { idempotencyKey: `refund-${appointmentId}` });
     if (!refund.id) return { status: "failed", error: "Stripe returned no refund id" };
-    return { status: "refunded", refundId: refund.id, account: "managed" };
+    const checked = checkRefundObject("stripe", refund, { refundId: refund.id, paymentId: paymentIntentId });
+    if (checked.state === "failed") return { status: "failed", error: checked.error! };
+    return { status: checked.state === "completed" ? "refunded" : "pending", refundId: refund.id, account: "managed" };
   } catch (error) {
     if (isMissingOnThisAccount(error)) return "not_this_account";
     const message = getStripeErrorMessage(error);
@@ -78,11 +81,16 @@ async function refundOnHtg(
       headers: {
         Authorization: "Bearer " + stripeKey,
         "Content-Type": "application/x-www-form-urlencoded",
+        "Idempotency-Key": `refund-${appointmentId}`,
       },
       body: params.toString(),
     });
     const result = (await response.json()) as {
       id?: string;
+      status?: string;
+      amount?: number;
+      currency?: string;
+      payment_intent?: string;
       error?: { message?: string; code?: string };
     };
 
@@ -112,7 +120,9 @@ async function refundOnHtg(
       return { status: "failed", error: message };
     }
 
-    return { status: "refunded", refundId: result.id, account: "htg" };
+    const checked = checkRefundObject("stripe", result, { refundId: result.id, paymentId: paymentIntentId });
+    if (checked.state === "failed") return { status: "failed", error: checked.error! };
+    return { status: checked.state === "completed" ? "refunded" : "pending", refundId: result.id, account: "htg" };
   } catch (err) {
     return { status: "failed", error: err instanceof Error ? err.message : String(err) };
   }
@@ -147,6 +157,9 @@ async function refundOnSquare(
     reason: opts.reason ?? "Attended consultation — booking fee refund",
   });
   if ("error" in result) return { status: "failed", error: result.error };
+  if (["FAILED", "REJECTED"].includes(result.status?.toUpperCase())) {
+    return { status: "failed", error: `Square reported refund ${result.status}` };
+  }
   if (result.status?.toUpperCase() === "COMPLETED") {
     return { status: "refunded", refundId: result.refundId, account: "square" };
   }
@@ -170,7 +183,8 @@ export async function refundDeposit(
   opts: RefundOptions = {},
 ): Promise<RefundOutcome> {
   if (processor === "square") {
-    return refundOnSquare(paymentId, appointmentId, opts);
+    try { return await refundOnSquare(paymentId, appointmentId, opts); }
+    catch { return { status: "manual", reason: "The Square refund result could not be confirmed. Check Square before issuing another refund." }; }
   }
 
   const managed = await refundOnManaged(paymentId, appointmentId);

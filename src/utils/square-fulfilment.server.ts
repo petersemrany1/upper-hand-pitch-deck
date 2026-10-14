@@ -150,64 +150,6 @@ export async function applySquareRefundUpdate(refund: {
   status: string;
   payment_id?: string | null;
 }): Promise<{ ok: boolean; detail: string }> {
-  const supabaseUrl = process.env["SUPABASE_URL"];
-  const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
-  if (!supabaseUrl || !serviceKey) return { ok: false, detail: "supabase env missing" };
-
-  const supabase = createClient(supabaseUrl, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-
-  const { data: appt } = await supabase
-    .from("clinic_appointments")
-    .select("id, lead_id, refund_status, square_refund_id, square_payment_id")
-    .eq("square_refund_id", refund.id)
-    .maybeSingle();
-
-  if (!appt) return { ok: true, detail: "no appointment for refund id" };
-
-  const status = refund.status?.toUpperCase();
-
-  if (status === "COMPLETED") {
-    if (appt.refund_status === "refunded") return { ok: true, detail: "already refunded" };
-    const { error } = await supabase
-      .from("clinic_appointments")
-      .update({ refund_status: "refunded", refund_processed_at: new Date().toISOString() })
-      .eq("id", appt.id);
-    if (error) return { ok: false, detail: error.message };
-    return { ok: true, detail: "refunded" };
-  }
-
-  if (status === "FAILED" || status === "REJECTED") {
-    if (appt.refund_status === "failed") return { ok: true, detail: "already failed" };
-    await supabase
-      .from("clinic_appointments")
-      .update({ refund_status: "failed" })
-      .eq("id", appt.id);
-
-    let patientName: string | null = null;
-    if (appt.lead_id) {
-      const { data: lead } = await supabase
-        .from("meta_leads")
-        .select("first_name, last_name")
-        .eq("id", appt.lead_id)
-        .maybeSingle();
-      patientName =
-        [lead?.first_name, lead?.last_name].filter(Boolean).join(" ").trim() || null;
-    }
-
-    const { sendRefundFailureAlert } = await import("@/utils/ops-alert.server");
-    await sendRefundFailureAlert({
-      patientName,
-      leadId: appt.lead_id,
-      appointmentId: appt.id,
-      processor: "square",
-      paymentId: appt.square_payment_id,
-      refundId: refund.id,
-      error: `Square reported refund ${status}`,
-    });
-    return { ok: true, detail: "failed" };
-  }
-
-  return { ok: true, detail: `ignored status ${status}` };
+  const { applyRecordedRefundWebhook } = await import("./refund-notifications.server");
+  return applyRecordedRefundWebhook("square", refund.id);
 }
