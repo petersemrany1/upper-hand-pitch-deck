@@ -3,7 +3,8 @@ import { sydneyTodayISO } from "@/lib/timezone";
 import { BookingRescheduleDialog } from "@/components/BookingRescheduleDialog";
 import { retryRescheduleSms,retryRescheduleEmail } from "@/utils/booking-reschedule.functions";
 import { useAuth } from "@/hooks/useAuth";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { AppointmentConfirmationCalls } from "@/components/AppointmentConfirmationCalls";
 import { useEffect, useMemo, useState } from "react";
 import { Phone as PhoneIcon, X, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,8 +15,22 @@ import { sendClinicHandoverEmail } from "@/utils/resend.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_dashboard/booked-appointments")({
-  component: BookedAppointmentsPage,
+  validateSearch: (search: Record<string, unknown>): { view?: "confirmations" } => ({
+    view: search.view === "confirmations" ? "confirmations" : undefined,
+  }),
+  component: AppointmentWorkspace,
 });
+
+function AppointmentWorkspace() {
+  const { view } = Route.useSearch();
+  return <div style={{ height: "100%", overflowY: "auto", background: "#f7f7f5" }}>
+    <nav className="appointment-view-tabs" aria-label="Appointment views">
+      <Link to="/booked-appointments" search={{}} aria-current={!view ? "page" : undefined}>Appointments</Link>
+      <Link to="/booked-appointments" search={{ view: "confirmations" }} aria-current={view ? "page" : undefined}>Confirmation calls</Link>
+    </nav>
+    {view === "confirmations" ? <AppointmentConfirmationCalls /> : <BookedAppointmentsPage />}
+  </div>;
+}
 
 type Reminder = {
   id: string;
