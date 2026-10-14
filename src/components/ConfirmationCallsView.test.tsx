@@ -24,13 +24,16 @@ async function mounted(run:(ctx:any)=>Promise<void>,sendStatus="accepted"){
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  const button=(label:string)=>[...host.querySelectorAll("button")].find(b=>b.textContent?.trim()===label)!;
  try {
-  await act(async()=>root.render(h(ConfirmationCallsView,{api,now,onCall:async()=>{calls++;},onHangup:()=>{},onInbox:()=>{},onReschedule:()=>{}})));
+  await act(async()=>root.render(h(ConfirmationCallsView,{api,now,repName:"Peter",onCall:async()=>{calls++;},onHangup:()=>{},onInbox:()=>{},onReschedule:()=>{}})));
   await run({host,button,click:async(label:string)=>act(async()=>button(label).click()),sends,records,listDates,get calls(){return calls;},changeBooking:()=>{row={...row,updated_at:"2026-10-15T01:00:00Z",appointment_time:"11:00"};}});
  } finally {await act(async()=>root.unmount());host.remove();}
 }
 test("tomorrow opens automatically, calls are explicit and no-answer opens an editable unsent text",async()=>{
  await mounted(async(ctx:any)=>{
   expect(ctx.listDates[0]).toBe("2026-10-16");
+  expect(ctx.host.querySelector(".cc-script").textContent).toContain("Hi Alex, it’s Peter.");
+  expect(ctx.host.querySelector(".cc-script").textContent).toContain("tomorrow, Friday 16 October at 9:30 am");
+  expect(ctx.host.querySelector(".cc-script").textContent).toContain("pay $395");
   expect(ctx.calls).toBe(0);expect(ctx.sends).toHaveLength(0);
   expect(ctx.host.textContent).toContain("before 9 am in Perth");
   await ctx.click("Call patient");expect(ctx.calls).toBe(1);

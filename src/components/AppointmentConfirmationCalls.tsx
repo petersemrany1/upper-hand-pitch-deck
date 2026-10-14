@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useCurrentRepId } from "@/hooks/useCurrentRepId";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { BookingRescheduleDialog } from "./BookingRescheduleDialog";
 import { getConfirmationCalls, recordConfirmationOutcome, sendConfirmationText } from "@/utils/appointment-confirmations.functions";
 import { formatAUPhone } from "../../supabase/functions/send-appointment-reminders/reminders";
@@ -15,11 +17,28 @@ const liveApi: ConfirmationApi = {
 export function AppointmentConfirmationCalls() {
   const twilio = useTwilioDevice(true);
   const repId = useCurrentRepId();
+  const { user } = useAuth();
+  const [repIdentity, setRepIdentity] = useState<{ email: string; name: string } | null>(null);
+  const email = user?.email;
+  const repName = repIdentity?.email === email ? repIdentity?.name : undefined;
+  useEffect(() => {
+    if (!email) return;
+    let active = true;
+    void (async () => {
+      try {
+        const { data } = await supabase.from("sales_reps").select("name").ilike("email", email).maybeSingle();
+        if (active) setRepIdentity({ email, name: data?.name ?? "" });
+      } catch {
+        if (active) setRepIdentity({ email, name: "" });
+      }
+    })();
+    return () => { active = false; };
+  }, [email]);
   const navigate = useNavigate();
   const [reschedule, setReschedule] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   return <>
-    <ConfirmationCallsView api={liveApi} refreshKey={refreshKey}
+    <ConfirmationCallsView api={liveApi} refreshKey={refreshKey} repName={repName}
       onCall={async b => {
         if (!b.patient_phone) throw new Error("No phone number saved");
         const params: Record<string, string> = {};

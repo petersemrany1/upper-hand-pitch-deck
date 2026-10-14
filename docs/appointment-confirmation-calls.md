@@ -21,6 +21,15 @@ status, charge/refund a deposit, or disable automatic reminders. Booking updates
 invalidate prior confirmations but preserve their history. Deposit copy appears only
 when the booking has a payment reference and positive deposit amount.
 
+The call guide fills in the logged-in rep's first name and says “tomorrow” only
+for the next Sydney calendar day. It uses the recorded provider's doctor title
+when present, otherwise consultant, with a placeholder if no provider is saved.
+The reception/$395 instruction and “most senior” wording reflect Peter's
+confirmation that both apply at every clinic. The SMS draft is separate.
+It uses the appointment date, time, clinic and address, the verified deposit
+reminder, and “Please reply YES to confirm you're coming.” The map remains
+available on the calling screen.
+
 ## Release
 
 Apply `supabase/migrations/20261015010000_appointment_confirmation_calls.sql` to

@@ -27,6 +27,6 @@ function FixturePreview(){
  return <div style={{minHeight:"100vh",background:"#f7f7f5"}}>
   <div style={{padding:"8px 24px",background:"#fff1d7",fontSize:12}}>Preview with sample patients · Calls and texts are simulated{notice&&" · "+notice}</div>
   <nav className="appointment-view-tabs"><a href="#" onClick={e=>e.preventDefault()}>Appointments</a><a href="#" aria-current="page" onClick={e=>e.preventDefault()}>Confirmation calls</a></nav>
-  <ConfirmationCallsView api={api} now={now} onCall={async b=>setActivePhone(b.patient_phone)} activePhone={activePhone} callBusy={!!activePhone} callStatus={activePhone?"in-call":"ready"} onHangup={()=>setActivePhone(null)} onInbox={()=>setNotice("The live screen opens this patient’s SMS conversation.")} onReschedule={()=>setNotice("The live screen opens the existing reschedule form.")}/>
+  <ConfirmationCallsView api={api} now={now} repName="Peter" onCall={async b=>setActivePhone(b.patient_phone)} activePhone={activePhone} callBusy={!!activePhone} callStatus={activePhone?"in-call":"ready"} onHangup={()=>setActivePhone(null)} onInbox={()=>setNotice("The live screen opens this patient’s SMS conversation.")} onReschedule={()=>setNotice("The live screen opens the existing reschedule form.")}/>
  </div>;
 }

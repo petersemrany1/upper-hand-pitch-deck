@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { activeConfirmationBooking, clinicLocalClock, confirmationDate, confirmationState, confirmationText, currentConfirmationEvents, type ConfirmationBooking, type ConfirmationEvent } from "./appointment-confirmations";
+import { activeConfirmationBooking, clinicLocalClock, confirmationDate, confirmationState, confirmationText, confirmationCallGuide, currentConfirmationEvents, type ConfirmationBooking, type ConfirmationEvent } from "./appointment-confirmations";
 
 export const fixtureBooking = (patch: Partial<ConfirmationBooking> = {}): ConfirmationBooking => ({
  id: "00000000-0000-4000-8000-000000000030", lead_id: null, patient_name: "Alex Example", patient_phone: "0400000000",
@@ -14,6 +14,24 @@ const event = (patch: Partial<ConfirmationEvent> = {}): ConfirmationEvent => ({
  sms_status: null, sms_body: null, sms_phone: null, sms_error: null, ...patch,
 });
 describe("day-before confirmations", () => {
+ test("the call guide uses the rep, tomorrow only for the next day, and the booked provider's role", () => {
+  const now = new Date("2026-10-15T00:00:00Z");
+  const doctor = fixtureBooking({doctor_name:"Dr. Jane Example — Hair Transplant Specialist"});
+  const guide = confirmationCallGuide(doctor, "Peter Semrany", now).join("\n");
+  expect(guide).toContain("Hi Alex, it’s Peter. Our team spoke with you regarding your hair transplant.");
+  expect(guide).toContain("tomorrow, Friday 16 October at 9:30 am");
+  expect(guide).toContain("you’ve paid your $75 deposit. Otherwise, you’ll need to pay $395.");
+  expect(guide).toContain("our most senior doctor, so you’re in good hands. Good luck!");
+  expect(confirmationCallGuide(fixtureBooking({doctor_name:"Debra Best — Hair Regrowth Specialist"}),"Nina",now).join("\n")).toContain("our most senior consultant");
+  const later=confirmationCallGuide({...doctor,appointment_date:"2026-10-19"},"Peter",now).join("\n");
+  expect(later).toContain("on Monday 19 October");
+  expect(later).not.toContain("tomorrow");
+  expect(confirmationCallGuide(doctor,"Peter",new Date("2026-10-15T13:00:00Z")).join("\n")).not.toContain("tomorrow");
+  expect(confirmationCallGuide({...doctor,square_payment_id:null},"Peter",now).join("\n")).not.toContain("$395");
+  expect(confirmationCallGuide({...doctor,deposit_amount:100},"Peter",now).join("\n")).toContain("$100 deposit");
+  expect(confirmationCallGuide({...doctor,doctor_name:null},null,now).join("\n")).toContain("[REP NAME]");
+  expect(confirmationCallGuide({...doctor,doctor_name:null},null,now).join("\n")).toContain("[doctor/consultant]");
+ });
  test("tomorrow follows Sydney midnight, including daylight saving and year rollover", () => {
   expect(confirmationDate(1, new Date("2026-10-15T12:59:00Z"))).toBe("2026-10-16");
   expect(confirmationDate(1, new Date("2026-10-15T13:00:00Z"))).toBe("2026-10-17");
@@ -48,9 +66,11 @@ describe("day-before confirmations", () => {
   expect(text).toContain("Friday 16 October");
   expect(text).toContain("9:30 am");
   expect(text).toContain("123 Example Street, Sydney, NSW");
-  expect(text).toContain("maps/search/?api=1");
+  expect(text).toStartWith("Hi Alex, I just tried calling to check you have the address");
+  expect(text).not.toContain("Map:");
+  expect(text).not.toContain("Hair Transplant Group");
   expect(text).toContain("$75 deposit is refundable when you attend");
-  expect(text).toContain("reply YES");
+  expect(text).toEndWith("Please reply YES to confirm you're coming");
   expect(text).not.toContain("$395");
   expect(text).not.toContain("QR");
   expect(confirmationText(fixtureBooking({square_payment_id:null}),false)).not.toContain("deposit");

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Phone, PhoneOff, MessageSquare, Check, RefreshCw, ArrowRight, MapPin } from "lucide-react";
-import { confirmationDate, confirmationDay, confirmationTime, confirmationState, currentConfirmationEvents, confirmationAddress, confirmationMap, confirmationText, clinicLocalClock, paidConfirmationDeposit, type ConfirmationBooking, type ConfirmationOutcome } from "@/lib/appointment-confirmations";
+import { confirmationDate, confirmationDay, confirmationTime, confirmationState, currentConfirmationEvents, confirmationAddress, confirmationMap, confirmationText, confirmationCallGuide, clinicLocalClock, type ConfirmationBooking, type ConfirmationOutcome } from "@/lib/appointment-confirmations";
 import { formatSydney } from "@/lib/timezone";
 import "./appointment-confirmation-calls.css";
 
@@ -12,10 +12,10 @@ export type ConfirmationApi = {
 };
 const labels = { pending: "To call", confirmed: "Confirmed", no_answer: "No answer", needs_help: "Needs help" };
 
-export function ConfirmationCallsView({ api, onCall, onInbox, onReschedule, onHangup, activePhone, callBusy = false, callStatus, callError, refreshKey = 0, now: suppliedNow }: {
+export function ConfirmationCallsView({ api, onCall, onInbox, onReschedule, onHangup, activePhone, callBusy = false, callStatus, callError, refreshKey = 0, repName, now: suppliedNow }: {
   api: ConfirmationApi; onCall(b: ConfirmationBooking): Promise<void>; onInbox(b: ConfirmationBooking): void;
   onReschedule(b: ConfirmationBooking): void; onHangup(): void; activePhone?: string | null;
-  callBusy?: boolean; callStatus?: string; callError?: string | null; refreshKey?: number; now?: Date;
+  callBusy?: boolean; callStatus?: string; callError?: string | null; refreshKey?: number; repName?: string | null; now?: Date;
 }) {
   const [now, setNow] = useState(() => suppliedNow ?? new Date());
   const [date, setDate] = useState(() => confirmationDate(1, suppliedNow));
@@ -107,9 +107,7 @@ export function ConfirmationCallsView({ api, onCall, onInbox, onReschedule, onHa
         {callBusy && <div className="cc-call-active" role="status">{callStatus === "in-call" ? "Call in progress" : "Connecting call"}{activePhone ? ` · ${activePhone}` : ""}<button onClick={onHangup}><PhoneOff size={16} /> End call</button></div>}
         {callError && <p role="alert" className="cc-error">{callError}</p>}
         <div className="cc-script"><span className="cc-eyebrow">Your call guide</span>
-          <p>“Hi {selected.patient_name.split(/\s+/)[0]}, it’s Hair Transplant Group. I’m just checking you have the address for your consultation on {confirmationDay(selected.appointment_date)} at {confirmationTime(selected.appointment_time)}. Have you got that handy?”</p>
-          {paidConfirmationDeposit(selected) && <p>“Your ${Number(selected.deposit_amount).toFixed(0)} deposit is refundable when you attend. Just check in with reception when you arrive so they can record your attendance.”</p>}
-          <p>“Have you got your travel sorted, and does that time still work for you?”</p>
+          {confirmationCallGuide(selected, repName, now).map((paragraph, index) => <p key={index}>“{paragraph}”</p>)}
         </div>
         <label className="cc-note">Call notes <span>optional</span><textarea value={note} maxLength={1000} disabled={locked} onChange={e => setNote(e.target.value)} placeholder="Anything to follow up, or a good time to call back…" rows={2} /></label>
         <div className="cc-outcomes" aria-label="Call outcome"><button className="cc-confirm" disabled={locked || callBusy} onClick={() => void record("confirmed")}><Check size={16} /> Confirmed they’re coming</button><button disabled={locked || callBusy} onClick={() => void record("no_answer")}>No answer → text</button><button disabled={locked || callBusy} onClick={() => void record("needs_help")}>Needs follow-up</button></div>

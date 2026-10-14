@@ -50,13 +50,27 @@ export function confirmationMap(b: ConfirmationBooking) {
 export function paidConfirmationDeposit(b: ConfirmationBooking) {
   return Boolean(b.square_payment_id || b.stripe_payment_intent_id) && (b.deposit_amount ?? 0) > 0;
 }
+export function confirmationCallGuide(b: ConfirmationBooking, repName?: string | null, now = new Date()) {
+  const firstName = b.patient_name.trim().split(/\s+/)[0] || "there";
+  const repFirstName = repName?.trim().split(/\s+/)[0] || "[REP NAME]";
+  const day = confirmationDay(b.appointment_date);
+  const when = b.appointment_date === confirmationDate(1, now) ? `tomorrow, ${day}` : `on ${day}`;
+  const provider = b.doctor_name?.trim();
+  const providerRole = !provider ? "[doctor/consultant]"
+    : /^(?:dr\.?\s|doctor\s)|\b(?:doctor|surgeon)\b/i.test(provider) ? "doctor" : "consultant";
+  return [
+    `Hi ${firstName}, it’s ${repFirstName}. Our team spoke with you regarding your hair transplant. I’m just checking you have the address for your consultation ${when} at ${confirmationTime(b.appointment_time)}.`,
+    ...(paidConfirmationDeposit(b) ? [`Keep in mind, you need to tell reception that you’ve paid your $${Number(b.deposit_amount).toFixed(0)} deposit. Otherwise, you’ll need to pay $395.`] : []),
+    `I can see you’re with our most senior ${providerRole}, so you’re in good hands. Good luck!`,
+  ];
+}
 export function confirmationText(b: ConfirmationBooking, missedCall: boolean) {
   const firstName = b.patient_name.trim().split(/\s+/)[0] || "there";
   const address = confirmationAddress(b);
   if (!b.clinic?.clinic_name || !address) throw new Error("Add the clinic name and address before sending an address text.");
-  return `Hi ${firstName}, it's Hair Transplant Group. ${missedCall ? "I just tried calling to check you have the address for" : "Here are the details for"} your consultation on ${confirmationDay(b.appointment_date)} at ${confirmationTime(b.appointment_time)} at ${b.clinic.clinic_name}.\n\nAddress: ${address}\nMap: ${confirmationMap(b)}`
+  return `Hi ${firstName}, ${missedCall ? "I just tried calling to check you have the address for" : "here are the details for"} your consultation on ${confirmationDay(b.appointment_date)} at ${confirmationTime(b.appointment_time)} at ${b.clinic.clinic_name}.\n\nAddress: ${address}`
     + (paidConfirmationDeposit(b) ? `\n\nYour $${Number(b.deposit_amount).toFixed(0)} deposit is refundable when you attend. Please check in with reception when you arrive.` : "")
-    + "\n\nPlease reply YES to confirm you're coming, or let us know if you need help or a different time.";
+    + "\n\nPlease reply YES to confirm you're coming";
 }
 export function clinicLocalClock(b: ConfirmationBooking, now = new Date()) {
   const west = /^(WA|Western Australia)$/i.test(b.clinic?.state?.trim() ?? "") || /perth/i.test(b.clinic?.city ?? "");
