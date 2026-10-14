@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as CalendarPreviewRouteImport } from './routes/calendar-preview'
 import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
+import { Route as ConfirmationPreviewRouteImport } from './routes/confirmation-preview'
 import { Route as DemoClinicRouteImport } from './routes/demo-clinic'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PayDepositRouteImport } from './routes/pay-deposit'
@@ -91,6 +92,11 @@ const ClinicPortalRoute = ClinicPortalRouteImport.update({
   path: '/clinic-portal',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/clinic-portal.lazy').then((d) => d.Route))
+const ConfirmationPreviewRoute = ConfirmationPreviewRouteImport.update({
+  id: '/confirmation-preview',
+  path: '/confirmation-preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemoClinicRoute = DemoClinicRouteImport.update({
   id: '/demo-clinic',
   path: '/demo-clinic',
@@ -454,6 +460,7 @@ export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
   '/calendar-preview': typeof CalendarPreviewRoute
   '/clinic-portal': typeof ClinicPortalRoute
+  '/confirmation-preview': typeof ConfirmationPreviewRoute
   '/demo-clinic': typeof DemoClinicRoute
   '/login': typeof LoginRoute
   '/pay-deposit': typeof PayDepositRoute
@@ -521,6 +528,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/calendar-preview': typeof CalendarPreviewRoute
   '/clinic-portal': typeof ClinicPortalRoute
+  '/confirmation-preview': typeof ConfirmationPreviewRoute
   '/demo-clinic': typeof DemoClinicRoute
   '/login': typeof LoginRoute
   '/pay-deposit': typeof PayDepositRoute
@@ -590,6 +598,7 @@ export interface FileRoutesById {
   '/_dashboard': typeof DashboardRouteWithChildren
   '/calendar-preview': typeof CalendarPreviewRoute
   '/clinic-portal': typeof ClinicPortalRoute
+  '/confirmation-preview': typeof ConfirmationPreviewRoute
   '/demo-clinic': typeof DemoClinicRoute
   '/login': typeof LoginRoute
   '/pay-deposit': typeof PayDepositRoute
@@ -661,6 +670,7 @@ export interface FileRouteTypes {
     | '/'
     | '/calendar-preview'
     | '/clinic-portal'
+    | '/confirmation-preview'
     | '/demo-clinic'
     | '/login'
     | '/pay-deposit'
@@ -728,6 +738,7 @@ export interface FileRouteTypes {
   to:
     | '/calendar-preview'
     | '/clinic-portal'
+    | '/confirmation-preview'
     | '/demo-clinic'
     | '/login'
     | '/pay-deposit'
@@ -796,6 +807,7 @@ export interface FileRouteTypes {
     | '/_dashboard'
     | '/calendar-preview'
     | '/clinic-portal'
+    | '/confirmation-preview'
     | '/demo-clinic'
     | '/login'
     | '/pay-deposit'
@@ -866,6 +878,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
   CalendarPreviewRoute: typeof CalendarPreviewRoute
   ClinicPortalRoute: typeof ClinicPortalRoute
+  ConfirmationPreviewRoute: typeof ConfirmationPreviewRoute
   DemoClinicRoute: typeof DemoClinicRoute
   LoginRoute: typeof LoginRoute
   PayDepositRoute: typeof PayDepositRoute
@@ -915,6 +928,13 @@ declare module '@tanstack/react-router' {
       path: '/clinic-portal'
       fullPath: '/clinic-portal'
       preLoaderRoute: typeof ClinicPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/confirmation-preview': {
+      id: '/confirmation-preview'
+      path: '/confirmation-preview'
+      fullPath: '/confirmation-preview'
+      preLoaderRoute: typeof ConfirmationPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demo-clinic': {
@@ -1471,6 +1491,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
   CalendarPreviewRoute: CalendarPreviewRoute,
   ClinicPortalRoute: ClinicPortalRoute,
+  ConfirmationPreviewRoute: ConfirmationPreviewRoute,
   DemoClinicRoute: DemoClinicRoute,
   LoginRoute: LoginRoute,
   PayDepositRoute: PayDepositRoute,
