@@ -1,5 +1,6 @@
 import { APP_TIMEZONE, sydneyTodayISO } from "./timezone";
 import { clinicSmsAddress } from "./booking-confirmation-sms";
+import type { ConfirmationCallback } from "./confirmation-callbacks";
 
 export type ConfirmationOutcome = "confirmed" | "no_answer" | "needs_help";
 export type ConfirmationEvent = {
@@ -15,6 +16,7 @@ export type ConfirmationBooking = {
   stripe_payment_intent_id: string | null; outcome: string | null; disqualified_at: string | null;
   clinic: { clinic_name: string; address: string | null; city: string | null; state: string | null } | null;
   reminders: { status: string }[]; events: ConfirmationEvent[];
+  callback?: ConfirmationCallback | null;
 };
 
 export function confirmationDate(days = 1, now = new Date()) {
