@@ -16,6 +16,15 @@ export { requestNorwoodEstimate } from "./norwood-inference.server";
 // New tables are migration-owned; do not hand-edit the generated Supabase types.
 const db = () => supabaseAdmin as any;
 const BUCKET = "norwood-preview-photos";
+export function patientPreviewUrl(token: string) {
+  const configured = process.env.NORWOOD_PREVIEW_GUEST_URL;
+  if (!configured) throw new Error("Phone testing needs a shared guest preview link enabled first.");
+  const url = new URL(configured);
+  if (url.origin !== NORWOOD_PATIENT_PREVIEW_ORIGIN || url.username || url.password) throw new Error("The guest preview link is not configured for this test project.");
+  url.pathname = "/norwood-photo-test";
+  url.hash = token;
+  return url.toString();
+}
 export type AssessmentRow = {
   id: string; lead_id: string; clinic_id: string; clinic_name: string; token_hash: string;
   status: NorwoodAssessmentStatus; expires_at: string; revoked_at: string | null;
@@ -79,13 +88,12 @@ export async function sendNorwoodLink(userDb: any, leadId: string, clinicId: str
   const raw = lead.phone.replace(/[\s()\-]/g, "");
   const phone = raw.startsWith("+") ? raw : raw.startsWith("0") ? `+61${raw.slice(1)}` : raw.startsWith("61") ? `+${raw}` : `+61${raw}`;
   if (!/^\+[1-9]\d{7,14}$/.test(phone)) throw new Error("Check this lead's mobile number first.");
-  const origin = new URL(NORWOOD_PATIENT_PREVIEW_ORIGIN);
-  if (origin.protocol !== "https:" || origin.username || origin.password) throw new Error("A secure patient page address is required.");
   const token = randomBytes(32).toString("base64url");
+  // Resolve guest access before creating a session or sending any text.
+  const link = patientPreviewUrl(token);
   const { data: row, error } = await db().rpc("create_norwood_preview", { p_lead: leadId, p_clinic: clinicId, p_rep: actor.id, p_hash: hashNorwoodToken(token) });
   if (error) throw new Error(error.message.includes("wait a minute") ? "Please wait a minute before sending another link." : "Could not create a link. Check the selected clinic and database migration.");
   // Fragment is never sent to the page server or as an HTTP Referer.
-  const link = `${origin.origin}/norwood-photo-test#${token}`;
   const body = `[TEST] ${row.clinic_name}: while we chat, take 5 guided hair photos for a Norwood estimate: ${link} This private link expires in 2 hours. Your doctor will confirm at your consult.`;
   try {
     const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {

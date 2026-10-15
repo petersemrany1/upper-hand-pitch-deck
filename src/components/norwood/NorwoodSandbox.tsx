@@ -4,7 +4,7 @@ import AiNorwoodAssessment from "./AiNorwoodAssessment";
 import type { NorwoodSuggestion } from "@/lib/norwood-assessment";
 import { isNorwoodPreviewHost } from "@/lib/norwood-preview-access";
 import { NORWOOD_SANDBOX_LEAD_IDS } from "@/lib/norwood-sandbox-access";
-import { confirmSandboxNorwood, getNorwoodPhotoLinks, getRepNorwoodAssessment, retryRepNorwoodAssessment, sendAiNorwoodLink } from "@/utils/norwood-sandbox.functions";
+import { confirmSandboxNorwood, getNorwoodSandboxReadiness, getNorwoodPhotoLinks, getRepNorwoodAssessment, retryRepNorwoodAssessment, sendAiNorwoodLink } from "@/utils/norwood-sandbox.functions";
 
 const api = { getNorwoodPhotoLinks, getRepNorwoodAssessment, retryRepNorwoodAssessment, sendAiNorwoodLink };
 type State = { enabled: boolean; suggestions: Record<string, NorwoodSuggestion | null>; offer: (leadId: string, value: NorwoodSuggestion | null) => void };
@@ -24,10 +24,22 @@ export function NorwoodSandboxProvider({ children }: { children: ReactNode }) {
 
 export function NorwoodSandboxPanel({ leadId, clinicId, phone }: { leadId: string; clinicId: string; phone: string | null }) {
   const context = useContext(Context);
+  const [ready, setReady] = useState(false), [setupMessage, setSetupMessage] = useState("Checking phone test setup…");
+  useEffect(() => {
+    setReady(false); setSetupMessage("Checking phone test setup…");
+    if (!context?.enabled || !NORWOOD_SANDBOX_LEAD_IDS.has(leadId)) return;
+    let cancelled = false;
+    void getNorwoodSandboxReadiness({ data: { leadId } }).then(result => {
+      if (cancelled) return;
+      setReady(result.ok); setSetupMessage(result.ok ? "" : result.error);
+    }).catch(() => { if (!cancelled) setSetupMessage("The phone test setup could not be checked. Refresh to try again."); });
+    return () => { cancelled = true; };
+  }, [context?.enabled, leadId]);
   if (!context?.enabled || !NORWOOD_SANDBOX_LEAD_IDS.has(leadId)) return null;
   return <div style={{ padding: "14px 18px", borderTop: "0.5px solid #e5e5e5" }}>
     <p className="mb-2 text-xs text-muted-foreground">Phone test · SMS goes to this test lead’s mobile: <strong>{phone || "Add a mobile number first"}</strong></p>
-    <AiNorwoodAssessment key={leadId} leadId={leadId} clinicId={clinicId} api={api} mode="sms" onSuggestion={value => context.offer(leadId, value)} />
+    <AiNorwoodAssessment key={leadId} leadId={leadId} clinicId={clinicId} api={api} mode="sms" sendingDisabled={!ready} onSuggestion={value => context.offer(leadId, value)} />
+    {setupMessage && <p className="mt-2 text-xs text-amber-800" role="status">{setupMessage}</p>}
   </div>;
 }
 

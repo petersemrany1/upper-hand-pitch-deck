@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { decodeNorwoodPhoto, hashNorwoodToken, patientSession, requestNorwoodEstimate, retryAvailable, type AssessmentRow } from "./norwood-sandbox.server";
+import { decodeNorwoodPhoto, patientPreviewUrl, hashNorwoodToken, patientSession, requestNorwoodEstimate, retryAvailable, type AssessmentRow } from "./norwood-sandbox.server";
 import { NORWOOD_MODEL, NORWOOD_SYSTEM_PROMPT, NORWOOD_VIEWS } from "../lib/norwood-assessment";
 const row = {
   id: "secret-session", lead_id: "private-lead", token_hash: "private-hash", clinic_id: "private-clinic",
@@ -70,4 +70,19 @@ test("cross-device preview cannot be used with real leads or a live patient orig
   expect(() => assertNorwoodSandboxLead("b2828129-1c28-4502-927a-11f43a0a8473")).not.toThrow();
   expect(() => assertNorwoodSandboxLead("00000000-0000-4000-8000-000000000099")).toThrow("sandbox");
   expect(new URL(NORWOOD_PATIENT_PREVIEW_ORIGIN).hostname).toBe("preview--hairtransplantgroup.lovable.app");
+});
+
+test("phone link setup fails closed and preserves only approved preview origin", () => {
+  const previous = process.env.NORWOOD_PREVIEW_GUEST_URL;
+  try {
+    delete process.env.NORWOOD_PREVIEW_GUEST_URL;
+    expect(() => patientPreviewUrl("patient-token")).toThrow("guest preview");
+    process.env.NORWOOD_PREVIEW_GUEST_URL = "https://hairtransplantgroup.lovable.app/?preview=fixture";
+    expect(() => patientPreviewUrl("patient-token")).toThrow("test project");
+    process.env.NORWOOD_PREVIEW_GUEST_URL = `${NORWOOD_PATIENT_PREVIEW_ORIGIN}/?preview=fixture`;
+    const url = new URL(patientPreviewUrl("patient-token"));
+    expect(url.pathname).toBe("/norwood-photo-test");
+    expect(url.searchParams.get("preview")).toBe("fixture");
+    expect(url.hash).toBe("#patient-token");
+  } finally { if (previous === undefined) delete process.env.NORWOOD_PREVIEW_GUEST_URL; else process.env.NORWOOD_PREVIEW_GUEST_URL = previous; }
 });

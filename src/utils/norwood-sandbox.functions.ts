@@ -3,7 +3,7 @@ import { getRequest, setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { NORWOOD_VIEWS, NORWOOD_MAX_PHOTO_BYTES } from "@/lib/norwood-assessment";
-import { analyseNorwood, hashNorwoodToken, latestNorwood, norwoodPhotoLinks, patientAction, patientSession, repSession, sendNorwoodLink, uploadNorwoodPhoto } from "./norwood-sandbox.server";
+import { analyseNorwood, assertNorwoodStaff, hashNorwoodToken, latestNorwood, norwoodPhotoLinks, patientAction, patientPreviewUrl, patientSession, repSession, sendNorwoodLink, uploadNorwoodPhoto } from "./norwood-sandbox.server";
 
 import { assertNorwoodPreviewRequest } from "@/lib/norwood-preview-access";
 import { assertNorwoodSandboxLead } from "@/lib/norwood-sandbox-access";
@@ -25,6 +25,13 @@ async function safely<T>(work: () => Promise<T>) {
 export const sendAiNorwoodLink = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator(leadInput.extend({ clinicId: z.string().uuid() }))
   .handler(({ data, context }) => safely(() => sendNorwoodLink(context.supabase, data.leadId, data.clinicId)));
+export const getNorwoodSandboxReadiness = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .inputValidator(leadInput).handler(({ data, context }) => safely(async () => {
+    await assertNorwoodStaff(context.supabase, data.leadId);
+    patientPreviewUrl("readiness-check");
+    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.ANTHROPIC_API_KEY) throw new Error("The phone test needs its server-side SMS and AI connections.");
+    return true;
+  }));
 export const getRepNorwoodAssessment = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator(leadInput).handler(({ data, context }) => safely(async () => {
     const row = await latestNorwood(context.supabase, data.leadId);

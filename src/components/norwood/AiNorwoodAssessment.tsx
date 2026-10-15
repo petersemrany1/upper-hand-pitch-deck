@@ -4,8 +4,8 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { NORWOOD_GUIDES, type NorwoodSuggestion, type NorwoodView, type RepNorwoodSession } from "@/lib/norwood-assessment";
 import type { NorwoodRepApi } from "@/lib/norwood-preview-session";
 
-export default function AiNorwoodAssessment({ leadId, clinicId, onSuggestion, api, mode = "local" }: {
-  api: NorwoodRepApi; mode?: "local" | "sms";
+export default function AiNorwoodAssessment({ leadId, clinicId, onSuggestion, api, mode = "local", sendingDisabled = false }: {
+  api: NorwoodRepApi; mode?: "local" | "sms"; sendingDisabled?: boolean;
   leadId: string; clinicId: string; onSuggestion: (suggestion: NorwoodSuggestion | null) => void;
 }) {
   const { getNorwoodPhotoLinks, getRepNorwoodAssessment, retryRepNorwoodAssessment, sendAiNorwoodLink } = api;
@@ -63,7 +63,7 @@ export default function AiNorwoodAssessment({ leadId, clinicId, onSuggestion, ap
   }, [leadId, session?.id, session?.photoCount]);
 
   async function send() {
-    if (!clinicId || busy) return;
+    if (!clinicId || busy || sendingDisabled) return;
     mutationVersion.current++;
     setBusy(true); setError("");
     try {
@@ -87,7 +87,7 @@ export default function AiNorwoodAssessment({ leadId, clinicId, onSuggestion, ap
 
   return <section className="rounded-lg border border-border bg-card p-3 space-y-3" aria-label="AI Norwood photo check">
     <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-sm font-medium"><Camera size={16} />AI Norwood photo check</div>
-      <button type="button" className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50" disabled={!clinicId || busy} onClick={() => void send()}>{busy ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}{mode === "sms" ? (session && !stopped ? "Send fresh AI Norwood link" : "Send AI Norwood link") : session && !stopped ? "Restart test session" : "Start test session"}</button></div>
+      <button type="button" className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50" disabled={!clinicId || busy || sendingDisabled} onClick={() => void send()}>{busy ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}{mode === "sms" ? (session && !stopped ? "Send fresh AI Norwood link" : "Send AI Norwood link") : session && !stopped ? "Restart test session" : "Start test session"}</button></div>
     {!clinicId && <p className="text-xs text-muted-foreground">Select a clinic above to brand the patient’s photo page.</p>}
     {session && <>
       <div className="flex gap-1" aria-live="polite">{[mode === "sms" ? "Sent" : "Test started", "Opened", "Photos in", "Result ready"].map((label, i) => <div key={label} className={`flex-1 rounded px-1 py-2 text-center text-[10px] ${i <= progress ? "bg-emerald-50 text-emerald-800" : "bg-muted text-muted-foreground"}`}><span className="block">{i <= progress ? "✓" : i + 1}</span>{label}</div>)}</div>
