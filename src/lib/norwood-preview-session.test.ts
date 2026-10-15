@@ -14,6 +14,9 @@ async function fill(store: ReturnType<typeof createNorwoodPreviewSession>) {
 test("preview host enforcement rejects live, lookalike and cross-origin requests", () => {
   const origin = "https://preview--hairtransplantgroup.lovable.app";
   expect(() => assertNorwoodPreviewRequest(`${origin}/_serverFn/test`, origin)).not.toThrow();
+  const editorOrigin = "https://1d2b5d82-7b6e-4a9c-9899-a64f78717875.lovableproject.com";
+  expect(() => assertNorwoodPreviewRequest(`${editorOrigin}/_serverFn/test`, editorOrigin)).not.toThrow();
+  expect(() => assertNorwoodPreviewRequest(editorOrigin, origin)).toThrow();
   for (const url of ["https://hairtransplantgroup.lovable.app", `${origin}.evil.test`, "https://preview--another.lovable.app"]) expect(() => assertNorwoodPreviewRequest(url, url)).toThrow();
   expect(() => assertNorwoodPreviewRequest(origin, "https://evil.test")).toThrow();
   expect(() => assertNorwoodPreviewRequest(origin, null)).toThrow();
