@@ -20,6 +20,8 @@ test('per-photo provider receives only that photo and anatomical framing instruc
   let body:any;
   const request=(async(_url:unknown,init:RequestInit)=>{body=JSON.parse(String(init.body));return Response.json({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(clear)}]});}) as typeof fetch;
   expect((await requestNorwoodPhotoCheck('crown','fixture','server-key',request)).ready).toBe(true);
+  expect(body.output_config.format.type).toBe('json_schema');
+  expect(body.output_config.format.schema.required).toEqual(['head_present','requested_view_visible','quality']);
   expect(body.system).toContain('A front face');
   expect(body.system).toContain('bald crown');
   expect(body.messages[0].content.filter((x:any)=>x.type==='image')).toHaveLength(1);

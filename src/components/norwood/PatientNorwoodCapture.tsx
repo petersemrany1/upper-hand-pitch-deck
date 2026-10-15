@@ -5,6 +5,7 @@ import type { NorwoodPatientApi } from "@/lib/norwood-preview-session";
 import NorwoodPoseGuide, { CAPTURE_STEPS } from "./NorwoodPoseGuide";
 import { prepareNorwoodPhoto, useNorwoodCamera } from "./useNorwoodCamera";
 import NorwoodVideoScan from "./NorwoodVideoScan";
+import hairlineScan from "@/assets/norwood-hairline-scan.jpg";
 import "./norwood-capture.css";
 
 export default function PatientNorwoodCapture({ api, linkToken: token, mode = "local" }: { api: NorwoodPatientApi; linkToken: string; mode?: "local" | "private" }) {
@@ -106,12 +107,11 @@ export default function PatientNorwoodCapture({ api, linkToken: token, mode = "l
       : !session || unavailable || expired ? <div className="nw-card nw-result"><h1>{expired ? "This link has expired" : "Let’s get you connected"}</h1><p role="alert">{error || "Ask your advisor for a fresh link."}</p></div>
         : finished ? <div className="nw-card nw-result"><span className="nw-success"><Check size={28} /></span><h1>Your estimate:<br /><strong>Norwood {session.estimate}</strong></h1><p>This is an estimate from your photos. Your doctor will confirm at your consult.</p><p>Your advisor has your result and will check it with you.</p></div>
           : !session.consented ? <div className="nw-card nw-intro">
-            <div className="nw-intro-icon"><Camera size={34} strokeWidth={1.4} /></div><h1>AI Norwood<br />scale scanner</h1>
+            <h1>AI Norwood<br />scale scanner</h1><img className="nw-intro-photo" src={hairlineScan} alt="" width={768} height={512} />
             <p className="nw-tips"><b>Tips:</b> Bright room · Dry hair · No hats</p>
-            <label className="nw-consent"><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} /><span>{mode === "private" ? "I agree to camera images being checked by Anthropic AI and 5 photos being saved privately for my advisory team. No photos go to the clinic." : "I agree to send my photos to Anthropic AI. They stay in this tab and are not saved to patient records."}</span></label>
+            <label className="nw-consent"><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} /><span>{mode === "private" ? "I agree to camera images being checked by Anthropic AI and 5 photos being saved privately for my advisory team." : "I agree to send my photos to Anthropic AI. They stay in this tab and are not saved to patient records."}</span></label>
             {error && <p className="nw-error" role="alert">{error}</p>}
             <button className="nw-primary" disabled={!accepted || busy} onClick={() => void begin()}>{busy ? "Starting…" : "Start my scan"}<ChevronRight size={20} /></button>
-            <p className="nw-footnote">No account needed · About 2 minutes</p>
           </div>
             : allPhotos ? <div className="nw-card nw-result" aria-live="polite">{session.status !== "failed" && <span className="nw-spinner" />}<h1>{session.status === "failed" ? "Let’s check this together" : "Analysing…"}</h1><p>Your advisor will see the result too.</p>{error && <p className="nw-error" role="alert">{error}</p>}{session.canRetry && <button className="nw-primary" disabled={busy} onClick={() => void runAnalysis()}>Try again</button>}{session.status === "failed" && !session.canRetry && <p>Your advisor can review the photos with you.</p>}</div>
               : api.selectPatientNorwoodFrames ? <NorwoodVideoScan api={api} token={token} views={session.views} save={savePhoto} />

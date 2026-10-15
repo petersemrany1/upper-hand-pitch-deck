@@ -15,3 +15,21 @@ The design fits ordinary portrait phone viewports without scrolling; enlarged ac
 Verification uses synthetic camera frames and mocked server selection to exercise two-scan completion, missing-angle retry and cancellation without patient photos or messages. Automated tests cover strict selection, provider failures and the existing assessment/privacy/SMS contracts. Real-device testing during a live call remains necessary, especially whether bowing exposes enough of the crown and whether the mobile browser retains camera access during the call. This release does not establish a clinical accuracy percentage.
 
 The SMS remains exactly: `Hi [NAME] please see link below for our ai norwood scale scanner [link]`.
+
+## 16 October: simpler screen and response-retry fix
+
+The reported message “We couldn’t find clear angles in that scan” came from the selection-response parsing/validation catch, not from a successful assessment that found no usable angles. The prior code returned an empty selection normally. Without the transient provider response, the exact invalid field or syntax cannot be reconstructed, and this report does not establish whether the patient's original angles were sufficient.
+
+Selection and per-photo checks now request Anthropic JSON-schema outputs. The server still checks valid frame indices, unique views/frames and requested anatomy. It retries one unreadable/incomplete selection response with the same still images and a validation reminder, within one 40-second request budget. Provider failures/refusals do not become valid photographs or automatic retry loops. A valid empty selection remains a request to capture the missing angle. The browser retains candidates in memory after the explicit technical selection error, so the large Retry button checks those same images instead of forcing another movement. It drops those candidates on hide, stop, unmount, a stage change or successful processing. No photo contents, patient tokens or raw model output are logged.
+
+The patient capture screen now shows one action, one brief phone-position hint and the existing animated guide. Repeated instructions and the sound/video footer copy were removed. A failed or partial attempt shows a 60–64px-high Retry button. The intro has a restrained decorative hairline photo; “No account needed · About 2 minutes” and “No photos go to the clinic” were removed as requested. This changes copy only: clinic handover still excludes photos.
+
+Reference: [Anthropic structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs), checked 16 October 2026. The configured default Haiku 4.5 supports JSON-schema output. Unsupported numeric/array constraints are kept in local validation rather than the provider schema. Structured formatting does not validate the medical or anatomical correctness of an answer.
+
+### Decorative image provenance
+
+Asset: `src/assets/norwood-hairline-scan.jpg` (768×512 JPEG, generated with the built-in image generation tool; original retained under Codex generated images). It is decorative and is never sent as a clinical reference or used to test diagnostic accuracy.
+
+Final generation prompt:
+
+> Use case: photorealistic-natural. Asset type: small, understated decorative photo for the introduction of a mobile hairline scanner. Generate one wide photographic image, approximately 3:2. Close crop of an adult man's forehead, natural slightly receding frontal hairline and dark hair brushed back, viewed slightly from above. Crop at the eyebrows so the focus is the hairline, not the face. Realistic skin and individual hair texture, soft daylight, quiet pale sage/off-white background. Add a very subtle thin translucent sage scanning arc and a few tiny scan points following the hairline, understated and believable, no bright neon, no futuristic equipment. Calm premium clinic website photography. No text, logos, numbers, watermark, before/after comparison, medical tools, grids covering the image, or diagnosis. The image will be displayed at only about 260 by 110 pixels on a phone, so use a simple composition with the hairline clearly centred and generous breathing room around it.

@@ -22,3 +22,42 @@ test('the selector receives labelled stills, requires opposite profiles and neve
  expect(JSON.stringify(body)).not.toContain('server-key');
  for(const response of [Response.json({stop_reason:'max_tokens',content:[]}),Response.json({error:'no'},{status:503}),Response.json({stop_reason:'end_turn',content:[{type:'text',text:'null'}]})]) await expect(requestNorwoodScanSelection(['one'],['top'],'key',(async()=>response) as typeof fetch)).rejects.toThrow();
 });
+
+test('invalid AI output is retried with the SAME frames, then accepted only if valid',async()=>{
+ const bodies:any[]=[];
+ const request=(async(_url:unknown,init:RequestInit)=>{
+  bodies.push(JSON.parse(String(init.body)));
+  return Response.json({stop_reason:'end_turn',content:[{type:'text',text:bodies.length===1?'```json\n{"selected":[]}\n```':'{"selected":[{"view":"top","frame":1}]}'}]});
+ }) as typeof fetch;
+ expect(await requestNorwoodScanSelection(['a','b'],['top'],'key',request)).toEqual([{view:'top',frame:1}]);
+ expect(bodies).toHaveLength(2);
+ expect(bodies[0].output_config.format.type).toBe('json_schema');
+ expect(bodies[0].output_config.format.schema.additionalProperties).toBe(false);
+ expect(bodies[0].messages).toEqual(bodies[1].messages);
+ expect(bodies[1].max_tokens).toBeGreaterThan(bodies[0].max_tokens);
+});
+
+test('a valid empty selection is a missing angle, not a formatting error',async()=>{
+ let calls=0;
+ const request=(async()=>{calls++;return Response.json({stop_reason:'end_turn',content:[{type:'text',text:'{"selected":[]}'}]});}) as typeof fetch;
+ expect(await requestNorwoodScanSelection(['a'],['top'],'key',request)).toEqual([]);
+ expect(calls).toBe(1);
+});
+
+test('invalid results stay bounded and do not blame the patient’s framing',async()=>{
+ for(const text of ['not json','{"selected":[{"view":"top","frame":9}]}','{"selected":[{"view":"top","frame":0},{"view":"crown","frame":0}]}']){
+  let calls=0;
+  const request=(async()=>{calls++;return Response.json({stop_reason:'end_turn',content:[{type:'text',text}]});}) as typeof fetch;
+  await expect(requestNorwoodScanSelection(['a'],['top','crown'],'key',request)).rejects.toThrow('The scan check failed. Tap Retry.');
+  expect(calls).toBe(2);
+ }
+});
+
+test('provider refusal and transport failures do not become accepted photos or automatic retry loops',async()=>{
+ for(const kind of ['refusal','http','network']){
+  let calls=0;
+  const request=(async()=>{calls++;if(kind==='network')throw new Error('network');return kind==='http'?Response.json({}, {status:503}):Response.json({stop_reason:'refusal',content:[]});}) as typeof fetch;
+  await expect(requestNorwoodScanSelection(['a'],['top'],'key',request)).rejects.toThrow('The scan check failed. Tap Retry.');
+  expect(calls).toBe(1);
+ }
+});

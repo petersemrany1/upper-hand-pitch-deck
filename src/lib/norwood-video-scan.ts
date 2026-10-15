@@ -5,6 +5,7 @@ export const NORWOOD_SCAN_VIEWS = { upper: ["front", "top", "crown"], sides: ["l
 export type NorwoodScan = keyof typeof NORWOOD_SCAN_VIEWS;
 export type NorwoodScanSelection = { view: NorwoodView; frame: number }[];
 export const NORWOOD_SCAN_SECONDS = 8;
+export const NORWOOD_SCAN_CHECK_ERROR = "The scan check failed. Tap Retry.";
 export const NORWOOD_SCAN_MAX_FRAMES = 12;
 
 export function nextNorwoodScan(saved: readonly NorwoodView[]): NorwoodScan {
