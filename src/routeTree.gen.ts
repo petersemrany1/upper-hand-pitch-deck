@@ -15,6 +15,7 @@ import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
 import { Route as ConfirmationPreviewRouteImport } from './routes/confirmation-preview'
 import { Route as DemoClinicRouteImport } from './routes/demo-clinic'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as NorwoodPreviewRouteImport } from './routes/norwood-preview'
 import { Route as PayDepositRouteImport } from './routes/pay-deposit'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SquarepaymentRouteImport } from './routes/squarepayment'
@@ -106,6 +107,11 @@ const DemoClinicRoute = DemoClinicRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NorwoodPreviewRoute = NorwoodPreviewRouteImport.update({
+  id: '/norwood-preview',
+  path: '/norwood-preview',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PayDepositRoute = PayDepositRouteImport.update({
@@ -470,6 +476,7 @@ export interface FileRoutesByFullPath {
   '/confirmation-preview': typeof ConfirmationPreviewRoute
   '/demo-clinic': typeof DemoClinicRoute
   '/login': typeof LoginRoute
+  '/norwood-preview': typeof NorwoodPreviewRoute
   '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
   '/squarepayment': typeof SquarepaymentRoute
@@ -539,6 +546,7 @@ export interface FileRoutesByTo {
   '/confirmation-preview': typeof ConfirmationPreviewRoute
   '/demo-clinic': typeof DemoClinicRoute
   '/login': typeof LoginRoute
+  '/norwood-preview': typeof NorwoodPreviewRoute
   '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
   '/squarepayment': typeof SquarepaymentRoute
@@ -610,6 +618,7 @@ export interface FileRoutesById {
   '/confirmation-preview': typeof ConfirmationPreviewRoute
   '/demo-clinic': typeof DemoClinicRoute
   '/login': typeof LoginRoute
+  '/norwood-preview': typeof NorwoodPreviewRoute
   '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
   '/squarepayment': typeof SquarepaymentRoute
@@ -683,6 +692,7 @@ export interface FileRouteTypes {
     | '/confirmation-preview'
     | '/demo-clinic'
     | '/login'
+    | '/norwood-preview'
     | '/pay-deposit'
     | '/reset-password'
     | '/squarepayment'
@@ -752,6 +762,7 @@ export interface FileRouteTypes {
     | '/confirmation-preview'
     | '/demo-clinic'
     | '/login'
+    | '/norwood-preview'
     | '/pay-deposit'
     | '/reset-password'
     | '/squarepayment'
@@ -822,6 +833,7 @@ export interface FileRouteTypes {
     | '/confirmation-preview'
     | '/demo-clinic'
     | '/login'
+    | '/norwood-preview'
     | '/pay-deposit'
     | '/reset-password'
     | '/squarepayment'
@@ -894,6 +906,7 @@ export interface RootRouteChildren {
   ConfirmationPreviewRoute: typeof ConfirmationPreviewRoute
   DemoClinicRoute: typeof DemoClinicRoute
   LoginRoute: typeof LoginRoute
+  NorwoodPreviewRoute: typeof NorwoodPreviewRoute
   PayDepositRoute: typeof PayDepositRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SquarepaymentRoute: typeof SquarepaymentRoute
@@ -963,6 +976,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/norwood-preview': {
+      id: '/norwood-preview'
+      path: '/norwood-preview'
+      fullPath: '/norwood-preview'
+      preLoaderRoute: typeof NorwoodPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pay-deposit': {
@@ -1515,6 +1535,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConfirmationPreviewRoute: ConfirmationPreviewRoute,
   DemoClinicRoute: DemoClinicRoute,
   LoginRoute: LoginRoute,
+  NorwoodPreviewRoute: NorwoodPreviewRoute,
   PayDepositRoute: PayDepositRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SquarepaymentRoute: SquarepaymentRoute,
