@@ -6,8 +6,8 @@ const environment={window:browser,document:browser.document,navigator:browser.na
 const previous=new Map(Object.keys(environment).map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)]));
 for(const [key,value] of Object.entries(environment))Object.defineProperty(globalThis,key,{configurable:true,writable:true,value});
 const snapshot={appointment:{id:"a",clinic_id:"c",patient_name:"Jane Smith",patient_phone:"0400000000",doctor_name:"Test Consultant",appointment_date:"2099-10-15",appointment_time:"09:00",outcome:null,disqualified_at:null},clinic:{clinic_name:"Test Clinic",address:"Test address",phone:"0800000000",state:"WA",min_appointment_gap_mins:0},trading:Array.from({length:7},(_,day_of_week)=>({day_of_week,open_time:"09:00",close_time:"17:00",is_closed:false,consult_duration_mins:15})),busy:[],blocks:[],overrides:[],reminder:{id:"rem",status:"confirmed"}};
-let submitted:any=null,saved=0;
-mock.module("@/utils/booking-reschedule.functions",()=>({getRescheduleDetails:async()=>({snapshot,version:"v1",clinicEmail:"clinic@example.invalid"}),rescheduleBooking:async({data}:any)=>{submitted=data;return {status:"accepted",email:{status:"accepted"}};}}));
+let submitted:any=null,saved=0,busy:any[]=[];
+mock.module("@/utils/booking-reschedule.functions",()=>({getRescheduleDetails:async()=>({snapshot:{...snapshot,busy},version:"v1",clinicEmail:"clinic@example.invalid"}),rescheduleBooking:async({data}:any)=>{submitted=data;return {status:"accepted",email:{status:"accepted"}};}}));
 mock.module("@/components/ui/dialog",()=>Object.fromEntries(["Dialog","DialogContent","DialogHeader","DialogTitle","DialogDescription"].map(name=>[name,({children}:any)=>h("div",null,children)])));
 mock.module("sonner",()=>({toast:{success:()=>{},warning:()=>{}}}));
 const {createRoot}=await import("react-dom/client");
@@ -17,9 +17,9 @@ test("review sends nothing; confirming submits edited clinic email beside the un
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try {
   await act(async()=>root.render(h(BookingRescheduleDialog,{appointmentId:"a",onClose:()=>{},onSaved:()=>{saved++;}})));
-  const select=host.querySelector("select")!;
-  await act(async()=>{select.value="11:30";select.dispatchEvent(new browser.Event("change",{bubbles:true}) as unknown as Event);});
   const button=(label:string)=>[...host.querySelectorAll("button")].find(b=>b.textContent===label)!;
+  expect(host.textContent).toContain("Test Clinic availability");
+  await act(async()=>button("11:30am").click());
   await act(async()=>button("Review reschedule").click());
   expect(submitted).toBeNull();expect(host.textContent).toContain("Text to the patient");expect(host.textContent).toContain("To: clinic@example.invalid");
   const subject=host.querySelector<HTMLInputElement>('input:not([type="date"])')!;
@@ -32,4 +32,16 @@ test("review sends nothing; confirming submits edited clinic email beside the un
   await act(async()=>button("Confirm reschedule & send").click());
   expect(submitted.emailSubject).toBe("Updated consultation time");expect(submitted.emailBody).toBe("Hi team, Jane requested a new time.");expect(submitted.clinicEmail).toBe("clinic@example.invalid");expect(submitted.time).toBe("11:30");expect(saved).toBe(1);
  } finally {await act(async()=>root.unmount());host.remove();}
+});
+test("refresh removes a newly occupied time; call back later leaves booking and notifications untouched",async()=>{
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);let callbacks=0;submitted=null;busy=[];
+ try {
+  await act(async()=>root.render(h(BookingRescheduleDialog,{appointmentId:"a",onClose:()=>{},onSaved:()=>{},onCallBack:()=>{callbacks++;}})));
+  const button=(label:string)=>[...host.querySelectorAll("button")].find(b=>b.textContent===label)!;
+  await act(async()=>button("11:30am").click());expect(button("Review reschedule").disabled).toBe(false);
+  busy=[{appointment_date:"2099-10-15",appointment_time:"11:30",consultation_duration_minutes:30}];
+  await act(async()=>button("Refresh availability").click());
+  expect(button("11:30am")).toBeUndefined();expect(button("Review reschedule").disabled).toBe(true);
+  await act(async()=>button("Can’t choose now? Call back later").click());expect(callbacks).toBe(1);expect(submitted).toBeNull();
+ }finally{busy=[];await act(async()=>root.unmount());host.remove();}
 });
