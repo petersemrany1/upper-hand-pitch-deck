@@ -20,6 +20,7 @@ function setup(emailResult: "ok" | "reject" | "429" | "not-accepted" = "ok", dup
     const body = init?.body ? JSON.parse(String(init.body)) : {};
     if (url === "https://email.fixture.test/send") {
       sends.push(body);
+      if (body.purpose === "transactional" && !body.unsubscribe_token) return Response.json({ type: "missing_unsubscribe", message: "Transactional emails must include an unsubscribe_token" }, { status: 400 });
       if (emailResult === "reject") return Response.json({ error: "Temporary failure" }, { status: 503 });
       if (emailResult === "429") return Response.json({ error: "Rate limited" }, { status: 429, headers: { "retry-after": "60" } });
       if (emailResult === "not-accepted") return Response.json({ success: false });
@@ -31,7 +32,7 @@ function setup(emailResult: "ok" | "reject" | "429" | "not-accepted" = "ok", dup
       return Response.json(body.queue_name === "refund_alert_emails" ? [{ msg_id: 1, read_ct: 1, message: {
         message_id: "test-message", to: "peter@gobold.com.au", from: "Hair Transplant Group <noreply@notify.hairtransplantgroup.com.au>",
         sender_domain: "notify.hairtransplantgroup.com.au", subject: "[TEST] Refund alert", html: "<p>Test</p>", text: "Test",
-        purpose: "transactional", label: "refund-alert", idempotency_key: "refund-alert-test", queued_at: new Date().toISOString(),
+        purpose: "transactional", label: "refund-alert", idempotency_key: "refund-alert-test", unsubscribe_token: "fixture-unsubscribe-token", queued_at: new Date().toISOString(),
       } }] : []);
     }
     if (url.includes("/rpc/delete_email")) { deletes.push(body); return Response.json(true); }
@@ -53,6 +54,7 @@ test("refund scheduler sends only its dedicated queue and logs provider acceptan
   const f = setup(); const response = await f.run(true);
   expect(response.status).toBe(200); expect(f.reads).toEqual(["refund_alert_emails"]);
   expect(f.sends).toHaveLength(1); expect(f.sends[0].to).toBe("peter@gobold.com.au"); expect(f.sends[0].idempotency_key).toBe("refund-alert-test");
+  expect(f.sends[0].unsubscribe_token).toBe("fixture-unsubscribe-token");
   expect(f.logs.some(row => row.status === "sent")).toBe(true); expect(f.deletes).toHaveLength(1);
 });
 test("existing email callers keep their original queues", async () => {
