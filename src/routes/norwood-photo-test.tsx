@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import PatientNorwoodCapture from "@/components/norwood/PatientNorwoodCapture";
 import { isNorwoodPreviewHost } from "@/lib/norwood-preview-access";
-import { openPatientNorwood, consentPatientNorwood, uploadPatientNorwood, analysePatientNorwood } from "@/utils/norwood-sandbox.functions";
+import { checkPatientNorwoodFrame, openPatientNorwood, consentPatientNorwood, uploadPatientNorwood, analysePatientNorwood } from "@/utils/norwood-sandbox.functions";
 
-const api = { openPatientNorwood, consentPatientNorwood, uploadPatientNorwood, analysePatientNorwood };
+const api = { checkPatientNorwoodFrame, openPatientNorwood, consentPatientNorwood, uploadPatientNorwood, analysePatientNorwood };
 export const Route = createFileRoute("/norwood-photo-test")({
   head: () => ({ meta: [{ title: "Your guided hair photos" }, { name: "robots", content: "noindex, nofollow, noarchive" }, { name: "referrer", content: "no-referrer" }] }),
   component: PatientPhotoTest,
@@ -17,6 +17,6 @@ function PatientPhotoTest() {
     return () => window.removeEventListener("hashchange", read);
   }, []);
   if (!link) return <main className="nw-page">Opening your photo link…</main>;
-  if (!link.allowed) return <main className="nw-page">This photo test is available only in the preview.</main>;
+  if (!link.allowed) return <main className="nw-page">Please open the private link your advisor sent you.</main>;
   return <PatientNorwoodCapture api={api} linkToken={link.token} mode="private" />;
 }

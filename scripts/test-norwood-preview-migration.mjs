@@ -30,6 +30,7 @@ INSERT INTO clinic_appointments(id,lead_id) VALUES('${id(30)}','${id(20)}');
 const existing = readFileSync(new URL('../supabase/migrations/20261003020000_sales_rescheduling.sql', import.meta.url),'utf8');
 await db.exec(existing.match(/CREATE OR REPLACE FUNCTION public\.booking_sales_actor\(\)[\s\S]*?\$\$;/)[0]);
 await db.exec(readFileSync(new URL('../supabase/migrations/20261015030000_norwood_preview_phone_test.sql', import.meta.url),'utf8'));
+await db.exec(readFileSync(new URL('../supabase/migrations/20261015040000_norwood_preview_framing.sql', import.meta.url),'utf8'));
 
 const actor = async (role, n=1, email='admin@test.invalid') => {
   await db.exec('RESET ROLE');
@@ -46,7 +47,16 @@ await assert.rejects(action(hash(1),'open'),/expired or is unavailable/);
 await db.query("update norwood_preview_assessments set status='sent' where id=$1",[session.id]);
 assert.equal((await action(hash(1),'open')).status,'opened');
 await assert.rejects(action(hash(1),'reserve_upload'),/Photos cannot be changed/);
+await assert.rejects(db.query('select reserve_norwood_preview_frame($1,$2)',[hash(1),'front']),/agree/);
 await action(hash(1),'consent');
+// Existing consent for five photos does not silently authorise live camera frames.
+await assert.rejects(db.query('select reserve_norwood_preview_frame($1,$2)',[hash(1),'front']),/agree/);
+await db.query('select consent_norwood_preview_camera($1)',[hash(1)]);
+assert.equal((await db.query('select reserve_norwood_preview_frame($1,$2) allowed',[hash(1),'front'])).rows[0].allowed,true);
+assert.equal((await db.query('select reserve_norwood_preview_frame($1,$2) allowed',[hash(1),'front'])).rows[0].allowed,false);
+await db.query("update norwood_preview_assessments set framing_attempts=120 where id=$1",[session.id]);
+await assert.rejects(db.query('select reserve_norwood_preview_frame($1,$2)',[hash(1),'front']),/new link/);
+await db.query("update norwood_preview_assessments set framing_attempts=1 where id=$1",[session.id]);
 await assert.rejects(action(hash(1),'analyse',null,{run:id(90)}),/All five/);
 await assert.rejects(db.query('select create_norwood_preview($1,$2,$3,$4)',[id(20),id(10),id(2),hash(2)]),/wait a minute/);
 for (const [i,view] of ['front','top','crown','left','right'].entries()) {
@@ -66,6 +76,7 @@ assert.equal((await action(hash(1),'analyse',null,{run:id(92)})).ai_norwood,5);
 await db.query("insert into storage.objects(bucket_id,name) values('norwood-preview-photos','private.jpg'),('other','public.jpg')");
 
 await actor('anon');
+await assert.rejects(db.query('select reserve_norwood_preview_frame($1,$2)',[hash(1),'front']),/permission denied/);
 await assert.rejects(db.query('select * from norwood_preview_assessments'),/permission denied/);
 await assert.rejects(action(hash(1),'open'),/permission denied/);
 assert.equal(await count('storage.objects'),1); // restrictive policy defeats pre-existing broad access
@@ -96,6 +107,7 @@ assert.equal(lead.status,'new'); assert.equal(lead.norwood_level,null); assert.e
 const appointment=(await db.query('select * from clinic_appointments where lead_id=$1',[id(20)])).rows[0];
 assert.equal(appointment.norwood_level,null); assert.equal('photos' in appointment,false);
 await db.query("update norwood_preview_assessments set expires_at=now()-interval '1 second' where id=$1",[session.id]);
+await assert.rejects(db.query('select reserve_norwood_preview_frame($1,$2)',[hash(1),'front']),/expired/);
 for (const method of ['open','consent','reserve_upload','photo','analyse']) await assert.rejects(action(hash(1),method),/expired/);
 await db.query("update norwood_preview_assessments set created_at=now()-interval '61 seconds' where id=$1",[session.id]);
 const replacement=(await db.query('select * from create_norwood_preview($1,$2,$3,$4)',[id(20),id(10),id(2),hash(2)])).rows[0];

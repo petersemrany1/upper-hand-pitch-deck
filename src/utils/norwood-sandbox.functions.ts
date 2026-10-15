@@ -3,7 +3,7 @@ import { getRequest, setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { NORWOOD_VIEWS, NORWOOD_MAX_PHOTO_BYTES } from "@/lib/norwood-assessment";
-import { analyseNorwood, assertNorwoodStaff, hashNorwoodToken, latestNorwood, norwoodPhotoLinks, patientAction, patientPreviewUrl, patientSession, repSession, sendNorwoodLink, uploadNorwoodPhoto } from "./norwood-sandbox.server";
+import { analyseNorwood, consentNorwoodCamera, checkNorwoodFrame, assertNorwoodStaff, hashNorwoodToken, latestNorwood, norwoodPhotoLinks, patientAction, patientPreviewUrl, patientSession, repSession, sendNorwoodLink, uploadNorwoodPhoto } from "./norwood-sandbox.server";
 
 import { assertNorwoodPreviewRequest } from "@/lib/norwood-preview-access";
 import { assertNorwoodSandboxLead } from "@/lib/norwood-sandbox-access";
@@ -50,7 +50,7 @@ export const retryRepNorwoodAssessment = createServerFn({ method: "POST" }).midd
 export const openPatientNorwood = createServerFn({ method: "POST" }).inputValidator(tokenInput)
   .handler(({ data }) => safely(async () => patientSession(await patientAction(hashNorwoodToken(data.token), "open"))));
 export const consentPatientNorwood = createServerFn({ method: "POST" }).inputValidator(tokenInput)
-  .handler(({ data }) => safely(async () => patientSession(await patientAction(hashNorwoodToken(data.token), "consent"))));
+  .handler(({ data }) => safely(() => consentNorwoodCamera(data.token)));
 export const uploadPatientNorwood = createServerFn({ method: "POST" }).inputValidator(tokenInput.extend({
   view: z.enum(NORWOOD_VIEWS), photo: z.string().min(1).max(Math.ceil(NORWOOD_MAX_PHOTO_BYTES / 3) * 4),
 })).handler(({ data }) => safely(() => uploadNorwoodPhoto(data.token, data.view, data.photo)));
@@ -65,3 +65,7 @@ export const confirmSandboxNorwood = createServerFn({ method: "POST" }).middlewa
     if (error) throw new Error("The review could not be saved. Refresh the assessment and try again.");
     return true;
   }));
+
+export const checkPatientNorwoodFrame = createServerFn({ method: "POST" }).inputValidator(tokenInput.extend({
+  view: z.enum(NORWOOD_VIEWS), photo: z.string().min(1).max(400_000),
+})).handler(({ data }) => safely(() => checkNorwoodFrame(data.token, data.view, data.photo)));

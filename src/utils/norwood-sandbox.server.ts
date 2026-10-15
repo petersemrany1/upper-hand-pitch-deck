@@ -11,6 +11,8 @@ import {
 
 import { assertNorwoodSandboxLead } from "@/lib/norwood-sandbox-access";
 import { configuredNorwoodModel, requestNorwoodEstimate } from "./norwood-inference.server";
+import { requestNorwoodPhotoCheck } from "./norwood-photo-check.server";
+import { norwoodSms } from "@/lib/norwood-photo-check";
 export { requestNorwoodEstimate } from "./norwood-inference.server";
 
 // New tables are migration-owned; do not hand-edit the generated Supabase types.
@@ -31,7 +33,7 @@ export function patientPreviewUrl(token: string) {
 export type AssessmentRow = {
   id: string; lead_id: string; clinic_id: string; clinic_name: string; token_hash: string;
   status: NorwoodAssessmentStatus; expires_at: string; revoked_at: string | null;
-  opened_at: string | null; consented_at: string | null;
+  opened_at: string | null; consented_at: string | null; framing_consented_at?: string | null;
   photos: Partial<Record<NorwoodView, { path: string; sha256: string }>>;
   analysis_run: string | null; analysis_started_at: string | null; analysis_attempts: number;
   ai_norwood: number | null; ai_confidence: NorwoodResult["confidence"] | null;
@@ -46,7 +48,7 @@ export function patientSession(row: AssessmentRow): PatientNorwoodSession {
   // Explicit allowlist: no lead/clinic ID, name, phone, photo paths, signed URLs or raw model text.
   return {
     clinicName: row.clinic_name, expiresAt: row.expires_at, status: row.status,
-    views: NORWOOD_VIEWS.filter(v => Boolean(row.photos[v])), consented: Boolean(row.consented_at),
+    views: NORWOOD_VIEWS.filter(v => Boolean(row.photos[v])), consented: Boolean(row.consented_at && row.framing_consented_at),
     estimate: row.status === "ready" ? row.ai_norwood : null,
     needsReview: row.status === "ready" && (row.ai_confidence === "low" || row.photo_problems.length > 0), canRetry: retryAvailable(row),
   };
@@ -86,7 +88,7 @@ export async function sendNorwoodLink(userDb: any, leadId: string, clinicId: str
   const actor = await assertNorwoodStaff(userDb, leadId);
   const sid = process.env.TWILIO_ACCOUNT_SID, secret = process.env.TWILIO_AUTH_TOKEN;
   if (!sid || !secret || !process.env.ANTHROPIC_API_KEY) throw new Error("Photo assessment messaging or AI is not configured.");
-  const { data: lead, error: leadError } = await db().from("meta_leads").select("phone").eq("id", leadId).single();
+  const { data: lead, error: leadError } = await db().from("meta_leads").select("phone, first_name").eq("id", leadId).single();
   if (leadError || !lead?.phone) throw new Error("This lead needs a mobile number first.");
   const raw = lead.phone.replace(/[\s()\-]/g, "");
   const phone = raw.startsWith("+") ? raw : raw.startsWith("0") ? `+61${raw.slice(1)}` : raw.startsWith("61") ? `+${raw}` : `+61${raw}`;
@@ -97,7 +99,7 @@ export async function sendNorwoodLink(userDb: any, leadId: string, clinicId: str
   const { data: row, error } = await db().rpc("create_norwood_preview", { p_lead: leadId, p_clinic: clinicId, p_rep: actor.id, p_hash: hashNorwoodToken(token) });
   if (error) throw new Error(error.message.includes("wait a minute") ? "Please wait a minute before sending another link." : "Could not create a link. Check the selected clinic and database migration.");
   // Fragment is never sent to the page server or as an HTTP Referer.
-  const body = `[TEST] ${row.clinic_name}: while we chat, take 5 guided hair photos for a Norwood estimate: ${link} This private link expires in 2 hours. Your doctor will confirm at your consult.`;
+  const body = norwoodSms(lead.first_name, link);
   try {
     const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: "POST", signal: AbortSignal.timeout(15_000),
@@ -124,10 +126,29 @@ export function decodeNorwoodPhoto(base64: string): Buffer {
   if (bytes.length < 512 || bytes.length > NORWOOD_MAX_PHOTO_BYTES || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff || bytes.at(-2) !== 0xff || bytes.at(-1) !== 0xd9) throw new Error("Please use a JPEG photo from your camera.");
   return bytes;
 }
+export async function consentNorwoodCamera(token: string) {
+  const { data, error } = await db().rpc("consent_norwood_preview_camera", { p_hash: hashNorwoodToken(token) });
+  if (error) throw new Error("We couldn’t save your agreement. Refresh the link and try again.");
+  return patientSession(data);
+}
+
+export async function checkNorwoodFrame(token: string, view: NorwoodView, photo: string) {
+  const bytes = decodeNorwoodPhoto(photo);
+  if (bytes.length > 300_000) throw new Error("Camera frame is too large.");
+  const { data, error } = await db().rpc("reserve_norwood_preview_frame", { p_hash: hashNorwoodToken(token), p_view: view });
+  if (error) throw new Error(error.message.startsWith("This link has expired") || error.message.startsWith("Please ask your advisor") ? error.message : "The camera check could not start. Please try again.");
+  if (!data) return { ready: false, message: "Hold your position…" };
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error("The photo check is unavailable. Please try again later.");
+  return requestNorwoodPhotoCheck(view, photo, process.env.ANTHROPIC_API_KEY, fetch, configuredNorwoodModel());
+}
+
 export async function uploadNorwoodPhoto(token: string, view: NorwoodView, base64: string) {
   const bytes = decodeNorwoodPhoto(base64);
   const hash = hashNorwoodToken(token);
   const row = await patientAction(hash, "reserve_upload");
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error("The photo check is unavailable. Please try again later.");
+  const check = await requestNorwoodPhotoCheck(view, base64, process.env.ANTHROPIC_API_KEY, fetch, configuredNorwoodModel());
+  if (!check.ready) throw new Error(check.message);
   const path = `${row.id}/${view}-${randomUUID()}.jpg`;
   const { error } = await db().storage.from(BUCKET).upload(path, bytes, { contentType: "image/jpeg", upsert: false, cacheControl: "0" });
   if (error) throw new Error("Your photo could not be uploaded. Please try again.");

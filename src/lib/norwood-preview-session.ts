@@ -3,6 +3,7 @@ import { NORWOOD_VIEWS, hasAllNorwoodViews, type NorwoodView, type NorwoodResult
 type Reply<T> = { ok: true; data: T } | { ok: false; error: string };
 type Token = { data: { token: string } };
 export type NorwoodPatientApi = {
+  checkPatientNorwoodFrame?: (input: { data: { token: string; view: NorwoodView; photo: string } }) => Promise<Reply<import("./norwood-photo-check").NorwoodPhotoCheck>>;
   openPatientNorwood: (input: Token) => Promise<Reply<PatientNorwoodSession>>;
   consentPatientNorwood: (input: Token) => Promise<Reply<PatientNorwoodSession>>;
   uploadPatientNorwood: (input: { data: { token: string; view: NorwoodView; photo: string } }) => Promise<Reply<PatientNorwoodSession>>;
