@@ -4,9 +4,17 @@ import { routeTree } from "./routeTree.gen";
 import { supabase } from "@/integrations/supabase/client";
 import { isDemoClinicPath } from "@/lib/demo-clinic";
 import { isModuleLoadError } from "@/lib/module-load-error";
+import { norwoodGuestLanding } from "@/lib/norwood-guest-landing";
 
 if (typeof window !== "undefined" && window.location.pathname === "/_dashboard/sales-call") {
   window.history.replaceState(null, "", `/sales-call${window.location.search}${window.location.hash}`);
+}
+
+// The official shared preview link opens the app root after guest access.
+// A patient bearer fragment routes only to the public photo test, never to staff pages.
+if (typeof window !== "undefined") {
+  const landing = norwoodGuestLanding(window.location);
+  if (landing) window.location.replace(landing);
 }
 
 function DefaultErrorComponent({ error, reset }: ErrorComponentProps) {

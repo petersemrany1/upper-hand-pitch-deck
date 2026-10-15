@@ -9,7 +9,7 @@ import {
   type PatientNorwoodSession, type RepNorwoodSession,
 } from "@/lib/norwood-assessment";
 
-import { assertNorwoodSandboxLead, NORWOOD_PATIENT_PREVIEW_ORIGIN } from "@/lib/norwood-sandbox-access";
+import { assertNorwoodSandboxLead } from "@/lib/norwood-sandbox-access";
 import { configuredNorwoodModel, requestNorwoodEstimate } from "./norwood-inference.server";
 export { requestNorwoodEstimate } from "./norwood-inference.server";
 
@@ -20,9 +20,12 @@ export function patientPreviewUrl(token: string) {
   const configured = process.env.NORWOOD_PREVIEW_GUEST_URL;
   if (!configured) throw new Error("Phone testing needs a shared guest preview link enabled first.");
   const url = new URL(configured);
-  if (url.origin !== NORWOOD_PATIENT_PREVIEW_ORIGIN || url.username || url.password) throw new Error("The guest preview link is not configured for this test project.");
-  url.pathname = "/norwood-photo-test";
-  url.hash = token;
+  if (url.origin !== "https://lovable.dev" || !/^\/preview\/[A-Za-z0-9_-]+$/.test(url.pathname) || url.username || url.password || url.search || url.hash) throw new Error("Use the approved shared preview link for this test project.");
+  const expires = Date.parse(process.env.NORWOOD_PREVIEW_GUEST_EXPIRES_AT ?? "");
+  if (!Number.isFinite(expires) || expires <= Date.now() + 2 * 60 * 60 * 1000) throw new Error("The temporary phone test access has expired or is ending soon. Renew the guest preview link first.");
+  // Lovable's official short URL establishes guest access. HTTP redirects carry
+  // the fragment to our preview, whose small entry handler opens the photo page.
+  url.hash = `norwood-test=${token}`;
   return url.toString();
 }
 export type AssessmentRow = {

@@ -72,17 +72,29 @@ test("cross-device preview cannot be used with real leads or a live patient orig
   expect(new URL(NORWOOD_PATIENT_PREVIEW_ORIGIN).hostname).toBe("preview--hairtransplantgroup.lovable.app");
 });
 
-test("phone link setup fails closed and preserves only approved preview origin", () => {
+test("phone link uses the approved short preview URL and preserves two-hour patient access", () => {
   const previous = process.env.NORWOOD_PREVIEW_GUEST_URL;
+  const previousExpiry = process.env.NORWOOD_PREVIEW_GUEST_EXPIRES_AT;
   try {
     delete process.env.NORWOOD_PREVIEW_GUEST_URL;
     expect(() => patientPreviewUrl("patient-token")).toThrow("guest preview");
     process.env.NORWOOD_PREVIEW_GUEST_URL = "https://hairtransplantgroup.lovable.app/?preview=fixture";
     expect(() => patientPreviewUrl("patient-token")).toThrow("test project");
-    process.env.NORWOOD_PREVIEW_GUEST_URL = `${NORWOOD_PATIENT_PREVIEW_ORIGIN}/?preview=fixture`;
+    process.env.NORWOOD_PREVIEW_GUEST_URL = "https://lovable.dev/preview/fixture";
+    delete process.env.NORWOOD_PREVIEW_GUEST_EXPIRES_AT;
+    expect(() => patientPreviewUrl("patient-token")).toThrow("ending soon");
+    process.env.NORWOOD_PREVIEW_GUEST_EXPIRES_AT = new Date(Date.now() + 86400000).toISOString();
     const url = new URL(patientPreviewUrl("patient-token"));
-    expect(url.pathname).toBe("/norwood-photo-test");
-    expect(url.searchParams.get("preview")).toBe("fixture");
-    expect(url.hash).toBe("#patient-token");
-  } finally { if (previous === undefined) delete process.env.NORWOOD_PREVIEW_GUEST_URL; else process.env.NORWOOD_PREVIEW_GUEST_URL = previous; }
+    expect(url.origin).toBe("https://lovable.dev");
+    expect(url.pathname).toBe("/preview/fixture");
+    expect(url.search).toBe("");
+    expect(url.hash).toBe("#norwood-test=patient-token");
+    process.env.NORWOOD_PREVIEW_GUEST_EXPIRES_AT = new Date(Date.now() + 3600000).toISOString();
+    expect(() => patientPreviewUrl("patient-token")).toThrow("ending soon");
+    process.env.NORWOOD_PREVIEW_GUEST_URL = "https://lovable.dev/preview/fixture?__lovable_token=personal";
+    expect(() => patientPreviewUrl("patient-token")).toThrow("approved shared preview");
+  } finally {
+    if (previous === undefined) delete process.env.NORWOOD_PREVIEW_GUEST_URL; else process.env.NORWOOD_PREVIEW_GUEST_URL = previous;
+    if (previousExpiry === undefined) delete process.env.NORWOOD_PREVIEW_GUEST_EXPIRES_AT; else process.env.NORWOOD_PREVIEW_GUEST_EXPIRES_AT = previousExpiry;
+  }
 });
