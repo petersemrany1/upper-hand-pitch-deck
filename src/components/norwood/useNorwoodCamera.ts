@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NORWOOD_IMAGE_PIPELINE, photoQuality, type NorwoodView } from "@/lib/norwood-assessment";
 import type { NorwoodPatientApi } from "@/lib/norwood-preview-session";
-import { CAPTURE_STEPS } from "./NorwoodPoseGuide";
 
 export function prepareNorwoodPhoto(source: CanvasImageSource, width: number, height: number, frame = false) {
   if (Math.min(width, height) < 480) throw new Error("Use a larger, clearer photo with your head in view.");
@@ -28,30 +27,19 @@ export function useNorwoodCamera({ api, token, view, enabled, save }: {
   const video = useRef<HTMLVideoElement>(null), stream = useRef<MediaStream | null>(null);
   const epoch = useRef(0), requestId = useRef(0), timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [ready, setReady] = useState(false), [paused, setPaused] = useState(false);
-  const [sound, setSound] = useState(true), [countdown, setCountdown] = useState<number | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [phase, setPhase] = useState<"position" | "checking" | "countdown" | "saving">("position");
   const [message, setMessage] = useState("Follow the picture. The timer starts when you’re in position.");
-  const latest = useRef({ save, sound }); latest.current = { save, sound };
-  const lastSpoken = useRef("");
-  function speak(text: string) {
-    if (!latest.current.sound || !("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text); utterance.lang = "en-AU"; utterance.rate = .95;
-    // Some iOS releases pause a video while speaking. Resume the silent camera.
-    utterance.onend = () => { if (!document.hidden) void video.current?.play().catch(() => {}); };
-    window.speechSynthesis.speak(utterance);
-  }
+  const latest = useRef({ save }); latest.current = { save };
   function stop() {
     epoch.current++; requestId.current++;
     if (timer.current) clearTimeout(timer.current);
     stream.current?.getTracks().forEach(t => t.stop()); stream.current = null;
-    window.speechSynthesis?.cancel(); setReady(false); setCountdown(null);
+    setReady(false); setCountdown(null);
   }
   async function open() {
     const id = ++requestId.current;
     setMessage("Opening camera…");
-    // Called directly from a user gesture, before the camera permission promise.
-    speak("Follow the pictures. I will count down when your head is in position.");
     try {
       stream.current?.getTracks().forEach(t => t.stop());
       const acquired = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1536 }, height: { ideal: 1536 } }, audio: false });
@@ -77,20 +65,19 @@ export function useNorwoodCamera({ api, token, view, enabled, save }: {
     return prepareNorwoodPhoto(el, el.videoWidth, el.videoHeight);
   }
   function startCountdown(run: number, next: () => void) {
-    let seconds = 5; setPhase("countdown"); setCountdown(seconds); setMessage("Head in position. Hold still."); speak("Hold still. Five.");
+    let seconds = 5; setPhase("countdown"); setCountdown(seconds); setMessage("Head in position. Hold still.");
     const tick = async () => {
       if (run !== epoch.current || document.hidden) return;
       seconds--; setCountdown(seconds || null);
-      if (seconds > 0) { speak(String(seconds)); timer.current = setTimeout(tick, 1000); return; }
-      setPhase("saving"); setMessage("Checking your photo…"); speak("Checking photo.");
+      if (seconds > 0) { timer.current = setTimeout(tick, 1000); return; }
+      setPhase("saving"); setMessage("Checking your photo…");
       try {
         await latest.current.save(capture(), view);
         if (run !== epoch.current) return;
-        speak("Photo saved.");
       } catch (error) {
         if (run !== epoch.current) return;
         const text = error instanceof Error ? error.message : "Could not check the photo. Try again.";
-        setMessage(text); speak(text); setPhase("position");
+        setMessage(text); setPhase("position");
         timer.current = setTimeout(next, 7000);
       }
     };
@@ -103,7 +90,6 @@ export function useNorwoodCamera({ api, token, view, enabled, save }: {
     setCountdown(null); setPhase("position");
     if (!enabled || !ready || paused) return;
     setMessage(api.checkPatientNorwoodFrame ? "Find the position shown. We’ll check it automatically." : "Follow the picture, then start the timer.");
-    speak(CAPTURE_STEPS[view].voice); lastSpoken.current = "";
     const check = async () => {
       if (run !== epoch.current || document.hidden || !api.checkPatientNorwoodFrame) return;
       const el = video.current;
@@ -116,7 +102,6 @@ export function useNorwoodCamera({ api, token, view, enabled, save }: {
         if (!result.ok) throw new Error(result.error);
         setMessage(result.data.message);
         if (result.data.ready) { startCountdown(run, check); return; }
-        if (lastSpoken.current !== result.data.message) { speak(result.data.message); lastSpoken.current = result.data.message; }
         setPhase("position"); timer.current = setTimeout(check, 3500);
       } catch (error) {
         if (run !== epoch.current) return;
@@ -124,15 +109,14 @@ export function useNorwoodCamera({ api, token, view, enabled, save }: {
         setPaused(true); setPhase("position");
       }
     };
-    // Time to hear the new angle and move the phone; never immediately snap the
+    // Time to read the new angle and move the phone; never immediately snap the
     // next view in the previous pose. Each request finishes before another starts.
     timer.current = setTimeout(check, view === "top" || view === "crown" ? 14000 : 9000);
-    return () => { epoch.current++; if (timer.current) clearTimeout(timer.current); window.speechSynthesis?.cancel(); };
+    return () => { epoch.current++; if (timer.current) clearTimeout(timer.current); };
   }, [api, token, view, enabled, ready, paused]);
 
-  return { video, ready, paused, sound, phase, message, countdown, open, stop,
+  return { video, ready, paused, phase, message, countdown, open, stop,
     togglePause: () => { if (!paused) setMessage("Photos paused. Tap Resume when you’re ready."); setPaused(!paused); }, pause: () => setPaused(true),
-    toggleSound: () => { if (sound) window.speechSynthesis?.cancel(); else { latest.current.sound = true; speak(CAPTURE_STEPS[view].voice); } setSound(!sound); },
     manual: () => { if (!api.checkPatientNorwoodFrame && ready && !paused) startCountdown(epoch.current, () => {}); },
   };
 }

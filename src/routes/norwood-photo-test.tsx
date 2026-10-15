@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import PatientNorwoodCapture from "@/components/norwood/PatientNorwoodCapture";
 import { isNorwoodPreviewHost } from "@/lib/norwood-preview-access";
-import { checkPatientNorwoodFrame, openPatientNorwood, consentPatientNorwood, uploadPatientNorwood, analysePatientNorwood } from "@/utils/norwood-sandbox.functions";
+import { selectPatientNorwoodFrames, checkPatientNorwoodFrame, openPatientNorwood, consentPatientNorwood, uploadPatientNorwood, analysePatientNorwood } from "@/utils/norwood-sandbox.functions";
 
-const api = { checkPatientNorwoodFrame, openPatientNorwood, consentPatientNorwood, uploadPatientNorwood, analysePatientNorwood };
+const api = { selectPatientNorwoodFrames, checkPatientNorwoodFrame, openPatientNorwood, consentPatientNorwood, uploadPatientNorwood, analysePatientNorwood };
 export const Route = createFileRoute("/norwood-photo-test")({
   head: () => ({ meta: [{ title: "Your guided hair photos" }, { name: "robots", content: "noindex, nofollow, noarchive" }, { name: "referrer", content: "no-referrer" }] }),
   component: PatientPhotoTest,

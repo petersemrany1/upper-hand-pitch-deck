@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, Check, ChevronRight, HelpCircle, Pause, Play, ShieldCheck, Volume2, VolumeX, X } from "lucide-react";
+import { Camera, Check, ChevronRight, HelpCircle, Pause, Play, ShieldCheck, X } from "lucide-react";
 import { NORWOOD_VIEWS, type NorwoodView, type PatientNorwoodSession } from "@/lib/norwood-assessment";
 import type { NorwoodPatientApi } from "@/lib/norwood-preview-session";
 import NorwoodPoseGuide, { CAPTURE_STEPS } from "./NorwoodPoseGuide";
 import { prepareNorwoodPhoto, useNorwoodCamera } from "./useNorwoodCamera";
+import NorwoodVideoScan from "./NorwoodVideoScan";
 import "./norwood-capture.css";
 
 export default function PatientNorwoodCapture({ api, linkToken: token, mode = "local" }: { api: NorwoodPatientApi; linkToken: string; mode?: "local" | "private" }) {
@@ -13,7 +14,7 @@ export default function PatientNorwoodCapture({ api, linkToken: token, mode = "l
   const [accepted, setAccepted] = useState(false), [help, setHelp] = useState(false);
   const helpDialog = useRef<HTMLDialogElement>(null);
   useEffect(() => { if (help) helpDialog.current?.showModal(); }, [help]);
-  const activeToken = useRef(token), busyRef = useRef(false), analysisStarted = useRef(false);
+  const activeToken = useRef(token), busyRef = useRef(false), analysisStarted = useRef(false), sessionRevision = useRef(0);
   const view = NORWOOD_VIEWS.find(v => !session?.views.includes(v)) ?? "right";
   const guide = CAPTURE_STEPS[view];
   const finished = session?.status === "ready", allPhotos = session?.views.length === 5;
@@ -21,7 +22,7 @@ export default function PatientNorwoodCapture({ api, linkToken: token, mode = "l
   const enabled = Boolean(session?.consented && !finished && !allPhotos && !unavailable && !expired);
 
   async function savePhoto(photo: string, captureView: NorwoodView) {
-    busyRef.current = true; setBusy(true); setError("");
+    sessionRevision.current++; busyRef.current = true; setBusy(true); setError("");
     try {
       const result = await api.uploadPatientNorwood({ data: { token, view: captureView, photo } });
       if (activeToken.current !== token) return;
@@ -49,9 +50,10 @@ export default function PatientNorwoodCapture({ api, linkToken: token, mode = "l
     let cancelled = false;
     const id = setInterval(async () => {
       if (busyRef.current) return;
+      const revision = sessionRevision.current;
       try {
         const result = await api.openPatientNorwood({ data: { token } });
-        if (cancelled || busyRef.current) return;
+        if (cancelled || busyRef.current || revision !== sessionRevision.current) return;
         if (result.ok) setSession(result.data);
         else { setError(result.error); if (result.error.startsWith("This link has expired")) setUnavailable(true); }
       } catch { /* The next poll can recover without disrupting the camera. */ }
@@ -60,7 +62,7 @@ export default function PatientNorwoodCapture({ api, linkToken: token, mode = "l
   }, [api, token, Boolean(session), finished, unavailable]);
 
   async function runAnalysis() {
-    analysisStarted.current = true; busyRef.current = true; setBusy(true); setError("");
+    analysisStarted.current = true; sessionRevision.current++; busyRef.current = true; setBusy(true); setError("");
     setSession(prev => prev ? { ...prev, status: "analysing", canRetry: false } : prev);
     try {
       const result = await api.analysePatientNorwood({ data: { token } });
@@ -72,10 +74,10 @@ export default function PatientNorwoodCapture({ api, linkToken: token, mode = "l
   useEffect(() => { if (session?.status === "photos_in" && !analysisStarted.current) void runAnalysis(); }, [token, session?.status]);
 
   async function begin() {
-    busyRef.current = true; setBusy(true); setError("");
-    // Unlock speech/camera from the button gesture. No frames leave the browser
+    sessionRevision.current++; busyRef.current = true; setBusy(true); setError("");
+    // Open the camera from the button gesture. No frames leave the browser
     // until the consent request succeeds and the capture screen is enabled.
-    const opening = camera.open();
+    const opening = api.selectPatientNorwoodFrames ? Promise.resolve() : camera.open();
     try {
       const result = await api.consentPatientNorwood({ data: { token } });
       if (activeToken.current !== token) return;
@@ -88,7 +90,7 @@ export default function PatientNorwoodCapture({ api, linkToken: token, mode = "l
     if (!file) return;
     camera.pause();
     if (file.size > 25 * 1024 * 1024) { setError("That file is too large. Take a new photo."); return; }
-    const url = URL.createObjectURL(file); busyRef.current = true; setBusy(true); setError("");
+    const url = URL.createObjectURL(file); sessionRevision.current++; busyRef.current = true; setBusy(true); setError("");
     try {
       const img = new Image(); img.src = url; await img.decode();
       if (activeToken.current !== token) return;
@@ -108,12 +110,13 @@ export default function PatientNorwoodCapture({ api, linkToken: token, mode = "l
             <p className="nw-tips"><b>Tips:</b> Bright room · Dry hair · No hats</p>
             <label className="nw-consent"><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} /><span>{mode === "private" ? "I agree to camera images being checked by Anthropic AI and 5 photos being saved privately for my advisory team. No photos go to the clinic." : "I agree to send my photos to Anthropic AI. They stay in this tab and are not saved to patient records."}</span></label>
             {error && <p className="nw-error" role="alert">{error}</p>}
-            <button className="nw-primary" disabled={!accepted || busy} onClick={() => void begin()}>{busy ? "Starting…" : "Start my photos"}<ChevronRight size={20} /></button>
+            <button className="nw-primary" disabled={!accepted || busy} onClick={() => void begin()}>{busy ? "Starting…" : "Start my scan"}<ChevronRight size={20} /></button>
             <p className="nw-footnote">No account needed · About 2 minutes</p>
           </div>
             : allPhotos ? <div className="nw-card nw-result" aria-live="polite">{session.status !== "failed" && <span className="nw-spinner" />}<h1>{session.status === "failed" ? "Let’s check this together" : "Analysing…"}</h1><p>Your advisor will see the result too.</p>{error && <p className="nw-error" role="alert">{error}</p>}{session.canRetry && <button className="nw-primary" disabled={busy} onClick={() => void runAnalysis()}>Try again</button>}{session.status === "failed" && !session.canRetry && <p>Your advisor can review the photos with you.</p>}</div>
+              : api.selectPatientNorwoodFrames ? <NorwoodVideoScan api={api} token={token} views={session.views} save={savePhoto} />
               : <div className="nw-card nw-capture">
-                <div className="nw-step-row"><span>Photo {session.views.length + 1} of 5</span><button className="nw-icon-button" onClick={camera.toggleSound} aria-label={camera.sound ? "Turn voice off" : "Turn voice on"}>{camera.sound ? <Volume2 size={18} /> : <VolumeX size={18} />}<span>Voice {camera.sound ? "on" : "off"}</span></button></div>
+                <div className="nw-step-row"><span>Photo {session.views.length + 1} of 5</span><span>Silent photo check</span></div>
                 <div className="nw-progress" aria-label={`${session.views.length} of 5 photos saved`}>{NORWOOD_VIEWS.map(v => <span key={v} className={session.views.includes(v) ? "done" : v === view ? "current" : ""} />)}</div>
                 <h1>{guide.title}</h1><p className="nw-instruction">{guide.move}</p>
                 <NorwoodPoseGuide view={view} />
@@ -131,6 +134,6 @@ export default function PatientNorwoodCapture({ api, linkToken: token, mode = "l
                 <div className="nw-tools"><button onClick={showHelp} disabled={busy}><HelpCircle size={16} />Show me how</button><label className={busy ? "disabled" : ""}><Camera size={16} />Phone camera<input type="file" accept="image/*" capture="user" disabled={busy} onChange={e => { void choosePhoto(e.target.files?.[0]); e.target.value = ""; }} /></label></div>
               </div>}
     <footer className="nw-footer"><ShieldCheck size={12} />Private photos · Your advisory team only</footer>
-    {help && <dialog ref={helpDialog} className="nw-help" onCancel={() => setHelp(false)} aria-label={`How to photograph ${guide.title}`}><button autoFocus className="nw-close" aria-label="Close guide" onClick={() => setHelp(false)}><X size={20} /></button><h1>{guide.title}</h1><NorwoodPoseGuide view={view} large /><p>{guide.move}</p><p className="nw-help-target">Photo needs: <b>{guide.target}</b></p>{(view === "top" || view === "crown") && <p>Keep looking down. Listen for the countdown — you don’t need to see the screen.</p>}<button className="nw-primary" onClick={() => { setHelp(false); if (camera.paused) camera.togglePause(); }}>Got it</button></dialog>}
+    {help && <dialog ref={helpDialog} className="nw-help" onCancel={() => setHelp(false)} aria-label={`How to photograph ${guide.title}`}><button autoFocus className="nw-close" aria-label="Close guide" onClick={() => setHelp(false)}><X size={20} /></button><h1>{guide.title}</h1><NorwoodPoseGuide view={view} large /><p>{guide.move}</p><p className="nw-help-target">Photo needs: <b>{guide.target}</b></p>{(view === "top" || view === "crown") && <p>Keep the phone in front. Bow your head towards the camera.</p>}<button className="nw-primary" onClick={() => { setHelp(false); if (camera.paused) camera.togglePause(); }}>Got it</button></dialog>}
   </div></main>;
 }

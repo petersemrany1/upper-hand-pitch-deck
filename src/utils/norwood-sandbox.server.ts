@@ -12,6 +12,8 @@ import {
 import { assertNorwoodSandboxLead } from "@/lib/norwood-sandbox-access";
 import { configuredNorwoodModel, requestNorwoodEstimate } from "./norwood-inference.server";
 import { requestNorwoodPhotoCheck } from "./norwood-photo-check.server";
+import { requestNorwoodScanSelection } from "./norwood-video-scan.server";
+import { pendingScanViews, type NorwoodScan } from "@/lib/norwood-video-scan";
 import { norwoodSms } from "@/lib/norwood-photo-check";
 export { requestNorwoodEstimate } from "./norwood-inference.server";
 
@@ -200,4 +202,16 @@ export async function norwoodPhotoLinks(userDb: any, leadId: string, assessmentI
     return { view, url: data.signedUrl };
   }));
   return links;
+}
+
+export async function selectNorwoodFrames(token: string, scan: NorwoodScan, frames: string[]) {
+  for (const frame of frames) if (decodeNorwoodPhoto(frame).length > 150_000) throw new Error("This scan is too large. Please try again.");
+  const hash = hashNorwoodToken(token);
+  const row = await patientAction(hash, "open");
+  const requested = pendingScanViews(scan, NORWOOD_VIEWS.filter(view => Boolean(row.photos[view])));
+  if (!requested.length) return [];
+  const { data, error } = await db().rpc("reserve_norwood_preview_frame", { p_hash: hash, p_view: requested[0] });
+  if (error || !data) throw new Error(error?.message.startsWith("Please ask your advisor") ? error.message : "The scan could not be checked. Wait a moment and try again.");
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error("The photo check is unavailable. Please try again later.");
+  return requestNorwoodScanSelection(frames, requested, process.env.ANTHROPIC_API_KEY, fetch, configuredNorwoodModel());
 }
