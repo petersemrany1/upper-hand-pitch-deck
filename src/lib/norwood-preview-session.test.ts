@@ -7,7 +7,7 @@ const token = "preview-token";
 const input = { data: { token } };
 const estimate: NorwoodResult = { norwood: 5, confidence: "low", reason: "The separating band appears narrow.", photo_problems: [] };
 async function fill(store: ReturnType<typeof createNorwoodPreviewSession>) {
-  await store.repApi.sendAiNorwoodLink({});
+  await store.repApi.sendAiNorwoodLink({ data: { leadId: "preview-lead", clinicId: "preview-clinic" } });
   await store.patientApi.consentPatientNorwood(input);
   for (const view of NORWOOD_VIEWS) await store.patientApi.uploadPatientNorwood({ data: { token, view, photo: `jpeg-${view}` } });
 }
@@ -25,7 +25,7 @@ test("requires a session, consent and five distinct views before calling AI", as
   let calls = 0;
   const store = createNorwoodPreviewSession("Example Clinic", token, async () => { calls++; return estimate; });
   expect((await store.patientApi.analysePatientNorwood(input)).ok).toBe(false);
-  await store.repApi.sendAiNorwoodLink({});
+  await store.repApi.sendAiNorwoodLink({ data: { leadId: "preview-lead", clinicId: "preview-clinic" } });
   expect((await store.patientApi.uploadPatientNorwood({ data: { token, view: "front", photo: "jpeg" } })).ok).toBe(false);
   await store.patientApi.consentPatientNorwood(input);
   await store.patientApi.uploadPatientNorwood({ data: { token, view: "front", photo: "jpeg" } });
@@ -52,7 +52,7 @@ test("reset fences a late AI result and clears previous photographs", async () =
   const store = createNorwoodPreviewSession("Example Clinic", token, () => new Promise(resolve => { finish = resolve; }));
   await fill(store);
   const pending = store.patientApi.analysePatientNorwood(input);
-  await store.repApi.sendAiNorwoodLink({});
+  await store.repApi.sendAiNorwoodLink({ data: { leadId: "preview-lead", clinicId: "preview-clinic" } });
   finish(estimate); await pending;
   expect(store.getSnapshot().session.status).toBe("sent");
   expect(store.getSnapshot().photos).toHaveLength(0);
@@ -70,6 +70,6 @@ test("AI errors stay errors and retries are bounded", async () => {
 test("React development effect replay does not leave a new session revoked", async () => {
   const store = createNorwoodPreviewSession("Example Clinic", token, async () => estimate);
   store.activate(); store.dispose(); store.activate();
-  await store.repApi.sendAiNorwoodLink({});
+  await store.repApi.sendAiNorwoodLink({ data: { leadId: "preview-lead", clinicId: "preview-clinic" } });
   expect((await store.patientApi.openPatientNorwood(input)).ok).toBe(true);
 });

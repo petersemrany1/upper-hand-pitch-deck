@@ -46,6 +46,7 @@ import { useConversation } from "@elevenlabs/react";
 import { savePracticeCallRecording, enqueuePracticeCallSave } from "@/lib/practice-recordings.functions";
 import { useCurrentRepId } from "@/hooks/useCurrentRepId";
 import NorwoodPricingCalculator from "@/components/NorwoodPricingCalculator";
+import { NorwoodSandboxPanel, useNorwoodSandboxReview } from "@/components/norwood/NorwoodSandbox";
 import { GRO_SYDNEY_SELLING_POINTS, isGroSydney } from "@/lib/gro-sydney";
 import { getClinicBookingWindow } from "@/utils/clinic-booking-window.functions";
 import { dateInBookingWindow, type ClinicBookingWindow } from "@/lib/clinic-booking-window";
@@ -3583,6 +3584,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const [expectationsAnswer, setExpectationsAnswer] = useState<"yes" | "no" | null>(
     lead.expectations_set === true ? "yes" : null,
   );
+  const norwoodAI = useNorwoodSandboxReview(lead.id, setNorwood, setExpectationsAnswer);
   const norwoodNeedsExpectations = needsExpectations(norwood);
   const expectationsConfirmed = !norwoodNeedsExpectations || expectationsAnswer === "yes";
   const norwoodGateReady = norwood != null && expectationsConfirmed;
@@ -5383,17 +5385,20 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
               <button
                 key={n}
                 type="button"
-                onClick={() => {
+                disabled={norwoodAI.saving}
+                onClick={() => void norwoodAI.confirm(n, () => {
                   setNorwood(n);
                   const nextAnswer = n >= 6 ? expectationsAnswer : null;
                   if (n < 6) setExpectationsAnswer(null);
                   recordNorwood(n, nextAnswer);
-                }}
+                })}
                 aria-pressed={norwood === n}
                 className={`h-10 w-10 rounded-md border text-sm font-semibold transition-colors ${
                   norwood === n
                     ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background hover:bg-accent"
+                    : norwood == null && norwoodAI.suggestion === n
+                      ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/30"
+                      : "border-border bg-background hover:bg-accent"
                 }`}
               >
                 {n}
@@ -5401,6 +5406,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
             ))}
           </div>
 
+          {norwood == null && norwoodAI.suggestion != null && <p className="text-xs font-medium text-primary">AI suggests Norwood {norwoodAI.suggestion}. Tap a number to confirm or change it.</p>}
           {norwoodNeedsExpectations && (
             <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
               <div className="text-sm font-medium">
@@ -8361,6 +8367,8 @@ function RightPanel({
           })}
         </div>
       </div>
+
+      <NorwoodSandboxPanel leadId={active.id} clinicId={panelClinic?.id ?? ""} phone={active.phone} />
 
       {/* Section 4b — Norwood pricing calculator */}
       <NorwoodPricingCalculator key={panelClinic?.id ?? "no-clinic"} defaultClinic={groSydneySelected ? "gro" : "nitai"} />

@@ -15,6 +15,7 @@ import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
 import { Route as ConfirmationPreviewRouteImport } from './routes/confirmation-preview'
 import { Route as DemoClinicRouteImport } from './routes/demo-clinic'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as NorwoodPhotoTestRouteImport } from './routes/norwood-photo-test'
 import { Route as NorwoodPreviewRouteImport } from './routes/norwood-preview'
 import { Route as PayDepositRouteImport } from './routes/pay-deposit'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -107,6 +108,11 @@ const DemoClinicRoute = DemoClinicRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NorwoodPhotoTestRoute = NorwoodPhotoTestRouteImport.update({
+  id: '/norwood-photo-test',
+  path: '/norwood-photo-test',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NorwoodPreviewRoute = NorwoodPreviewRouteImport.update({
@@ -476,6 +482,7 @@ export interface FileRoutesByFullPath {
   '/confirmation-preview': typeof ConfirmationPreviewRoute
   '/demo-clinic': typeof DemoClinicRoute
   '/login': typeof LoginRoute
+  '/norwood-photo-test': typeof NorwoodPhotoTestRoute
   '/norwood-preview': typeof NorwoodPreviewRoute
   '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -546,6 +553,7 @@ export interface FileRoutesByTo {
   '/confirmation-preview': typeof ConfirmationPreviewRoute
   '/demo-clinic': typeof DemoClinicRoute
   '/login': typeof LoginRoute
+  '/norwood-photo-test': typeof NorwoodPhotoTestRoute
   '/norwood-preview': typeof NorwoodPreviewRoute
   '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -618,6 +626,7 @@ export interface FileRoutesById {
   '/confirmation-preview': typeof ConfirmationPreviewRoute
   '/demo-clinic': typeof DemoClinicRoute
   '/login': typeof LoginRoute
+  '/norwood-photo-test': typeof NorwoodPhotoTestRoute
   '/norwood-preview': typeof NorwoodPreviewRoute
   '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -692,6 +701,7 @@ export interface FileRouteTypes {
     | '/confirmation-preview'
     | '/demo-clinic'
     | '/login'
+    | '/norwood-photo-test'
     | '/norwood-preview'
     | '/pay-deposit'
     | '/reset-password'
@@ -762,6 +772,7 @@ export interface FileRouteTypes {
     | '/confirmation-preview'
     | '/demo-clinic'
     | '/login'
+    | '/norwood-photo-test'
     | '/norwood-preview'
     | '/pay-deposit'
     | '/reset-password'
@@ -833,6 +844,7 @@ export interface FileRouteTypes {
     | '/confirmation-preview'
     | '/demo-clinic'
     | '/login'
+    | '/norwood-photo-test'
     | '/norwood-preview'
     | '/pay-deposit'
     | '/reset-password'
@@ -906,6 +918,7 @@ export interface RootRouteChildren {
   ConfirmationPreviewRoute: typeof ConfirmationPreviewRoute
   DemoClinicRoute: typeof DemoClinicRoute
   LoginRoute: typeof LoginRoute
+  NorwoodPhotoTestRoute: typeof NorwoodPhotoTestRoute
   NorwoodPreviewRoute: typeof NorwoodPreviewRoute
   PayDepositRoute: typeof PayDepositRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -976,6 +989,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/norwood-photo-test': {
+      id: '/norwood-photo-test'
+      path: '/norwood-photo-test'
+      fullPath: '/norwood-photo-test'
+      preLoaderRoute: typeof NorwoodPhotoTestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/norwood-preview': {
@@ -1535,6 +1555,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConfirmationPreviewRoute: ConfirmationPreviewRoute,
   DemoClinicRoute: DemoClinicRoute,
   LoginRoute: LoginRoute,
+  NorwoodPhotoTestRoute: NorwoodPhotoTestRoute,
   NorwoodPreviewRoute: NorwoodPreviewRoute,
   PayDepositRoute: PayDepositRoute,
   ResetPasswordRoute: ResetPasswordRoute,

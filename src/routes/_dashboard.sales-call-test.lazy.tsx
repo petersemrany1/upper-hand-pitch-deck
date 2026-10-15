@@ -2,6 +2,7 @@ import { createLazyFileRoute, Link } from "@tanstack/react-router";
 import { ConversationProvider } from "@elevenlabs/react";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
+import { NorwoodSandboxProvider } from "@/components/norwood/NorwoodSandbox";
 import { SalesCallPortal } from "@/components/SalesCallPortal";
 import { useAuth, ViewAsRoleProvider, type Role } from "@/hooks/useAuth";
 import { resetPeterTestLead, simulateDepositPaid } from "@/utils/test-sandbox.functions";
@@ -203,7 +204,7 @@ function SalesCallTestRoute() {
       </div>
       <ViewAsRoleProvider role={viewAs}>
         <ConversationProvider>
-          <SalesCallPortal testLeadId={TEST_LEAD_IDS} />
+          <NorwoodSandboxProvider><SalesCallPortal testLeadId={TEST_LEAD_IDS} /></NorwoodSandboxProvider>
         </ConversationProvider>
       </ViewAsRoleProvider>
       <TestControlBar viewAs={viewAs} onViewAsChange={changeViewAs} />

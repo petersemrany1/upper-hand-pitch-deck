@@ -31,7 +31,7 @@ function preparePhoto(source: CanvasImageSource, width: number, height: number):
   return { dataUrl: canvas.toDataURL("image/jpeg", NORWOOD_IMAGE_PIPELINE.jpegQuality), problem: photoQuality(sc.getImageData(0, 0, 256, 256).data, 256, 256) };
 }
 
-export default function PatientNorwoodCapture({ api, linkToken }: { api: NorwoodPatientApi; linkToken: string }) {
+export default function PatientNorwoodCapture({ api, linkToken, mode = "local" }: { api: NorwoodPatientApi; linkToken: string; mode?: "local" | "private" }) {
   const { analysePatientNorwood, consentPatientNorwood, openPatientNorwood, uploadPatientNorwood } = api;
   const [token, setToken] = useState("");
   const [session, setSession] = useState<PatientNorwoodSession | null>(null);
@@ -192,9 +192,9 @@ export default function PatientNorwoodCapture({ api, linkToken }: { api: Norwood
                 <p className="nw-eyebrow">FIVE PHOTOS. ONE SIMPLE CHECK.</p><h1>A clearer picture,<br />while we chat.</h1><p>Take a few guided photos of your hair. Your advisor will see an AI estimate and check it with you.</p>
                 <div className="nw-tips"><Sun size={24} /><div><strong>A little preparation helps</strong><ul><li>Choose a bright room with even light.</li><li>Keep your hair dry, with no hat or hair fibres.</li><li>Push your fringe back to show your hairline.</li><li>Sit down. We’ll guide you through each angle.</li></ul></div></div>
                 <div className="nw-angles">{NORWOOD_VIEWS.map((v, i) => <span key={v}><b>{i + 1}</b>{NORWOOD_GUIDES[v].title}</span>)}</div>
-                <label className="nw-consent"><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} /><span>I agree to send these five photos to Anthropic for a test AI estimate. The preview keeps the photos in this browser tab and does not save them to patient records or send them to a clinic.</span></label>
+                <label className="nw-consent"><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} /><span>{mode === "private" ? "I agree to these five photos being stored privately for the advisory team and sent to Anthropic for an AI estimate. The photos will not be sent to the clinic." : "I agree to send these five photos to Anthropic for a test AI estimate. The preview keeps the photos in this browser tab and does not save them to patient records or send them to a clinic."}</span></label>
                 {error && <p className="nw-error" role="alert">{error}</p>}
-                <button className="nw-primary" disabled={!accepted || busy} onClick={() => void begin()}>{busy ? "Starting…" : "Start my photos"}<ChevronRight size={20} /></button><p className="nw-footnote">Preview session · Photos clear when this tab closes or you reset.</p>
+                <button className="nw-primary" disabled={!accepted || busy} onClick={() => void begin()}>{busy ? "Starting…" : "Start my photos"}<ChevronRight size={20} /></button><p className="nw-footnote">{mode === "private" ? "Private link · Expires 2 hours after it was sent." : "Preview session · Photos clear when this tab closes or you reset."}</p>
               </div>
                 : allPhotos ? <div className="nw-card nw-result" aria-live="polite">{session.status !== "failed" && <span className="nw-spinner" />}<h1>{session.status === "failed" ? "Let’s check this together" : "Analysing…"}</h1><p>All five photos are saved. Stay on the call — your advisor will see the result too.</p>{error && <p className="nw-error" role="alert">{error}</p>}{session.canRetry && <button className="nw-primary" disabled={busy} onClick={() => void runAnalysis()}>Try the estimate again</button>}{session.status === "failed" && !session.canRetry && <p>Your advisor can review the photos with you.</p>}</div>
                   : <div className="nw-card nw-capture">
@@ -214,7 +214,7 @@ export default function PatientNorwoodCapture({ api, linkToken }: { api: Norwood
                         : <button className="nw-primary" disabled={busy} onClick={() => cameraReady ? takePhoto() : void startCamera()}><Camera size={20} />{cameraReady ? "Take photo · 5-second timer" : "Open selfie camera"}</button>}
                         <label className={`nw-secondary nw-file ${busy || countdown !== null ? "disabled" : ""}`}>Use phone camera or choose photo<input type="file" accept="image/*" capture="user" disabled={busy || countdown !== null} onChange={e => { void choosePhoto(e.target.files?.[0]); e.target.value = ""; }} /></label></>}
                   </div>}
-      <footer className="nw-footer"><ShieldCheck size={14} />Preview only · No patient records or messages</footer>
+      <footer className="nw-footer"><ShieldCheck size={14} />{mode === "private" ? "Private photos · Shared only with your advisory team" : "Preview only · No patient records or messages"}</footer>
     </div>
   </main>;
 }

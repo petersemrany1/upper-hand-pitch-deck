@@ -1,0 +1,109 @@
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+const { PGlite } = await import(process.env.PGLITE_MODULE || '@electric-sql/pglite');
+const db = new PGlite();
+const id = n => n===20 ? '5e70f557-73ce-4bb7-a11a-6b718dbd092f' : n===21 ? 'b2828129-1c28-4502-927a-11f43a0a8473' : `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const hash = n => String(n).padStart(64, 'a');
+await db.exec(`
+CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;
+CREATE SCHEMA auth; CREATE SCHEMA storage;
+CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT (auth.jwt()->>'sub')::uuid $$;
+GRANT USAGE ON SCHEMA public,auth,storage TO anon,authenticated,service_role;
+CREATE TABLE sales_reps(id uuid PRIMARY KEY,email text,role text,is_active boolean DEFAULT true);
+CREATE TABLE clinic_portal_users(id uuid PRIMARY KEY);
+CREATE TABLE partner_clinics(id uuid PRIMARY KEY,clinic_name text,is_active boolean DEFAULT true);
+CREATE TABLE meta_leads(id uuid PRIMARY KEY,norwood_level integer,expectations_set boolean,expectations_set_by uuid,expectations_set_at timestamptz,updated_at timestamptz,status text DEFAULT 'new');
+CREATE TABLE clinic_appointments(id uuid PRIMARY KEY,lead_id uuid,norwood_level integer,expectations_set boolean,updated_at timestamptz);
+CREATE TABLE storage.buckets(id text PRIMARY KEY,name text,public boolean,file_size_limit integer,allowed_mime_types text[]);
+CREATE TABLE storage.objects(id uuid DEFAULT gen_random_uuid(),bucket_id text,name text);
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+CREATE POLICY legacy_broad ON storage.objects FOR ALL TO public USING(true) WITH CHECK(true);
+GRANT ALL ON ALL TABLES IN SCHEMA public,storage TO service_role;
+GRANT SELECT,INSERT ON storage.objects TO anon,authenticated;
+INSERT INTO sales_reps VALUES('${id(1)}','admin@test.invalid','admin',true),('${id(2)}','rep@test.invalid','rep',true),('${id(3)}','caller@test.invalid','caller',true),('${id(4)}','inactive@test.invalid','rep',false),('${id(5)}','clinic@test.invalid','admin',true);
+INSERT INTO clinic_portal_users VALUES('${id(5)}');
+INSERT INTO partner_clinics VALUES('${id(10)}','Test Clinic',true);
+INSERT INTO meta_leads(id) VALUES('${id(20)}'),('${id(21)}');
+INSERT INTO clinic_appointments(id,lead_id) VALUES('${id(30)}','${id(20)}');
+`);
+const existing = readFileSync(new URL('../supabase/migrations/20261003020000_sales_rescheduling.sql', import.meta.url),'utf8');
+await db.exec(existing.match(/CREATE OR REPLACE FUNCTION public\.booking_sales_actor\(\)[\s\S]*?\$\$;/)[0]);
+await db.exec(readFileSync(new URL('../supabase/migrations/20261015030000_norwood_preview_phone_test.sql', import.meta.url),'utf8'));
+
+const actor = async (role, n=1, email='admin@test.invalid') => {
+  await db.exec('RESET ROLE');
+  await db.query("select set_config('request.jwt.claims',$1,false)", [JSON.stringify({sub:id(n),email,role})]);
+  await db.exec(`SET ROLE ${role}`);
+};
+const action = async (h, a, v=null, p=null) => (await db.query('select * from norwood_preview_patient_action($1,$2,$3,$4)',[h,a,v,p])).rows[0];
+const count = async table => Number((await db.query(`select count(*) n from ${table}`)).rows[0].n);
+await actor('service_role');
+await assert.rejects(db.query('select create_norwood_preview($1,$2,$3,$4)',[id(99),id(10),id(2),hash(99)]),/Test leads only/);
+const session = (await db.query('select * from create_norwood_preview($1,$2,$3,$4)',[id(20),id(10),id(2),hash(1)])).rows[0];
+assert.equal((Date.parse(session.expires_at)-Date.parse(session.created_at))/3600000,2);
+await assert.rejects(action(hash(1),'open'),/expired or is unavailable/);
+await db.query("update norwood_preview_assessments set status='sent' where id=$1",[session.id]);
+assert.equal((await action(hash(1),'open')).status,'opened');
+await assert.rejects(action(hash(1),'reserve_upload'),/Photos cannot be changed/);
+await action(hash(1),'consent');
+await assert.rejects(action(hash(1),'analyse',null,{run:id(90)}),/All five/);
+await assert.rejects(db.query('select create_norwood_preview($1,$2,$3,$4)',[id(20),id(10),id(2),hash(2)]),/wait a minute/);
+for (const [i,view] of ['front','top','crown','left','right'].entries()) {
+  await action(hash(1),'reserve_upload');
+  await action(hash(1),'photo',view,{path:`${session.id}/${view}.jpg`,sha256:hash(i+10)});
+}
+await assert.rejects(action(hash(1),'photo','left',{path:`${session.id}/copy.jpg`,sha256:hash(10)}),/different photo/);
+await assert.rejects(action(hash(1),'photo','front',{path:`${id(99)}/wrong.jpg`,sha256:hash(88)}),/Invalid photo/);
+assert.equal((await action(hash(1),'analyse',null,{run:id(90)})).analysis_run,id(90));
+assert.equal((await action(hash(1),'analyse',null,{run:id(91)})).analysis_run,id(90)); // one caller owns the run
+await assert.rejects(action(hash(1),'reserve_upload'),/cannot be changed/);
+await db.query("update norwood_preview_assessments set analysis_started_at=now()-interval '91 seconds' where id=$1",[session.id]);
+assert.equal((await action(hash(1),'analyse',null,{run:id(91)})).analysis_run,id(91));
+assert.equal((await db.query("update norwood_preview_assessments set status='ready' where id=$1 and analysis_run=$2 returning id",[session.id,id(90)])).rows.length,0);
+await db.query("update norwood_preview_assessments set status='ready',ai_norwood=5,ai_confidence='medium',ai_reason='A narrow bridge is visible.' where id=$1",[session.id]);
+assert.equal((await action(hash(1),'analyse',null,{run:id(92)})).ai_norwood,5);
+await db.query("insert into storage.objects(bucket_id,name) values('norwood-preview-photos','private.jpg'),('other','public.jpg')");
+
+await actor('anon');
+await assert.rejects(db.query('select * from norwood_preview_assessments'),/permission denied/);
+await assert.rejects(action(hash(1),'open'),/permission denied/);
+assert.equal(await count('storage.objects'),1); // restrictive policy defeats pre-existing broad access
+await assert.rejects(db.query("insert into storage.objects(bucket_id,name) values('norwood-preview-photos','hack.jpg')"),/row-level security/);
+for (const [n,email] of [[3,'caller@test.invalid'],[4,'inactive@test.invalid'],[5,'clinic@test.invalid']]) {
+  await actor('authenticated',n,email);
+  assert.equal(await count('norwood_preview_assessments'),0);
+  assert.equal(await count('norwood_preview_comparison'),0);
+  assert.equal(await count('norwood_preview_reviews'),0);
+  await assert.rejects(db.query('select confirm_norwood_preview($1,$2,6,true)',[session.id,id(20)]),/Sales access required/);
+}
+await actor('authenticated',2,'rep@test.invalid');
+assert.equal(await count('norwood_preview_assessments'),1);
+await assert.rejects(db.query("update norwood_preview_assessments set ai_norwood=7"),/permission denied/);
+await assert.rejects(action(hash(1),'analyse',null,{run:id(99)}),/permission denied/);
+await assert.rejects(db.query('select confirm_norwood_preview($1,$2,6,true)',[session.id,id(21)]),/Refresh the assessment/);
+await assert.rejects(db.query('select confirm_norwood_preview($1,$2,8,true)',[session.id,id(20)]),/Invalid Norwood/);
+await db.query('select confirm_norwood_preview($1,$2,6,null)',[session.id,id(20)]);
+await db.query('select confirm_norwood_preview($1,$2,6,true)',[session.id,id(20)]);
+assert.equal(await count('norwood_preview_reviews'),1); // expectations-only save doesn't inflate comparisons
+await db.query('select confirm_norwood_preview($1,$2,4,null)',[session.id,id(20)]);
+assert.equal(await count('norwood_preview_reviews'),2);
+const comparison=(await db.query('select * from norwood_preview_comparison')).rows[0];
+assert.equal(comparison.ai_norwood,5); assert.equal(comparison.final_norwood,4); assert.equal(comparison.exact_agreement,false); assert.equal(comparison.stage_difference,1);
+await actor('service_role');
+const lead=(await db.query('select * from meta_leads where id=$1',[id(20)])).rows[0];
+assert.equal(lead.status,'new'); assert.equal(lead.norwood_level,null); assert.equal(lead.expectations_set,null); assert.equal(lead.expectations_set_by,null);
+const appointment=(await db.query('select * from clinic_appointments where lead_id=$1',[id(20)])).rows[0];
+assert.equal(appointment.norwood_level,null); assert.equal('photos' in appointment,false);
+await db.query("update norwood_preview_assessments set expires_at=now()-interval '1 second' where id=$1",[session.id]);
+for (const method of ['open','consent','reserve_upload','photo','analyse']) await assert.rejects(action(hash(1),method),/expired/);
+await db.query("update norwood_preview_assessments set created_at=now()-interval '61 seconds' where id=$1",[session.id]);
+const replacement=(await db.query('select * from create_norwood_preview($1,$2,$3,$4)',[id(20),id(10),id(2),hash(2)])).rows[0];
+await assert.rejects(action(hash(1),'open'),/expired/);
+await db.query("update norwood_preview_assessments set status='sent',upload_attempts=30 where id=$1",[replacement.id]);
+await action(hash(2),'consent');
+await assert.rejects(action(hash(2),'reserve_upload'),/new link/);
+await db.query("update norwood_preview_assessments set status='failed',photos=$2,analysis_attempts=3 where id=$1",[replacement.id,(await db.query('select photos from norwood_preview_assessments where id=$1',[session.id])).rows[0].photos]);
+await assert.rejects(action(hash(2),'analyse',null,{run:id(99)}),/review the photos/);
+await db.close();
+console.log('PASS: Norwood migration, link expiry/revocation, lead binding, consent, all-five requirement, duplicate photos, upload/run limits, concurrency fencing, staff/clinic/anon RLS, private storage, review audit, test-lead enforcement and no writes to lead status, Norwood or clinic appointments.');

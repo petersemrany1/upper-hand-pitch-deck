@@ -9,10 +9,10 @@ export type NorwoodPatientApi = {
   analysePatientNorwood: (input: Token) => Promise<Reply<PatientNorwoodSession>>;
 };
 export type NorwoodRepApi = {
-  getRepNorwoodAssessment: (input: unknown) => Promise<Reply<RepNorwoodSession | null>>;
-  getNorwoodPhotoLinks: (input: unknown) => Promise<Reply<{ view: NorwoodView; url: string }[]>>;
-  retryRepNorwoodAssessment: (input: unknown) => Promise<Reply<boolean>>;
-  sendAiNorwoodLink: (input: unknown) => Promise<Reply<RepNorwoodSession>>;
+  getRepNorwoodAssessment: (input: { data: { leadId: string } }) => Promise<Reply<RepNorwoodSession | null>>;
+  getNorwoodPhotoLinks: (input: { data: { leadId: string; assessmentId: string } }) => Promise<Reply<{ view: NorwoodView; url: string }[]>>;
+  retryRepNorwoodAssessment: (input: { data: { leadId: string } }) => Promise<Reply<boolean>>;
+  sendAiNorwoodLink: (input: { data: { leadId: string; clinicId: string } }) => Promise<Reply<RepNorwoodSession>>;
 };
 export type PreviewPhoto = { view: NorwoodView; base64: string };
 type Snapshot = { generation: number; started: boolean; session: PatientNorwoodSession; result: NorwoodResult | null; finalNorwood: number | null; photos: PreviewPhoto[] };

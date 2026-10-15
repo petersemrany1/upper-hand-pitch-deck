@@ -2,11 +2,18 @@
 
 ## Preview delivery
 
-This preview branch exposes `/norwood-preview` only on the project’s preview hosts (and localhost). It contains the shared capture screens, grading prompt/parser and a browser-memory test adapter. It does not include or apply the production Norwood migrations, messaging endpoints or protected sales-call integration described in the design notes below.
+The `codex/norwood-preview` branch now provides two preview-only workflows:
 
-Use the normal staff login before taking photos for a real estimate. `ANTHROPIC_API_KEY` stays in the preview server; the existing staff-role check is read-only. The five re-encoded JPEGs go directly to the same inference helper in one request. No photos or results are written to Supabase, SMS or clinic handover. Resetting/closing the tab clears its in-memory photos. Patient and rep panels share one tab for testing; cross-device links and SMS require a later integration test.
+- `/sales-call-test`: the actual rep screen has a **Send AI Norwood link** panel in its right sidebar. It uses the existing selected clinic and reads the test lead's mobile on the server. A real SMS opens `/norwood-photo-test#<random-token>` on the patient's phone with no app or staff login. Both devices poll progress independently.
+- `/norwood-preview`: the earlier single-tab walkthrough remains available and keeps its photos only in browser memory.
 
-The live hostname is rejected by both the page and the preview server function. This branch must not be published or merged as a production activation. The remaining sections document the full feature built separately and its research.
+The cross-device test accepts only the existing Peter Test and Test Tested lead UUIDs, enforced in the server and database. It uses `norwood_preview_assessments`, `norwood_preview_reviews`, and the PRIVATE `norwood-preview-photos` bucket, installed by `20261015030000_norwood_preview_phone_test.sql`. The production Norwood migrations are not applied. Patients receive only their own clinic branding, progress and estimate through a hashed, lead-bound, two-hour bearer link. Staff image URLs expire after 60 seconds. No photos are sent to clinics. The audit confirmation RPC does not write leads or appointments; after it succeeds, the existing test selector performs its normal save. No Norwood action changes a lead status or triggers a clinic handover.
+
+The protected SalesCallPortal change is limited to importing the self-contained sandbox panel/hook, placing the panel in the right sidebar, and hooking the existing selector's suggestion highlight and explicit click into the separate audit save. The existing `norwoodGateReady` expression and 6–7 expectations controls are unchanged. The provider exists only on the test route, and all Norwood test server functions reject non-preview hosts and cross-origin requests.
+
+Secrets remain server-side and use the existing Anthropic/Twilio configuration. The phone test stores photos privately for staff review; closing the patient's tab does not delete these cross-device photos. Sending a replacement link revokes the old link. The local walkthrough has different, clearly labelled in-memory storage.
+
+Verification: 26 focused unit tests, the build and TypeScript pass. The isolated PostgreSQL migration test verifies expiry, revocation, consent, all five angles, duplicate-photo rejection, run fencing, staff/clinic/anonymous permissions, a restrictive private-bucket policy, separate review history and no writes to lead or appointment fields. These are software and privacy checks, not a measured clinical accuracy result. User sending and real-device photographs are tested through the preview button. No production publish is performed.
 
 Implemented 15 October 2026. This is a photo-based estimate to support the existing rep conversation. It is not a diagnosis, treatment recommendation or validated medical device. No measured accuracy percentage is claimed.
 
