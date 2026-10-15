@@ -4,9 +4,9 @@ import { type StatusKey, isRetiredRawStatus, isReturningLead, normaliseStatus } 
 // Session queue rules (pure — no React, no Supabase — so they can be tested).
 //
 // Order: NEW (never called, newest first)
-//      → NO ANSWER (fewest attempts first, then leads last tried in the other
-//        half of the day, then newest first)
+//      → NO ANSWER (newest enquiry first)
 //      → THE REST (chase-ups, expired callbacks, anything else; newest first)
+// Finish this first pass before serving any afternoon second turns.
 //
 // Every lead is served at most once per day, except leads in their first
 // YOUNG_LEAD_DAYS since first call, which get one turn before noon and one
@@ -155,7 +155,6 @@ export function buildQueue<L extends QueueLead>(input: {
   const { leads, history, now } = input;
   const isPaused: (l: L) => boolean = input.isPaused ?? (() => false);
   const isPriority: (l: L) => boolean = input.isPriority ?? (() => false);
-  const afternoon = isAfternoon(now);
 
   const eligible = leads.filter((l) => {
     if (input.requireHistory && history[l.id] === undefined) return false;
@@ -167,7 +166,9 @@ export function buildQueue<L extends QueueLead>(input: {
   });
 
   const created = (l: L) => ms(l.created_at) || 0;
-  const newest = (a: L, b: L) => created(b) - created(a);
+  // Recency wins over city priority; priority only breaks identical timestamps.
+  const newest = (a: L, b: L) => created(b) - created(a)
+    || Number(isPriority(b)) - Number(isPriority(a)) || a.id.localeCompare(b.id);
 
   const groups: Record<QueueGroup, L[]> = { new: [], no_answer: [], rest: [] };
   const group: Record<string, QueueGroup> = {};
@@ -178,29 +179,13 @@ export function buildQueue<L extends QueueLead>(input: {
   }
 
   groups.new.sort(newest);
-  groups.no_answer.sort((a, b) => {
-    const ha = historyFor(history, a.id);
-    const hb = historyFor(history, b.id);
-    if (ha.attempts !== hb.attempts) return ha.attempts - hb.attempts;
-    // Rotate time of day: if it's the afternoon, leads last tried in the
-    // morning go first (and vice versa) so nobody is only ever tried at 10am.
-    const ra = otherHalfOfDay(ha, afternoon) ? 0 : 1;
-    const rb = otherHalfOfDay(hb, afternoon) ? 0 : 1;
-    if (ra !== rb) return ra - rb;
-    return newest(a, b);
-  });
+  groups.no_answer.sort(newest);
   groups.rest.sort(newest);
 
   const ordered = [...groups.new, ...groups.no_answer, ...groups.rest];
-  // Priority city floats to the front, keeping the group order within it.
-  const order = [...ordered.filter(isPriority), ...ordered.filter((l) => !isPriority(l))].map((l) => l.id);
+  const firstTurn = (l: L) => historyFor(history, l.id).todayAttempts === 0;
+  const order = [...ordered.filter(firstTurn), ...ordered.filter(l => !firstTurn(l))].map(l => l.id);
   return { order, group };
-}
-
-function otherHalfOfDay(h: CallHistory, afternoonNow: boolean): boolean {
-  const last = ms(h.lastAttemptAt);
-  if (!Number.isFinite(last)) return true; // never tried: no bias
-  return isAfternoon(new Date(last)) !== afternoonNow;
 }
 
 /**

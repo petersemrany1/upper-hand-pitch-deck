@@ -24,6 +24,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { CALLBACK_WINDOW_MS, buildQueue, dueCallbackIds, type HistoryMap } from "./sales-call/queue";
 import { createCallHistoryLoader } from "./sales-call/call-history";
+import { nextSessionIndexFromActive, reorderSessionQueue } from "./sales-call/session-queue";
 import { isReturningLead, normaliseStatus, requiresManualDial, type StatusKey } from "./sales-call/status";
 import { toast } from "sonner";
 import {
@@ -296,11 +297,6 @@ function placeLeadAfterCurrent(queue: string[], currentLeadId: string | null | u
   const nextQueue = [...withoutLead];
   nextQueue.splice(insertAt, 0, leadId);
   return { queue: nextQueue, index: insertAt };
-}
-
-function nextSessionIndexFromActive(queue: string[], activeLeadId: string | null | undefined, fallbackIndex: number) {
-  const activeIdx = activeLeadId ? queue.indexOf(activeLeadId) : -1;
-  return (activeIdx !== -1 ? activeIdx : fallbackIndex) + 1;
 }
 
 /** A callback or ring-back dialled by anyone this recently isn't served again. */
@@ -1117,7 +1113,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
 
   // Load leads + realtime
   useEffect(() => {
-    const load = async () => {
+    if (!authReady || !user?.id) return;
+    const refresh = createRefreshQueue(async (isCurrent) => {
       const baseQuery = supabase
         .from("meta_leads")
         .select(SALES_CALL_LEAD_SELECT);
@@ -1148,6 +1145,17 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         for (const l of (actionable ?? []) as Lead[]) if (!byId.has(l.id)) byId.set(l.id, l);
         fetched = Array.from(byId.values());
       }
+      // A live call can change an old lead to a terminal status outside both
+      // lists. Keep its current record loaded until the rep finishes the call.
+      const currentId = activeIdRef.current;
+      if (currentId && currentId !== PRACTICE_LEAD_ID && !isSandboxBlocked(currentId)
+        && !fetched.some(l => l.id === currentId)) {
+        const { data, error } = await supabase.from("meta_leads")
+          .select(SALES_CALL_LEAD_SELECT).eq("id", currentId).maybeSingle();
+        if (error) return;
+        if (data) fetched.push(data as Lead);
+      }
+      if (!isCurrent()) return;
       // Returning / post-consult people are never shown as leads.
       fetched = fetched.filter((l) => !isReturningLead(l.lead_class));
       // Test dummies and blacklisted people never enter a real calling queue.
@@ -1166,12 +1174,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       });
 
       setLeadsLoaded(true);
-    };
+    });
 
-    void load();
+    refresh.refresh();
     void refreshAttendedPhones();
     const ch = supabase.channel("sales-call-leads")
       .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, (payload) => {
+        // Invalidate an older in-flight snapshot as well as applying the event.
+        refresh.refresh();
         if (isReturningLead((payload.new as { lead_class?: string | null } | null)?.lead_class)) return;
         // New enquiries reach the session via the due-queue top-up effect,
         // which places them right after the lead the rep is on.
@@ -1206,8 +1216,22 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           return [nextLead, ...prev];
         });
       }).subscribe();
-    return () => { void supabase.removeChannel(ch); };
-  }, []);
+    // Realtime can disconnect while a tab sleeps. Recover missed enquiries
+    // during a session rather than waiting for a page reload.
+    const refreshVisible = () => { if (document.visibilityState === "visible") refresh.refresh(); };
+    const interval = setInterval(refreshVisible, 30_000);
+    window.addEventListener("online", refreshVisible);
+    window.addEventListener("focus", refreshVisible);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => {
+      refresh.stop();
+      clearInterval(interval);
+      window.removeEventListener("online", refreshVisible);
+      window.removeEventListener("focus", refreshVisible);
+      document.removeEventListener("visibilitychange", refreshVisible);
+      void supabase.removeChannel(ch);
+    };
+  }, [authReady, user?.id]);
 
   // Missed-call jump-the-queue: if an inbound missed call comes in from a lead
   // that's already in the current session queue (e.g. someone marked "no answer"
@@ -1471,8 +1495,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   }, [leads, isLeadUnavailable]);
 
   // Build the ordered session queue. The rules live in ./sales-call/queue.ts
-  // (pure, unit tested): new → no answer → the rest, once a day each and
-  // twice a day for leads in their first 14 days. Scheduled callbacks are
+  // (pure, unit tested): new → newest no-answers → the rest. Afternoon
+  // second turns follow everyone's first turn today. Scheduled callbacks are
   // served separately at their time — see the callback watcher below.
   const buildSessionQueue = useCallback(
     (): string[] =>
@@ -1482,10 +1506,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     [leads, callHistory, isLeadUnavailable, isPriorityLead, clockTick],
   );
 
-  // Everything due to be served right now, per the queue rules. Brand-new
-  // enquiries in it that aren't in the session queue yet are spliced in right
-  // after the lead the rep is on. Anything else that becomes due mid-session
-  // (a young lead's afternoon turn) is appended when the queue runs dry.
+  // Keep the waiting list current, including fresh leads already present in
+  // a restored queue. The active call stays in place.
   const dueQueue = useMemo(
     () => buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadUnavailable, isPriority: isPriorityLead, requireHistory: true }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1538,18 +1560,15 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     if (skipped > 0) toast(`Passed ${skipped} lead${skipped === 1 ? "" : "s"} already handled or deferred`);
     return i;
   }, []);
+  const orderedDueRef = useRef(dueLeadIds);
+  orderedDueRef.current = dueLeadIds;
+  const refreshWaitingQueue = useCallback((queue: string[], index: number, currentId: string | null) =>
+    reorderSessionQueue({ queue, index, activeId: currentId, orderedIds: orderedDueRef.current,
+      priorityIds: missedCallQueueRef.current, skipped: sessionSkipsRef.current }), []);
   useEffect(() => {
-    if (!sessionActive) return;
-    const fresh = dueLeadIds.filter((id) => dueQueue.group[id] === "new" && !sessionSkipsRef.current.has(id));
-    if (fresh.length === 0) return;
-    setSessionQueue((q) => {
-      const known = new Set(q);
-      const add = fresh.filter((id) => !known.has(id));
-      if (add.length === 0) return q;
-      const cut = Math.min(Math.max(sessionIndex + 1, 0), q.length);
-      return [...q.slice(0, cut), ...add, ...q.slice(cut)];
-    });
-  }, [dueLeadIds, dueQueue.group, sessionActive, sessionIndex]);
+    if (!sessionActive || !callHistoryReady || practiceMode || testLeadIds.length) return;
+    setSessionQueue(q => refreshWaitingQueue(q, sessionIndex, activeId));
+  }, [dueLeadIds, missedCallQueue, sessionActive, callHistoryReady, sessionIndex, activeId, refreshWaitingQueue, practiceMode, testLeadIds.length]);
 
   const missingLeadTriedRef = useRef<Set<string>>(new Set());
 
@@ -1861,7 +1880,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       );
     }
     // sessionActive — auto-advance
-    const nextId = sessionQueue[sessionIndex];
+    const waitingQueue = refreshWaitingQueue(sessionQueue, sessionIndex, null);
+    const nextId = waitingQueue[sessionIndex];
     // Whatever happens below, never leave the rep on a blank screen: show a
     // short holding message with a way out while the next lead is worked out.
     const holding = (
@@ -1894,6 +1914,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const leadLoaded = !!queuedLead;
       if (leadLoaded && activeId !== nextId) {
         queueMicrotask(() => {
+          setSessionQueue(waitingQueue);
           setActiveId(nextId);
           setStep("mindset");
           setCompleted((prev) => (prev.size === 0 ? prev : new Set()));
@@ -2105,9 +2126,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               }
             }
             if (sessionActive) {
-              const nextIndex = advanceIndexFrom(nextSessionIndexFromActive(sessionQueue, activeId, sessionIndex));
+              const nextQueue = refreshWaitingQueue(sessionQueue, sessionIndex, activeId);
+              const nextIndex = nextSessionIndexFromActive(nextQueue, activeId, sessionIndex);
+              setSessionQueue(nextQueue);
               setSessionIndex(nextIndex);
-              const nextId = sessionQueue[nextIndex];
+              const nextId = nextQueue[nextIndex];
               if (nextId) {
                 setActiveId(nextId);
                 setStep("mindset");
@@ -2193,9 +2216,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             }
             if (sessionActive) {
               if (wasBooked) setSessionBookings((b) => b + 1);
-              const nextIndex = advanceIndexFrom(nextSessionIndexFromActive(sessionQueue, activeId, sessionIndex));
+              const nextQueue = refreshWaitingQueue(sessionQueue, sessionIndex, activeId);
+              const nextIndex = nextSessionIndexFromActive(nextQueue, activeId, sessionIndex);
+              setSessionQueue(nextQueue);
               setSessionIndex(nextIndex);
-              const nextId = sessionQueue[nextIndex];
+              const nextId = nextQueue[nextIndex];
               if (nextId) {
                 setActiveId(nextId);
                 setStep("mindset");
