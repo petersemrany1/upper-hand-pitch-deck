@@ -9,8 +9,8 @@ const checkSchema = z.object({
 export type NorwoodPhotoCheck = { ready: boolean; message: string };
 export const VIEW_CORRECTIONS: Record<NorwoodView, string> = {
   front: "Show your hairline and both temples. Push your hair back.",
-  top: "Keep the phone at forehead height. Bow your head towards it.",
-  crown: "Keep the phone up. Tuck your chin and lean forward to show the back of your head.",
+  top: "Lift the phone above your forehead. Look down.",
+  crown: "Lift the phone above your head. Chin to chest — show the back of your head.",
   left: "Turn your nose to your right. Show your left temple and ear.",
   right: "Turn your nose to your left. Show your right temple and ear.",
 };

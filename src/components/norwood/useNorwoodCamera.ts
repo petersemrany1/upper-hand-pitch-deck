@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { NORWOOD_IMAGE_PIPELINE, photoQuality, type NorwoodView } from "@/lib/norwood-assessment";
 import type { NorwoodPatientApi } from "@/lib/norwood-preview-session";
 
-export function prepareNorwoodPhoto(source: CanvasImageSource, width: number, height: number, frame = false) {
+export function prepareNorwoodPhoto(source: CanvasImageSource, width: number, height: number, frame = false, checkQuality = true) {
   if (Math.min(width, height) < 480) throw new Error("Use a larger, clearer photo with your head in view.");
   const canvas = document.createElement("canvas"), scale = Math.min(1, (frame ? 640 : NORWOOD_IMAGE_PIPELINE.maxDimension) / Math.max(width, height));
   canvas.width = Math.round(width * scale); canvas.height = Math.round(height * scale);
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Camera unavailable. Use the phone camera option.");
   ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
-  if (!frame) {
+  if (!frame && checkQuality) {
     const sample = document.createElement("canvas"); sample.width = sample.height = 256;
     const sc = sample.getContext("2d")!, crop = Math.min(canvas.width, canvas.height);
     sc.drawImage(canvas, (canvas.width - crop) / 2, (canvas.height - crop) / 2, crop, crop, 0, 0, 256, 256);

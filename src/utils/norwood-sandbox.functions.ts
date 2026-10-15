@@ -1,9 +1,11 @@
+import { checkNorwoodPhotoService } from "./norwood-photo-service.server";
+import { configuredNorwoodModel } from "./norwood-inference.server";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest, setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { NORWOOD_VIEWS, NORWOOD_MAX_PHOTO_BYTES } from "@/lib/norwood-assessment";
-import { selectNorwoodFrames, analyseNorwood, consentNorwoodCamera, checkNorwoodFrame, assertNorwoodStaff, hashNorwoodToken, latestNorwood, norwoodPhotoLinks, patientAction, patientPreviewUrl, patientSession, repSession, sendNorwoodLink, uploadNorwoodPhoto } from "./norwood-sandbox.server";
+import { captureNorwoodFrame, selectNorwoodFrames, analyseNorwood, consentNorwoodCamera, checkNorwoodFrame, assertNorwoodStaff, hashNorwoodToken, latestNorwood, norwoodPhotoLinks, patientAction, patientPreviewUrl, patientSession, repSession, sendNorwoodLink, uploadNorwoodPhoto } from "./norwood-sandbox.server";
 
 import { assertNorwoodPreviewRequest } from "@/lib/norwood-preview-access";
 import { assertNorwoodSandboxLead } from "@/lib/norwood-sandbox-access";
@@ -30,6 +32,7 @@ export const getNorwoodSandboxReadiness = createServerFn({ method: "POST" }).mid
     await assertNorwoodStaff(context.supabase, data.leadId);
     patientPreviewUrl("readiness-check");
     if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.ANTHROPIC_API_KEY) throw new Error("The phone test needs its server-side SMS and AI connections.");
+    await checkNorwoodPhotoService(process.env.ANTHROPIC_API_KEY, configuredNorwoodModel());
     return true;
   }));
 export const getRepNorwoodAssessment = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
@@ -73,3 +76,7 @@ export const checkPatientNorwoodFrame = createServerFn({ method: "POST" }).input
 export const selectPatientNorwoodFrames = createServerFn({ method: "POST" }).inputValidator(tokenInput.extend({
   scan: z.enum(["upper", "sides"]), frames: z.array(z.string().min(1).max(200_000)).min(1).max(12),
 })).handler(({ data }) => safely(() => selectNorwoodFrames(data.token, data.scan, data.frames)));
+
+export const capturePatientNorwoodFrame = createServerFn({ method: "POST" }).inputValidator(tokenInput.extend({
+  view: z.enum(NORWOOD_VIEWS), photo: z.string().min(1).max(Math.ceil(NORWOOD_MAX_PHOTO_BYTES / 3) * 4),
+}).strict()).handler(({ data }) => safely(() => captureNorwoodFrame(data.token, data.view, data.photo)));

@@ -2,8 +2,8 @@ import type { NorwoodView } from "@/lib/norwood-assessment";
 
 export const CAPTURE_STEPS = {
   front: { title: "Front hairline", move: "Phone in front. Push your hair back.", target: "Hairline + both temples" },
-  top: { title: "Top of your head", move: "Keep the phone at forehead height. Slowly look down.", target: "Hairline + middle of scalp" },
-  crown: { title: "Back of the top · crown", move: "Keep the phone up. Tuck your chin and lean forward towards it.", target: "Crown + hair below it" },
+  top: { title: "Top of your head", move: "Lift the phone above your forehead, pointing down. Look down.", target: "Hairline + middle of scalp" },
+  crown: { title: "Back of the top · crown", move: "Lift the phone above your head, pointing down. Chin to chest.", target: "Crown + hair below it" },
   left: { title: "Left side", move: "Phone in front. Turn your nose to your right.", target: "Left temple + ear" },
   right: { title: "Right side", move: "Phone in front. Turn your nose to your left.", target: "Right temple + ear" },
 } as const;
@@ -13,7 +13,7 @@ export const CAPTURE_STEPS = {
 export default function NorwoodPoseGuide({ view, large = false }: { view: NorwoodView; large?: boolean }) {
   const overhead = view === "top" || view === "crown", side = view === "left" || view === "right";
   return <div className={`nw-pose ${large ? "nw-pose-large" : ""}`}>
-    <div><span>Phone stays in front</span><svg viewBox="0 0 160 112" role="img" aria-label={CAPTURE_STEPS[view].move}>
+    <div><span>{overhead ? "Phone above head" : "Phone in front"}</span><svg viewBox="0 0 160 112" role="img" aria-label={CAPTURE_STEPS[view].move}>
       <g stroke="#345b50" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round">
         <path d="M18 108 Q22 75 55 76 Q85 76 92 108" fill="#dce6dd" />
         <g transform={overhead ? (view === "crown" ? "rotate(80 55 55)" : "rotate(48 55 55)") : undefined}>
@@ -21,7 +21,7 @@ export default function NorwoodPoseGuide({ view, large = false }: { view: Norwoo
           <path d="M28 39 Q22 20 43 15 Q66 9 77 30 L64 26 L57 38 L45 29 L39 49" fill="#658270" />
           <circle cx="70" cy="38" r="1.3" fill="#345b50" /><path d="M44 46 Q36 38 38 50 Q39 55 45 53" fill="none" />
         </g>
-        <path d="M37 96 Q100 104 121 57" fill="none" stroke="#e1c5a5" strokeWidth="9" /><rect x="114" y="25" width="21" height="40" rx="4" fill="#345b50" /><path d="M117 32 V57" stroke="#e5f2d5" /><path d="M111 30 L81 21 M111 58 L82 70" stroke="#8cae75" strokeDasharray="3 4" />
+        <path d={overhead ? "M37 96 Q108 107 125 45" : "M37 96 Q100 104 121 57"} fill="none" stroke="#e1c5a5" strokeWidth="9" /><g transform={overhead ? "translate(0 -15) rotate(-25 124 45)" : undefined}><rect x="114" y="25" width="21" height="40" rx="4" fill="#345b50" /><path d="M117 32 V57" stroke="#e5f2d5" /><path d="M111 30 L81 21 M111 58 L82 70" stroke="#8cae75" strokeDasharray="3 4" /></g>
         {side && <path d="M32 9 Q59 -1 77 9 M70 2 L77 9 L67 13" fill="none" stroke="#648947" />}
       </g>
     </svg></div>

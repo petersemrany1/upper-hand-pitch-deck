@@ -151,6 +151,10 @@ export async function uploadNorwoodPhoto(token: string, view: NorwoodView, base6
   if (!process.env.ANTHROPIC_API_KEY) throw new Error("The photo check is unavailable. Please try again later.");
   const check = await requestNorwoodPhotoCheck(view, base64, process.env.ANTHROPIC_API_KEY, fetch, configuredNorwoodModel());
   if (!check.ready) throw new Error(check.message);
+  return storeCheckedNorwoodPhoto(hash, row, view, bytes);
+}
+
+async function storeCheckedNorwoodPhoto(hash: string, row: AssessmentRow, view: NorwoodView, bytes: Buffer) {
   const path = `${row.id}/${view}-${randomUUID()}.jpg`;
   const { error } = await db().storage.from(BUCKET).upload(path, bytes, { contentType: "image/jpeg", upsert: false, cacheControl: "0" });
   if (error) throw new Error("Your photo could not be uploaded. Please try again.");
@@ -214,4 +218,19 @@ export async function selectNorwoodFrames(token: string, scan: NorwoodScan, fram
   if (error || !data) throw new Error(error?.message.startsWith("Please ask your advisor") ? error.message : "The scan could not be checked. Wait a moment and try again.");
   if (!process.env.ANTHROPIC_API_KEY) throw new Error("The photo check is unavailable. Please try again later.");
   return requestNorwoodScanSelection(frames, requested, process.env.ANTHROPIC_API_KEY, fetch, configuredNorwoodModel());
+}
+
+// Check and save the SAME full-resolution still. A later camera frame must never
+// replace the one that passed. This avoids a second, contradictory AI gate.
+export async function captureNorwoodFrame(token: string, view: NorwoodView, photo: string) {
+  const bytes = decodeNorwoodPhoto(photo), hash = hashNorwoodToken(token);
+  const { data, error } = await db().rpc("reserve_norwood_preview_frame", { p_hash: hash, p_view: view });
+  if (error) throw new Error(error.message.startsWith("This link has expired") || error.message.startsWith("Please ask your advisor") ? error.message : "The camera check could not start. Tap Retry.");
+  if (!data) throw new Error("Please wait a moment, then tap Retry.");
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error("The photo check is unavailable. Please ask your advisor.");
+  const check = await requestNorwoodPhotoCheck(view, photo, process.env.ANTHROPIC_API_KEY, fetch, configuredNorwoodModel());
+  if (!check.ready) return { check, session: null };
+  const row = await patientAction(hash, "reserve_upload");
+  // reserve_upload rechecks expiry, consent and session state after inference.
+  return { check, session: await storeCheckedNorwoodPhoto(hash, row, view, bytes) };
 }

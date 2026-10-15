@@ -4,6 +4,7 @@ import { NORWOOD_VIEWS, type NorwoodView, type PatientNorwoodSession } from "@/l
 import type { NorwoodPatientApi } from "@/lib/norwood-preview-session";
 import NorwoodPoseGuide, { CAPTURE_STEPS } from "./NorwoodPoseGuide";
 import { prepareNorwoodPhoto, useNorwoodCamera } from "./useNorwoodCamera";
+import NorwoodGuidedCapture from "./NorwoodGuidedCapture";
 import NorwoodVideoScan from "./NorwoodVideoScan";
 import hairlineScan from "@/assets/norwood-hairline-scan.jpg";
 import "./norwood-capture.css";
@@ -30,6 +31,17 @@ export default function PatientNorwoodCapture({ api, linkToken: token, mode = "l
       if (!result.ok) throw new Error(result.error);
       setSession(result.data);
     } finally { if (activeToken.current === token) { busyRef.current = false; setBusy(false); } }
+  }
+  async function capturePhoto(photo: string, captureView: NorwoodView) {
+    sessionRevision.current++; busyRef.current = true;
+    try {
+      const result = await api.capturePatientNorwoodFrame!({ data: { token, view: captureView, photo } });
+      if (activeToken.current !== token) return { ready: false, message: "Link changed." };
+      if (!result.ok) throw new Error(result.error);
+      if (result.data.check.ready && !result.data.session) throw new Error("Your photo could not be saved. Tap Retry.");
+      if (result.data.session) setSession(result.data.session);
+      return result.data.check;
+    } finally { if (activeToken.current === token) busyRef.current = false; }
   }
   const camera = useNorwoodCamera({ api, token, view, enabled, save: savePhoto });
 
@@ -78,7 +90,7 @@ export default function PatientNorwoodCapture({ api, linkToken: token, mode = "l
     sessionRevision.current++; busyRef.current = true; setBusy(true); setError("");
     // Open the camera from the button gesture. No frames leave the browser
     // until the consent request succeeds and the capture screen is enabled.
-    const opening = api.selectPatientNorwoodFrames ? Promise.resolve() : camera.open();
+    const opening = (api.capturePatientNorwoodFrame || api.selectPatientNorwoodFrames) ? Promise.resolve() : camera.open();
     try {
       const result = await api.consentPatientNorwood({ data: { token } });
       if (activeToken.current !== token) return;
@@ -101,19 +113,20 @@ export default function PatientNorwoodCapture({ api, linkToken: token, mode = "l
   }
   const showHelp = () => { camera.pause(); setHelp(true); };
 
-  return <main className="nw-page"><div className="nw-shell">
-    <header className="nw-brand"><span className="nw-brand-mark" aria-hidden="true">{session?.clinicName.slice(0, 1) || "H"}</span><span>{session?.clinicName || "Your photo check"}<small>AI NORWOOD SCANNER</small></span><ShieldCheck size={20} aria-label="Private link" /></header>
+  return <main className="nw-page nw-premium"><div className="nw-shell">
+    <header className="nw-brand"><span className="nw-brand-mark" aria-hidden="true">{session?.clinicName.slice(0, 1) || "H"}</span><span>{session?.clinicName || "Your photo check"}<small>HAIR PROFILE</small></span><ShieldCheck size={20} aria-label="Private link" /></header>
     {loading ? <div className="nw-card nw-result" role="status"><span className="nw-spinner" /><p>Opening your link…</p></div>
       : !session || unavailable || expired ? <div className="nw-card nw-result"><h1>{expired ? "This link has expired" : "Let’s get you connected"}</h1><p role="alert">{error || "Ask your advisor for a fresh link."}</p></div>
         : finished ? <div className="nw-card nw-result"><span className="nw-success"><Check size={28} /></span><h1>Your estimate:<br /><strong>Norwood {session.estimate}</strong></h1><p>This is an estimate from your photos. Your doctor will confirm at your consult.</p><p>Your advisor has your result and will check it with you.</p></div>
           : !session.consented ? <div className="nw-card nw-intro">
-            <h1>AI Norwood<br />scale scanner</h1><img className="nw-intro-photo" src={hairlineScan} alt="" width={768} height={512} />
+            <div className="nw-intro-heading"><span className="nw-eyebrow">AI-ASSISTED ASSESSMENT</span><h1>Hair <span>Profile</span></h1></div><img className="nw-intro-photo" src={hairlineScan} alt="" width={768} height={512} />
             <p className="nw-tips"><b>Tips:</b> Bright room · Dry hair · No hats</p>
             <label className="nw-consent"><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} /><span>{mode === "private" ? "I agree to camera images being checked by Anthropic AI and 5 photos being saved privately for my advisory team." : "I agree to send my photos to Anthropic AI. They stay in this tab and are not saved to patient records."}</span></label>
             {error && <p className="nw-error" role="alert">{error}</p>}
             <button className="nw-primary" disabled={!accepted || busy} onClick={() => void begin()}>{busy ? "Starting…" : "Start my scan"}<ChevronRight size={20} /></button>
           </div>
             : allPhotos ? <div className="nw-card nw-result" aria-live="polite">{session.status !== "failed" && <span className="nw-spinner" />}<h1>{session.status === "failed" ? "Let’s check this together" : "Analysing…"}</h1><p>Your advisor will see the result too.</p>{error && <p className="nw-error" role="alert">{error}</p>}{session.canRetry && <button className="nw-primary" disabled={busy} onClick={() => void runAnalysis()}>Try again</button>}{session.status === "failed" && !session.canRetry && <p>Your advisor can review the photos with you.</p>}</div>
+              : api.capturePatientNorwoodFrame ? <NorwoodGuidedCapture token={token} views={session.views} capture={capturePhoto} />
               : api.selectPatientNorwoodFrames ? <NorwoodVideoScan api={api} token={token} views={session.views} save={savePhoto} />
               : <div className="nw-card nw-capture">
                 <div className="nw-step-row"><span>Photo {session.views.length + 1} of 5</span><span>Silent photo check</span></div>
