@@ -17,7 +17,7 @@ The amount comes from the verified provider refund (or the recorded amount for a
 
 ## Deployment and checks
 
-Apply `20261015020000_refund_notifications.sql` before publishing code. It installs restricted server functions and schedules `refund-notifications-every-minute` plus `refund-alert-emails-every-minute`. Both reuse the existing vault service-role credential (`SUPABASE_SERVICE_ROLE_KEY`, or this project's `email_queue_service_role_key`); no credential is copied into source or returned by health checks.
+Apply the core section of `20261015020000_refund_notifications.sql` and `20261015021000_refund_alert_email_tokens.sql` before publishing code, then activate the two schedules after publishing. They install restricted server functions and schedule `refund-notifications-every-minute` plus `refund-alert-emails-every-minute`. Both reuse the existing vault service-role credential (`SUPABASE_SERVICE_ROLE_KEY`, or this project's `email_queue_service_role_key`); no credential is copied into source or returned by health checks. Owner alerts include the provider-required stored unsubscribe token, reuse it across sends, and honour a used token or suppressed recipient. The follow-up migration also repairs missing tokens on unsent refund alerts without changing other mail.
 
 `POST /api/public/hooks/refund-notifications` requires the service role key. `{ "dryRun": true }` reads configuration and notification states without claims, writes or sends. Public/user tokens are denied. The refund email job calls the existing `/lovable/email/queue/process` with `{ "refundAlertsOnly": true }`; default callers retain their prior behaviour. The dedicated queue has a 24-hour TTL and the dispatcher's existing five-failure budget and dead-letter audit trail.
 

@@ -12,6 +12,10 @@ CREATE TABLE clinic_appointments(id uuid PRIMARY KEY,clinic_id uuid,lead_id uuid
   payment_processor text,square_payment_id text,square_refund_id text,stripe_payment_intent_id text,stripe_refund_id text,
   refund_status text,refund_processed_at timestamptz,outcome text);
 CREATE TABLE suppressed_emails(email text);
+CREATE TABLE email_unsubscribe_tokens(token text NOT NULL UNIQUE,email text NOT NULL UNIQUE,used_at timestamptz);
+CREATE SCHEMA pgmq;
+CREATE TABLE pgmq.q_refund_alert_emails(message jsonb);
+INSERT INTO pgmq.q_refund_alert_emails VALUES('{"to":"peter@gobold.com.au","message_id":"unsent-fixture"}'),('{"to":"unrelated@example.com"}');
 CREATE TABLE sms_threads(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),phone text UNIQUE,display_name text);
 CREATE TABLE sms_messages(thread_id uuid,direction text,body text,twilio_message_sid text UNIQUE,status text,from_number text,to_number text,lead_id uuid,sent_at timestamptz);
 CREATE TABLE email_send_log(id uuid DEFAULT gen_random_uuid(),message_id uuid,template_name text,recipient_email text,status text);
@@ -24,6 +28,13 @@ INSERT INTO clinic_appointments(id,clinic_id,patient_name,patient_phone,deposit_
 `);
 const sql=readFileSync(new URL('../supabase/migrations/20261015020000_refund_notifications.sql',import.meta.url),'utf8').split('-- Deployment scheduling')[0];
 await db.exec(sql); await db.exec(sql);
+const emailTokenSql=readFileSync(new URL('../supabase/migrations/20261015021000_refund_alert_email_tokens.sql',import.meta.url),'utf8');
+await db.exec(emailTokenSql); await db.exec(emailTokenSql);
+const storedToken=(await db.query("select token from email_unsubscribe_tokens where email='peter@gobold.com.au'")).rows[0].token;
+assert.match(storedToken,/^[0-9a-f]{64}$/,'Provider requires a real stored unsubscribe token');
+const repaired=(await db.query('select message from pgmq.q_refund_alert_emails')).rows;
+assert.equal(repaired.find(r=>r.message.to==='peter@gobold.com.au').message.unsubscribe_token,storedToken);
+assert.equal(repaired.find(r=>r.message.to==='unrelated@example.com').message.unsubscribe_token,undefined,'Repair leaves unrelated mail unchanged');
 const count=async(kind)=>Number((await db.query('select count(*) n from refund_notifications'+(kind?' where kind=$1':''),kind?[kind]:[])).rows[0].n);
 assert.equal(await count(),0,'No backfill of historical refunds');
 await db.exec(`UPDATE clinic_appointments SET refund_status='refunded' WHERE id='${id(1)}'`);
@@ -69,6 +80,8 @@ const queued=(await db.query('select * from test_email_queue')).rows;
 assert.equal(queued.length,1,'Email enqueue is exactly once at the database boundary');
 assert.equal(queued[0].queue,'refund_alert_emails','Refund alerts do not depend on or drain other email queues');
 assert.equal(queued[0].payload.to,'peter@gobold.com.au'); assert.equal(queued[0].payload.message_id,email.id);
+assert.equal(queued[0].payload.unsubscribe_token,storedToken,'New alerts reuse the recipient token');
+assert.equal((await db.query('select count(*) n from email_unsubscribe_tokens')).rows[0].n,1,'Migration replay and enqueue keep one token per recipient');
 await insert(4);
 await db.query("update clinic_appointments set refund_status='manual_required' where id=$1",[id(4)]);
 assert.equal(await count('ops_email'),2,'Missing payment path alerts the owner');
@@ -92,6 +105,13 @@ await db.query("insert into suppressed_emails values('peter@gobold.com.au')");
 const [waitingClaim]=await claim(waiting.id);
 await db.query('select enqueue_refund_alert($1,$2,$3,$4,$5)',[waiting.id,waitingClaim.claim_token,'Test','<p>Test</p>','Test']);
 assert.equal((await db.query('select status from refund_notifications where id=$1',[waiting.id])).rows[0].status,'failed');
+assert.equal((await db.query('select count(*) n from test_email_queue')).rows[0].n,1);
+await db.query("delete from suppressed_emails where email='peter@gobold.com.au'");
+await db.query("update email_unsubscribe_tokens set used_at=now() where email='peter@gobold.com.au'");
+const usedTokenNotice=(await db.query("select * from refund_notifications where kind='ops_email' and status='pending' limit 1")).rows[0];
+const [usedTokenClaim]=await claim(usedTokenNotice.id);
+await db.query('select enqueue_refund_alert($1,$2,$3,$4,$5)',[usedTokenNotice.id,usedTokenClaim.claim_token,'Test','<p>Test</p>','Test']);
+assert.equal((await db.query('select status from refund_notifications where id=$1',[usedTokenNotice.id])).rows[0].status,'failed','A used unsubscribe token must not bypass suppression');
 assert.equal((await db.query('select count(*) n from test_email_queue')).rows[0].n,1);
 // Read and write boundaries: clinic/rep users cannot see sensitive failure details or send jobs.
 await db.exec("SET ROLE authenticated; SELECT set_config('test.admin','no',false)");
