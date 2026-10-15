@@ -13,6 +13,7 @@ The amount comes from the verified provider refund (or the recorded amount for a
 - Texts use the existing patient SMS number. The `sending` state is saved before contacting Twilio. A timeout, ambiguous 5xx, or crashed sender becomes `uncertain`, emails Peter, and never automatically resends. Explicit rate limiting can retry. Definitive SMS rejection or undeliverable status also emails Peter.
 - Signed callbacks and a delivery polling fallback update status. Inbox logging is atomic and deduplicated by Twilio SID. Delayed callbacks cannot regress a delivered message. Failed inbox writes retry without resending.
 - Owner emails go only to **peter@gobold.com.au**, through a dedicated `refund_alert_emails` queue and the existing verified sender. Enqueue and outbox status are committed together. The existing email dispatcher handles provider retries and delivery logs in a dedicated refund-only mode, without draining other queues. Suppression is honoured and remains visible as failure.
+- Migration `20261015022000_refund_email_failed_run_retry.sql` supports a fresh, durably saved send reference only when the provider explicitly reports HTTP 409 `run_failed`. Ambiguous responses keep the original reference. Concurrent renewals and already-sent messages cannot create duplicate retry references.
 - Provider webhooks retrieve current state to avoid out-of-order status changes. A six-hourly check of new provider refunds for 45 days also detects later bank rejection if webhooks are unavailable.
 
 ## Deployment and checks

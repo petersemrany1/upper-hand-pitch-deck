@@ -1,4 +1,4 @@
-import { sendLovableEmail } from '@lovable.dev/email-js'
+import { EmailAPIError, sendLovableEmail } from '@lovable.dev/email-js'
 import { createClient } from '@supabase/supabase-js'
 import { createFileRoute } from '@tanstack/react-router'
 import { paymentBookingAlertState } from '@/utils/payment-booking-alert.server'
@@ -305,6 +305,19 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
                 failed_attempts: failedAttempts,
                 error: errorMsg,
               })
+
+              // A confirmed failed run cannot be reused. Persist a new key only for
+              // that explicit rejection; timeouts/5xx keep the original key to avoid duplicates.
+              if (queue === 'refund_alert_emails' && error instanceof EmailAPIError
+                && error.status === 409 && /"type"\s*:\s*"run_failed"/.test(error.message)
+                && typeof payload.idempotency_key === 'string') {
+                const { error: renewError } = await supabase.rpc('renew_failed_refund_email', {
+                  p_message_id: msg.msg_id,
+                  p_previous_key: payload.idempotency_key,
+                  p_next_key: `refund-alert-${payload.message_id}-${crypto.randomUUID()}`,
+                })
+                if (renewError) console.error('Could not renew rejected refund email run', { msg_id: msg.msg_id, error: renewError })
+              }
 
               if (isRateLimited(error)) {
                 await supabase.from('email_send_log').insert({

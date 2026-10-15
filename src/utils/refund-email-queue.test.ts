@@ -9,12 +9,12 @@ afterEach(() => {
   for (const key of keys) { if (originalEnv[key] === undefined) delete process.env[key]; else process.env[key] = originalEnv[key]; }
 });
 
-function setup(emailResult: "ok" | "reject" | "429" | "not-accepted" = "ok", duplicate = false) {
+function setup(emailResult: "ok" | "reject" | "429" | "not-accepted" | "failed-run" | "other-conflict" = "ok", duplicate = false) {
   process.env.LOVABLE_API_KEY = "fixture-api-key";
   process.env.LOVABLE_SEND_URL = "https://email.fixture.test/send";
   process.env.VITE_SUPABASE_URL = "https://db.fixture.test";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "fixture-service-role";
-  const reads: string[] = [], deletes: any[] = [], logs: any[] = [], sends: any[] = [];
+  const reads: string[] = [], deletes: any[] = [], logs: any[] = [], sends: any[] = [], renewals: any[] = [];
   globalThis.fetch = (async (input, init) => {
     const url = String(input instanceof Request ? input.url : input);
     const body = init?.body ? JSON.parse(String(init.body)) : {};
@@ -24,6 +24,8 @@ function setup(emailResult: "ok" | "reject" | "429" | "not-accepted" = "ok", dup
       if (emailResult === "reject") return Response.json({ error: "Temporary failure" }, { status: 503 });
       if (emailResult === "429") return Response.json({ error: "Rate limited" }, { status: 429, headers: { "retry-after": "60" } });
       if (emailResult === "not-accepted") return Response.json({ success: false });
+      if (emailResult === "failed-run") return Response.json({ type: "run_failed", message: "This email send already failed. Send again with a new idempotency key." }, { status: 409 });
+      if (emailResult === "other-conflict") return Response.json({ type: "run_pending" }, { status: 409 });
       return Response.json({ success: true, message_id: "test-message" });
     }
     if (!url.startsWith("https://db.fixture.test/")) throw new Error(`Unexpected network request: ${url}`);
@@ -36,6 +38,7 @@ function setup(emailResult: "ok" | "reject" | "429" | "not-accepted" = "ok", dup
       } }] : []);
     }
     if (url.includes("/rpc/delete_email")) { deletes.push(body); return Response.json(true); }
+    if (url.includes("/rpc/renew_failed_refund_email")) { renewals.push(body); return Response.json(true); }
     if (url.includes("/email_send_state")) return Response.json(init?.method === "PATCH" ? null : { batch_size: 10, send_delay_ms: 0 });
     if (url.includes("/email_send_log")) {
       if (init?.method === "POST") { logs.push(body); return new Response(null, { status: 201 }); }
@@ -47,7 +50,7 @@ function setup(emailResult: "ok" | "reject" | "429" | "not-accepted" = "ok", dup
   const run = async (refundOnly: boolean) => (Route.options as any).server.handlers.POST({ request: new Request("https://fixture.test/lovable/email/queue/process", {
     method: "POST", headers: { authorization: "Bearer fixture-service-role", "content-type": "application/json" }, body: JSON.stringify({ refundAlertsOnly: refundOnly }),
   }) });
-  return { reads, deletes, logs, sends, run };
+  return { reads, deletes, logs, sends, renewals, run };
 }
 
 test("refund scheduler sends only its dedicated queue and logs provider acceptance", async () => {
@@ -62,6 +65,16 @@ test("existing email callers keep their original queues", async () => {
 });
 test("failed owner-email sends stay queued for retry", async () => {
   const f = setup("reject"); await f.run(true); expect(f.deletes).toHaveLength(0); expect(f.logs.some(row => row.status === "failed")).toBe(true);
+  expect(f.renewals).toHaveLength(0);
+});
+test("only an explicitly failed provider run renews the durable send key", async () => {
+  const f = setup("failed-run"); await f.run(true);
+  expect(f.renewals).toHaveLength(1); expect(f.renewals[0].p_previous_key).toBe("refund-alert-test");
+  expect(f.renewals[0].p_next_key).toMatch(/^refund-alert-test-message-[0-9a-f-]{36}$/);
+  expect(f.sends).toHaveLength(1); expect(f.deletes).toHaveLength(0);
+});
+test("an in-progress or unknown provider conflict never gets a second send key", async () => {
+  const f = setup("other-conflict"); await f.run(true); expect(f.renewals).toHaveLength(0); expect(f.deletes).toHaveLength(0);
 });
 test("rate limits keep owner emails queued and stop the batch", async () => {
   const f = setup("429"); const response = await f.run(true); expect((await response.json()).stopped).toBe("rate_limited"); expect(f.deletes).toHaveLength(0);
