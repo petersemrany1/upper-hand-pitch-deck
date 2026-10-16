@@ -4,9 +4,9 @@ export class NorwoodServiceError extends Error {
 }
 
 /** Bounded provider transport. Diagnostics deliberately exclude images, tokens and response text. */
-export async function requestNorwoodJson<T>({ model, apiKey, schema, system, content, parse, request = fetch }: {
+export async function requestNorwoodJson<T>({ model, apiKey, schema, system, content, parse, request = fetch, maxTokens = 768 }: {
   model: string; apiKey: string; schema: object; system: string; content: object[];
-  parse: (raw: string) => T; request?: typeof fetch;
+  parse: (raw: string) => T; request?: typeof fetch; maxTokens?: number;
 }): Promise<T> {
   const signal = AbortSignal.timeout(40_000);
   let toolFormat = false;
@@ -16,7 +16,7 @@ export async function requestNorwoodJson<T>({ model, apiKey, schema, system, con
       response = await request("https://api.anthropic.com/v1/messages", {
         method: "POST", signal,
         headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-        body: JSON.stringify({ model, temperature: 0, max_tokens: 768, system,
+        body: JSON.stringify({ model, temperature: 0, max_tokens: maxTokens, system,
           ...(toolFormat ? {
             tools: [{ name: "photo_check", description: "Return the camera framing check.", input_schema: schema }],
             tool_choice: { type: "tool", name: "photo_check" },

@@ -1,78 +1,75 @@
 import { expect, test } from "bun:test";
-import { NorwoodCaptureController, type CaptureState } from "./norwood-capture-controller";
+import { NorwoodCaptureController, CaptureSamples, CAPTURE_MAX_FRAMES, CAPTURE_MAX_TICKS, type CaptureState } from "./norwood-capture-controller";
 import type { NorwoodView } from "./norwood-assessment";
 import type { NorwoodPhotoCheck } from "./norwood-photo-check";
 const deferred = <T>() => { let resolve!: (value:T)=>void, reject!: (error:Error)=>void; const promise = new Promise<T>((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject}; };
 function setup(view: NorwoodView = "front") {
   let opens=0, stops=0, shots=0, checks=0;
-  const states: CaptureState[]=[], waits:number[]=[], submitted:string[][]=[];
+  const states: CaptureState[]=[], submitted:string[][]=[];
   let response: () => Promise<NorwoodPhotoCheck> = async()=>({ready:true,message:"saved"});
   const camera={photo:()=>`original-${++shots}`,stop:()=>{stops++;}};
-  const ports = {open:async(_signal:AbortSignal)=>{opens++;return camera;}, check:async(photos:string[],actual:NorwoodView)=>{expect(actual).toBe(view);checks++;submitted.push([...photos]);return response();},change:(s:CaptureState)=>states.push(s),wait:async(ms:number,_signal:AbortSignal)=>{waits.push(ms);}};
+  const ports = {open:async(_signal:AbortSignal)=>{opens++;return camera;}, check:async(photos:string[],actual:NorwoodView)=>{expect(actual).toBe(view);checks++;submitted.push([...photos]);return response();},change:(s:CaptureState)=>states.push(s),wait:async(_ms:number,_signal:AbortSignal)=>{}};
   const controller=new NorwoodCaptureController(view,ports);
-  return {controller,ports,camera,states,waits,submitted,setResponse:(next:typeof response)=>{response=next;},counts:()=>({opens,stops,shots,checks})};
+  return {controller,ports,camera,states,submitted,setResponse:(next:typeof response)=>{response=next;},counts:()=>({opens,stops,shots,checks})};
 }
-test("nothing opens or captures until the user chooses; opening never starts a timer",async()=>{
- const h=setup();expect(h.counts()).toEqual({opens:0,stops:0,shots:0,checks:0});
- await h.controller.take();expect(h.counts().checks).toBe(0);
- await h.controller.open();expect(h.controller.state.phase).toBe("camera");expect(h.counts().shots).toBe(0);expect(h.waits).toHaveLength(0);
+test("camera opens only on demand and waits for Start",async()=>{
+ const h=setup();await h.controller.take();expect(h.counts()).toEqual({opens:0,stops:0,shots:0,checks:0});
+ await h.controller.open();expect(h.controller.state.phase).toBe("camera");expect(h.counts().shots).toBe(0);
  await h.controller.open();expect(h.counts().opens).toBe(1);h.controller.dispose();
 });
-test("all five poses capture a bounded three-frame burst after the correct timer, never audio",async()=>{
+test("the patient can finish any angle after returning to the screen, with no shutter countdown",async()=>{
  for(const view of ["front","top","crown","left","right"] as NorwoodView[]){
-  const h=setup(view);await h.controller.open();await h.controller.take();
-  expect(h.submitted).toEqual([["original-1","original-2","original-3"]]);expect(h.counts().stops).toBe(1);
-  expect(h.waits).toEqual([...Array(view==="top"||view==="crown"?8:5).fill(1000),650,650]);
-  expect(h.states.at(-1)?.phase).toBe("checking");h.controller.dispose();
+  const h=setup(view), gate=deferred<void>();h.ports.wait=()=>gate.promise;
+  await h.controller.open();const capture=h.controller.take();expect(h.controller.state.phase).toBe("scanning");
+  expect(h.counts().shots).toBe(1);await h.controller.finish();gate.resolve();await capture;
+  expect(h.submitted).toEqual([["original-1"]]);expect(h.counts().stops).toBe(1);h.controller.dispose();
  }
 });
-test("a rejected angle pauses with its specific correction and never retries automatically",async()=>{
- const h=setup("crown");h.setResponse(async()=>({ready:false,message:"Show the back of the top."}));
+test("bounded sampling retains early and late evidence, never just the final face selfie",()=>{
+ const samples=new CaptureSamples();for(let tick=0;tick<40;tick++) {samples.add(tick,`frame-${tick}`);expect(samples.photos().length).toBeLessThanOrEqual(CAPTURE_MAX_FRAMES);}
+ const result=samples.photos().map(p=>Number(p.slice(6)));expect(result[0]).toBe(0);expect(result.at(-1)).toBe(39);
+ expect(result.some(t=>t>=10&&t<=18)).toBe(true);expect(result.some(t=>t>=21&&t<=28)).toBe(true);
+ expect(new Set(result).size).toBe(result.length);samples.clear();expect(samples.photos()).toEqual([]);
+});
+test("capture stops at the bound even when Done is never tapped",async()=>{
+ const h=setup("crown");await h.controller.open();await h.controller.take();
+ expect(h.counts().shots).toBe(CAPTURE_MAX_TICKS);expect(h.submitted[0]).toHaveLength(8);expect(h.counts().checks).toBe(1);expect(h.counts().stops).toBe(1);h.controller.dispose();
+});
+test("rejection shows the exact reviewed frame without pretending a photo was saved",async()=>{
+ const h=setup();h.setResponse(async()=>({ready:false,message:"Push your hair back.",reviewIndex:2}));
  await h.controller.open();await h.controller.take();
- expect(h.controller.state).toEqual({phase:"retake",seconds:null,message:"Show the back of the top."});
- expect(h.counts().checks).toBe(1);await h.controller.retryConnection();expect(h.counts().checks).toBe(1);
- await h.controller.open();expect(h.counts().shots).toBe(3);h.controller.dispose();
+ expect(h.controller.state.phase).toBe("retake");expect(h.controller.state.review).toBe(h.submitted[0][2]);
+ expect(h.counts().checks).toBe(1);h.controller.pause();expect(h.controller.state.review).toBeUndefined();h.controller.dispose();
 });
-test("service retry resends the identical originals without reopening the camera",async()=>{
- const h=setup();h.setResponse(async()=>{throw new Error("Service unavailable");});
- await h.controller.open();await h.controller.take();expect(h.controller.state.phase).toBe("connection");
- h.setResponse(async()=>({ready:true,message:"saved"}));await h.controller.retryConnection();
- expect(h.submitted[1]).toEqual(h.submitted[0]);expect(h.counts().opens).toBe(1);expect(h.counts().shots).toBe(3);h.controller.dispose();
+test("out-of-range or absent review indices never show an unrelated frame",async()=>{
+ for(const index of [undefined,-1,99,1.5]) {const h=setup();h.setResponse(async()=>({ready:false,message:"Try again",reviewIndex:index}));await h.controller.usePhoto("photo");expect(h.controller.state.review).toBeUndefined();h.controller.dispose();}
 });
-test("pause during countdown discards the burst and releases the camera",async()=>{
- const h=setup();const gate=deferred<void>();h.ports.wait=()=>gate.promise;
- await h.controller.open();const taking=h.controller.take();h.controller.pause();gate.resolve();await taking;
- expect(h.counts().checks).toBe(0);expect(h.counts().stops).toBe(1);expect(h.controller.state.phase).toBe("guide");h.controller.dispose();
+test("technical retry retains identical originals without another movement",async()=>{
+ const h=setup();h.setResponse(async()=>{throw new Error("offline");});await h.controller.open();await h.controller.take();
+ expect(h.controller.state.phase).toBe("connection");h.setResponse(async()=>({ready:true,message:"saved"}));await h.controller.retryConnection();
+ expect(h.submitted[1]).toEqual(h.submitted[0]);expect(h.counts().opens).toBe(1);h.controller.dispose();
 });
-test("a late permission result is stopped after cancellation, with no stale UI updates",async()=>{
- const h=setup();const gate=deferred<typeof h.camera>();h.ports.open=()=>gate.promise;
- const opening=h.controller.open();h.controller.pause();gate.resolve(h.camera);await opening;
- expect(h.counts().stops).toBe(1);expect(h.controller.state.phase).toBe("guide");h.controller.dispose();
+test("pausing a movement discards unsent images and stops the camera",async()=>{
+ const h=setup(),gate=deferred<void>();h.ports.wait=()=>gate.promise;await h.controller.open();const taking=h.controller.take();h.controller.pause();gate.resolve();await taking;
+ await h.controller.finish();expect(h.counts().checks).toBe(0);expect(h.counts().stops).toBe(1);expect(h.controller.state.phase).toBe("guide");h.controller.dispose();
 });
-test("double taps and hidden-page pauses cannot create overlapping requests",async()=>{
- const h=setup();const gate=deferred<NorwoodPhotoCheck>();h.setResponse(()=>gate.promise);
- await h.controller.open();const taking=h.controller.take();await Promise.resolve();await h.controller.take();
- // Flush the synchronous test clock through the three-frame burst.
- for(let i=0;i<15;i++)await Promise.resolve();expect(h.counts().checks).toBe(1);
- h.controller.pause();await h.controller.open();await h.controller.usePhoto("another");expect(h.counts().checks).toBe(1);
- gate.reject(new Error("offline"));await taking;expect(h.controller.state.phase).toBe("camera_error");
- await h.controller.retryConnection();expect(h.counts().checks).toBe(1);h.controller.dispose();
+test("double Done taps and a late sampling tick cannot submit twice",async()=>{
+ const h=setup(),frame=deferred<void>(),service=deferred<NorwoodPhotoCheck>();h.ports.wait=()=>frame.promise;h.setResponse(()=>service.promise);
+ await h.controller.open();const taking=h.controller.take(), finishing=h.controller.finish();await h.controller.finish();await h.controller.open();await h.controller.usePhoto("other");
+ frame.resolve();await taking;expect(h.counts().checks).toBe(1);service.resolve({ready:true,message:"saved"});await finishing;h.controller.dispose();
 });
-test("switching view or unmounting cancels the previous controller and discards late results",async()=>{
- const h=setup();const gate=deferred<NorwoodPhotoCheck>();h.setResponse(()=>gate.promise);
- const taking=h.controller.usePhoto("native-original");h.controller.dispose();const count=h.states.length;
- gate.resolve({ready:false,message:"wrong angle"});await taking;expect(h.states).toHaveLength(count);
- await h.controller.open();await h.controller.usePhoto("other");expect(h.counts().checks).toBe(1);
+test("hiding during a request suppresses rejected-photo display and retained retry images",async()=>{
+ for(const rejects of [false,true]){const h=setup(),service=deferred<NorwoodPhotoCheck>();h.setResponse(()=>service.promise);const checking=h.controller.usePhoto("private");h.controller.pause();
+ if(rejects)service.reject(new Error("offline"));else service.resolve({ready:false,message:"Wrong angle",reviewIndex:0});await checking;
+ expect(h.controller.state.review).toBeUndefined();await h.controller.retryConnection();expect(h.counts().checks).toBe(1);h.controller.dispose();}
 });
-test("phone-camera fallback uses the same validation and preserves its original on network retry",async()=>{
- const h=setup("top");h.setResponse(async()=>{throw new Error("offline");});
- await h.controller.usePhoto("native-original");expect(h.counts().opens).toBe(0);
- h.setResponse(async()=>({ready:false,message:"wrong angle"}));await h.controller.retryConnection();
- expect(h.submitted).toEqual([["native-original"],["native-original"]]);expect(h.controller.state.phase).toBe("retake");h.controller.dispose();
+test("late permission and unmounted requests cannot revive the camera or render photos",async()=>{
+ const h=setup(),permission=deferred<typeof h.camera>();h.ports.open=()=>permission.promise;const opening=h.controller.open();h.controller.pause();permission.resolve(h.camera);await opening;expect(h.counts().stops).toBe(1);
+ const service=deferred<NorwoodPhotoCheck>();h.setResponse(()=>service.promise);const checking=h.controller.usePhoto("private");h.controller.dispose();const states=h.states.length;
+ service.resolve({ready:false,message:"retry",reviewIndex:0});await checking;expect(h.states).toHaveLength(states);expect(h.controller.state.review).toBeUndefined();
 });
-test("camera denial and a stopped camera surface recovery without a saved-photo claim",async()=>{
- const h=setup();h.ports.open=async()=>{throw new Error("NotAllowedError");};await h.controller.open();
- expect(h.controller.state.phase).toBe("camera_error");expect(h.controller.state.message).not.toContain("saved");
- h.ports.open=async()=>h.camera;h.camera.photo=()=>{throw new Error("track ended");};
- await h.controller.open();await h.controller.take();expect(h.controller.state.phase).toBe("camera_error");expect(h.counts().checks).toBe(0);h.controller.dispose();
+test("native camera fallback and camera errors use the same recoverable path",async()=>{
+ const h=setup();h.ports.open=async()=>{throw new Error("denied");};await h.controller.open();expect(h.controller.state.phase).toBe("camera_error");
+ h.setResponse(async()=>({ready:false,message:"wrong angle",reviewIndex:0}));await h.controller.usePhoto("native-photo");expect(h.controller.state.review).toBe("native-photo");
+ h.ports.open=async()=>h.camera;h.camera.photo=()=>{throw new Error("track ended");};await h.controller.open();await h.controller.take();expect(h.controller.state.phase).toBe("camera_error");h.controller.dispose();
 });

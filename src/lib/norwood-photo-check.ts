@@ -6,11 +6,11 @@ const checkSchema = z.object({
   requested_view_visible: z.boolean(),
   quality: z.enum(["clear", "dark", "blurry", "obscured", "too_far"]),
 }).strict();
-export type NorwoodPhotoCheck = { ready: boolean; message: string };
+export type NorwoodPhotoCheck = { ready: boolean; message: string; reviewIndex?: number };
 export const VIEW_CORRECTIONS: Record<NorwoodView, string> = {
   front: "Show your hairline and both temples. Push your hair back.",
-  top: "Lift the phone above your forehead. Look down.",
-  crown: "Lift the phone above your head. Chin to chest — show the back of your head.",
+  top: "Keep the phone still. Lower your head towards it.",
+  crown: "Keep the phone still. Lean forward with your head down.",
   left: "Turn your nose to your right. Show your left temple and ear.",
   right: "Turn your nose to your left. Show your right temple and ear.",
 };

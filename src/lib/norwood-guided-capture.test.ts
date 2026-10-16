@@ -41,7 +41,7 @@ test("technical recovery never turns a wrong angle or blurred photo into an acce
 test("the send-link readiness check uses a synthetic image and caches a successful real-service check", async () => {
   let calls = 0; let sent = "";
   const request = (async (_: unknown, init: RequestInit) => { calls++; sent = String(init.body); const blank={head_present:false,requested_view_visible:false,problem:"no_head"};
-    return calls === 1 ? reply({frames:[blank,{head_present:true,requested_view_visible:true,problem:"none"},blank],best_frame:1}) : reply({frames:[{head_present:true,requested_view_visible:false,problem:"wrong_angle"}],best_frame:null}); }) as typeof fetch;
+    return calls === 1 ? reply({frames:Array.from({length:8},(_,i)=>i===6?{head_present:true,requested_view_visible:true,problem:"none"}:blank),best_frame:6}) : reply({frames:[{head_present:true,requested_view_visible:false,problem:"wrong_angle"}],best_frame:null}); }) as typeof fetch;
   await checkNorwoodPhotoService("key", "claude-fixture-health", request);
   await checkNorwoodPhotoService("key", "claude-fixture-health", request);
   expect(calls).toBe(2);

@@ -6,7 +6,7 @@ test('capture requires a visible head, the requested region AND adequate quality
   expect(parseNorwoodPhotoCheck(JSON.stringify(clear),'top').ready).toBe(true);
   for(const partial of [{head_present:false},{requested_view_visible:false},...['dark','blurry','obscured','too_far'].map(quality=>({quality}))])
     expect(parseNorwoodPhotoCheck(JSON.stringify({...clear,...partial}),'crown').ready).toBe(false);
-  expect(parseNorwoodPhotoCheck(JSON.stringify({...clear,requested_view_visible:false}),'crown').message).toContain('back of your head');
+  expect(parseNorwoodPhotoCheck(JSON.stringify({...clear,requested_view_visible:false}),'crown').message).toContain('Lean forward');
 });
 test('malformed, coerced, missing and embellished checks fail closed',()=>{
   for(const raw of ['null','{}','```json\n{}\n```',JSON.stringify({...clear,head_present:'true'}),JSON.stringify({...clear,quality:'maybe'}),JSON.stringify({...clear,norwood:4})])

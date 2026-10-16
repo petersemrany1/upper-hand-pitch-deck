@@ -30,5 +30,12 @@ test("one provider call jointly checks the originals and chooses an index; no se
  expect(calls).toBe(1);expect(body.messages[0].content.filter((b:any)=>b.type==="image").map((b:any)=>b.source.data)).toEqual(["one","two","three"]);
  expect(body.system).toContain("A partially cropped face is fine");expect(body.system).toContain("Do NOT grade hair loss");expect(JSON.stringify(body)).not.toContain("secret");
  await expect(requestNorwoodBurstCheck("top",[],"secret",request)).rejects.toThrow();
- await expect(requestNorwoodBurstCheck("top",["1","2","3","4"],"secret",request)).rejects.toThrow();expect(calls).toBe(1);
+ await expect(requestNorwoodBurstCheck("top",Array(9).fill("x"),"secret",request)).rejects.toThrow();expect(calls).toBe(1);
 });
+
+ test("eight-frame movement can select any original and returns a usable rejection preview index",async()=>{
+ const frames=Array.from({length:8},(_,i)=>i===6?usable:blurred);
+ expect(parseNorwoodBurstCheck(JSON.stringify({frames,best_frame:6}),"crown",8).selectedIndex).toBe(6);
+ const failed=parseNorwoodBurstCheck(JSON.stringify({frames:[{head_present:false,requested_view_visible:false,problem:"no_head"},blurred],best_frame:null}),"front",2);
+ expect(failed.reviewIndex).toBe(1);
+ });

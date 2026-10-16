@@ -224,7 +224,7 @@ export async function selectNorwoodFrames(token: string, scan: NorwoodScan, fram
 // Check and save the SAME full-resolution still. A later camera frame must never
 // replace the one that passed. This avoids a second, contradictory AI gate.
 export async function captureNorwoodFrame(token: string, view: NorwoodView, photo: string, alternatives: string[] = []) {
-  if (alternatives.length > 2) throw new Error("Too many photos");
+  if (alternatives.length > 7) throw new Error("Too many photos");
   const photos = [photo, ...alternatives], bytes = photos.map(decodeNorwoodPhoto), hash = hashNorwoodToken(token);
   const existing = await patientAction(hash, "open");
   if (existing.photos[view]) return { check: { ready: true, message: "Photo saved" }, session: patientSession(existing) };
@@ -235,7 +235,7 @@ export async function captureNorwoodFrame(token: string, view: NorwoodView, phot
   const checked = await requestNorwoodBurstCheck(view, photos, process.env.ANTHROPIC_API_KEY, fetch, configuredNorwoodModel());
   // Enum-only diagnostics. No photo, token, lead, storage path or model prose.
   console.info("Norwood capture check", { view, frames: photos.length, accepted: checked.ready, problem: checked.problem });
-  const check = { ready: checked.ready, message: checked.message };
+  const check = { ready: checked.ready, message: checked.message, ...(checked.reviewIndex !== undefined ? { reviewIndex: checked.reviewIndex } : {}) };
   if (!checked.ready || checked.selectedIndex === null) return { check, session: null };
   const row = await patientAction(hash, "reserve_upload");
   // reserve_upload rechecks expiry, consent and session state after inference.

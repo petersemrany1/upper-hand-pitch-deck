@@ -5,8 +5,8 @@ import { requestNorwoodJson } from "./norwood-json.server";
 
 /** Select and validate together. Only the exact chosen original is stored. */
 export async function requestNorwoodBurstCheck(view: NorwoodView, photos: string[], apiKey: string, request: typeof fetch = fetch, model = NORWOOD_MODEL) {
-  if (!photos.length || photos.length > 3) throw new Error("Expected one to three photos");
-  return requestNorwoodJson({ model, apiKey, request,
+  if (!photos.length || photos.length > 8) throw new Error("Expected one to eight photos");
+  return requestNorwoodJson({ model, apiKey, request, maxTokens: 2048,
     // The provider supports minItems 0/1 only; exact count is enforced by our parser.
     schema: { type: "object", additionalProperties: false, required: ["frames", "best_frame"], properties: {
       frames: { type: "array", minItems: 1, description: `Exactly ${photos.length} items, one per photograph in the original order.`, items: { type: "object", additionalProperties: false, required: ["head_present", "requested_view_visible", "problem"], properties: {

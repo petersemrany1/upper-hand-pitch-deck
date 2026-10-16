@@ -4,7 +4,7 @@ import { VIEW_CORRECTIONS, type NorwoodPhotoCheck } from "./norwood-photo-check"
 
 export const BURST_PROBLEMS = ["none", "no_head", "wrong_angle", "hairline_cut_off", "hair_covering", "too_dark", "blurred", "too_far"] as const;
 const frameSchema = z.object({ head_present: z.boolean(), requested_view_visible: z.boolean(), problem: z.enum(BURST_PROBLEMS) }).strict();
-const schema = z.object({ frames: z.array(frameSchema).min(1).max(3), best_frame: z.number().int().min(0).max(2).nullable() }).strict();
+const schema = z.object({ frames: z.array(frameSchema).min(1).max(8), best_frame: z.number().int().min(0).max(7).nullable() }).strict();
 export type BurstCheck = NorwoodPhotoCheck & { selectedIndex: number | null; problem: typeof BURST_PROBLEMS[number] };
 export function parseNorwoodBurstCheck(raw: string, view: NorwoodView, count: number): BurstCheck {
   const result = schema.parse(JSON.parse(raw));
@@ -24,8 +24,8 @@ export function parseNorwoodBurstCheck(raw: string, view: NorwoodView, count: nu
     none: "", no_head: "Bring your head into the picture.", wrong_angle: VIEW_CORRECTIONS[view],
     hairline_cut_off: "Move the phone further away so your whole hairline fits.",
     hair_covering: "Push your hair back so we can see the hairline.",
-    too_dark: "Face a window or a brighter light.", blurred: "Keep the phone still until the timer finishes.",
+    too_dark: "Face a window or a brighter light.", blurred: "Keep your head still for a moment.",
     too_far: "Bring the phone a little closer to your head.",
   };
-  return { ready: false, selectedIndex: null, problem, message: messages[problem] };
+  return { ready: false, selectedIndex: null, problem, message: messages[problem], reviewIndex: result.frames.indexOf(frame) };
 }

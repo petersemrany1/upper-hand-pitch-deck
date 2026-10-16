@@ -79,5 +79,5 @@ export const selectPatientNorwoodFrames = createServerFn({ method: "POST" }).inp
 
 export const capturePatientNorwoodFrame = createServerFn({ method: "POST" }).inputValidator(tokenInput.extend({
   view: z.enum(NORWOOD_VIEWS), photo: z.string().min(1).max(Math.ceil(NORWOOD_MAX_PHOTO_BYTES / 3) * 4),
-  alternatives: z.array(z.string().min(1).max(Math.ceil(NORWOOD_MAX_PHOTO_BYTES / 3) * 4)).max(2).optional(),
+  alternatives: z.array(z.string().min(1).max(Math.ceil(NORWOOD_MAX_PHOTO_BYTES / 3) * 4)).max(7).optional(),
 }).strict()).handler(({ data }) => safely(() => captureNorwoodFrame(data.token, data.view, data.photo, data.alternatives)));
