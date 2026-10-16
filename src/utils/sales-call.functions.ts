@@ -1581,7 +1581,13 @@ export const startRepSession = createServerFn({ method: "POST" }).middleware([re
     return row;
   });
 export const endRepSession = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => { await repSessionAction(context.userId, "end"); return { ok: true as const }; });
+  .handler(async ({ context }) => {
+    const repId = await resolveRepIdForUser(context.userId);
+    const { data, error } = await (supabaseAdmin as unknown as SupabaseClient)
+      .rpc("end_session_after_handovers", { p_rep: repId });
+    if (error) throw new Error("Could not check outstanding handovers. Please retry.");
+    return data as import("@/lib/handover-session").EndSessionResult;
+  });
 export const heartbeatRepSession = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .handler(async ({ context }) => { await repSessionAction(context.userId, "heartbeat"); return { ok: true as const }; });
 

@@ -2,6 +2,8 @@ import { CustomerJourneyTimeline } from "./sales-call/CustomerJourneyTimeline";
 import { useCustomerJourney, refreshCustomerJourney } from "./sales-call/useCustomerJourney";
 import { mediaUrls, messageItem } from "./sales-call/customer-journey";
 import { useSessionCompletion } from "./sales-call/useSessionCompletion";
+import { finishSessionAfterHandoverCheck, type PendingHandover } from "@/lib/handover-session";
+import { PendingHandoversNotice } from "./sales-call/PendingHandoversNotice";
 import { recoverSessionCheck, type SessionConnection } from "./sales-call/session-connection";
 import { createRefreshQueue } from "@/lib/refresh-queue";
 import { leadLocationText, mayFinishReview } from "./sales-call/session-review";
@@ -655,6 +657,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     typeof sessionRestored?.startedAt === "string" ? sessionRestored.startedAt : null
   );
   const sessionEndRequestedRef = useRef(false);
+  const sessionEndingRef = useRef(false);
+  const [checkingHandovers, setCheckingHandovers] = useState(false);
+  const [pendingHandovers, setPendingHandovers] = useState<PendingHandover[]>([]);
+  const [handoverReviewLeadId, setHandoverReviewLeadId] = useState<string | null>(null);
   const sessionStartRequestedRef = useRef(false);
   const [restoreConnection, setRestoreConnection] = useState<SessionConnection>("connected");
   const [presenceConnection, setPresenceConnection] = useState<SessionConnection>("connected");
@@ -685,11 +691,13 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           // Another browser (including an admin viewing this rep) does not own
           // today's open queue and must not end the rep's working session.
           if (!startedToday) {
-            try { closeRepSession(); } catch { /* noop */ }
-            setSessionActive(false);
-            setSessionQueue([]);
-            setSessionIndex(0);
-            setActiveId(null);
+            void closeRepSession().then(ok => {
+              if (!ok) return;
+              setSessionActive(false);
+              setSessionQueue([]);
+              setSessionIndex(0);
+              setActiveId(null);
+            });
           }
           return;
         }
@@ -812,13 +820,36 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     return () => { if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); };
   }, [sessionActive, sessionPaused, sessionStartedAt, breakSeconds]);
 
-  // Fire-and-forget close of the rep's open session row. Called from every
-  // path that exits sessionActive (manual End button, queue exhausted, etc.).
-  const closeRepSession = useCallback(() => {
-    endRepSession({ data: undefined as never }).catch((err) => {
-      console.error("endRepSession failed", err);
-    });
+  // All exit paths await the authoritative check before clearing local state.
+  const closeRepSession = useCallback(async () => {
+    if (sessionEndingRef.current) return false;
+    sessionEndingRef.current = true;
+    setCheckingHandovers(true);
+    try {
+      return await finishSessionAfterHandoverCheck({
+        check: () => endRepSession({ data: undefined as never }),
+        blocked: setPendingHandovers,
+        complete: () => setPendingHandovers([]),
+        failed: () => toast.error("Could not check handovers. Your session is still open — please retry."),
+      });
+    } finally {
+      sessionEndingRef.current = false;
+      setCheckingHandovers(false);
+    }
   }, []);
+
+  const openPendingHandover = async (leadId: string) => {
+    const { data, error } = await supabase.from("meta_leads").select(SALES_CALL_LEAD_SELECT).eq("id", leadId).single();
+    if (error || !data) { toast.error("Could not open this booking. Please retry."); return; }
+    setLeads(prev => [...prev.filter(l => l.id !== leadId), data as Lead]);
+    outcomeRequiredRef.current = false;
+    outcomePendingRef.current = false;
+    setPendingOutcomeLeadId(null);
+    setHandoverReviewLeadId(leadId);
+    setActiveId(leadId);
+    setStep("booking");
+    // Manual review must never arm auto-dial or discard the remaining queue.
+  };
 
   useEffect(() => {
     if (!sessionActive || !sessionStartedAt || !repId) return;
@@ -1451,6 +1482,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
 
   const updateLocalLead = useCallback((id: string, patch: Partial<Lead>) => {
     setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+    if (patch.handover_sent_at) setPendingHandovers(prev => prev.filter(item => item.lead_id !== id));
   }, []);
 
   const markStepComplete = (k: StepKey) => {
@@ -1591,7 +1623,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       setSessionQueue(q => [...q, ...fresh.map(l => l.id)]);
       toast("New leads still need a call — bringing them up now");
     },
-    complete: () => {
+    complete: async () => {
       // Preserve the existing once-per-session top-up for older follow-ups.
       const otherDue = dueLeadIds.filter(id => dueQueue.group[id] !== "new"
         && !requeuedOtherLeadsRef.current.has(id) && !sessionSkipsRef.current.has(id));
@@ -1600,19 +1632,23 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         setSessionQueue(q => [...q, ...otherDue]);
         return;
       }
+      if (!(await closeRepSession())) return;
       setSessionActive(false);
       setSessionPaused(false);
       setSessionStartedAt(null);
       if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
-      closeRepSession();
       toast.success("Session complete — great work!");
     },
   });
 
-  const endSessionNow = useCallback(() => {
+  const endSessionNow = useCallback(async () => {
+    if (sessionEndingRef.current) return;
     sessionEndRequestedRef.current = true;
-    // End Session is a deliberate exit. Force-clear any stale outcome gate so
-    // the user can always leave the session.
+    if (!(await closeRepSession())) {
+      sessionEndRequestedRef.current = false;
+      return;
+    }
+    // Handovers are complete. Clear any stale call-outcome gate on this exit.
     if (gateActive()) {
       outcomeRequiredRef.current = false;
       outcomePendingRef.current = false;
@@ -1629,8 +1665,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null);
     setBreakSeconds(0); setBreakStartedAt(null);
     if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
-    closeRepSession();
-  }, [activeId]);
+  }, [activeId, closeRepSession]);
 
 
 
@@ -1643,6 +1678,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // including the holding screen — so the numbers never vanish mid-session.
   const sessionBar = (
     <>
+      <PendingHandoversNotice pending={pendingHandovers} checking={checkingHandovers}
+        onOpen={openPendingHandover} onRetry={endSessionNow} />
       {sessionActive && !practiceMode && (restoreConnection !== "connected" || presenceConnection !== "connected") && (
         <div role="status" style={{ padding: "8px 18px", background: "#fff7df", color: "#704f13", fontSize: 13 }}>
           {restoreConnection === "needs-sign-in" || presenceConnection === "needs-sign-in"
@@ -1694,10 +1731,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               {sessionPaused ? '▶ Resume' : '☕ Break'}
             </button>
             <button
-              onClick={() => endSessionNow()}
+              disabled={checkingHandovers}
+              onClick={() => void endSessionNow()}
               style={{ fontSize: 13, fontWeight: 700, color: '#e8e8e8', background: 'transparent', border: '1px solid #555', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
             >
-              End session
+              {checkingHandovers ? "Checking handovers…" : "End session"}
             </button>
 
           </div>
@@ -1715,6 +1753,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         return (
           <>
             {callbackBanner}
+            {sessionBar}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40, background: "#f7f7f5", gap: 14 }}>
               <div style={{ fontSize: 16, fontWeight: 600, color: "#111" }}>{historyError ? "Call history is unavailable" : "Loading your leads…"}</div>
               <div style={{ fontSize: 13, color: "#888" }}>{historyError ? "Calling is paused while we retry, so people already called are not queued again." : "Hang on — checking previous calls and building your queue."}</div>
@@ -1791,6 +1830,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       return (
         <>
           {callbackBanner}
+          {sessionBar}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40, background: "#f7f7f5", overflow: "auto" }}>
             <button
               onClick={() => {
@@ -1844,6 +1884,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       return (
         <>
           {callbackBanner}
+          {sessionBar}
           <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
             <div style={{ padding: "10px 16px", borderBottom: "0.5px solid #e8e8e6", background: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <button
@@ -2174,7 +2215,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
           onOutcomePendingChange={(val) => { outcomePendingRef.current = val; }}
           onCallStarted={() => {}}
-          autoDialEnabled={sessionActive && !manualMode && !sessionPaused && callHistoryReady}
+          autoDialEnabled={sessionActive && !manualMode && !sessionPaused && callHistoryReady && active.id !== handoverReviewLeadId}
           autoDialArmToken={autoDialArmToken}
           onGoToStep={(next) => setStep(next)}
           pendingOutcomeLeadId={pendingOutcomeLeadId}

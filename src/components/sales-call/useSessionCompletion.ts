@@ -5,7 +5,7 @@ export function useSessionCompletion<L>(enabled: boolean, options: {
   load: () => Promise<L[]>;
   stillCurrent: () => boolean;
   restore: (leads: L[]) => void;
-  complete: () => void;
+  complete: () => void | Promise<void>;
 }) {
   const latest = useRef(options);
   latest.current = options;
@@ -20,7 +20,7 @@ export function useSessionCompletion<L>(enabled: boolean, options: {
         const leads = await latest.current.load();
         if (cancelled || !latest.current.stillCurrent()) return;
         if (leads.length) latest.current.restore(leads);
-        else latest.current.complete();
+        else await latest.current.complete();
       } catch (err) {
         console.error("Final new-lead check failed", err);
         if (!cancelled) setError("Couldn’t check for new leads. Please retry before finishing.");
