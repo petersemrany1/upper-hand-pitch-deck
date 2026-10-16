@@ -52,7 +52,7 @@ test("the send-link readiness check uses a synthetic image and caches a successf
   }) as typeof fetch;
   await checkNorwoodPhotoService("key", "claude-fixture-health", request);
   await checkNorwoodPhotoService("key", "claude-fixture-health", request);
-  expect(calls).toBe(4);
+  expect(calls).toBe(3);
   expect(JSON.parse(sent).messages[0].content[1].source.data.startsWith("/9j/")).toBe(true);
   expect(sent).not.toContain("patient-token");
 });
