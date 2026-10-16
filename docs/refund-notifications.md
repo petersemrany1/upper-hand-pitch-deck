@@ -2,7 +2,7 @@
 
 New refund state changes are captured atomically in `refund_notifications`. Historical completed refunds are not backfilled. The patient message is:
 
-> Hi, your $75 deposit refund has been initiated. The time it takes to appear in your account depends on your bank.
+> Hi, your $75 deposit refund has been initiated. It can take 4–14 business days to appear in your account.
 
 For a Square refund verified as `PENDING`, send this acknowledgement on the next worker run instead of waiting for settlement. The same wording is used if the refund has already completed.
 
