@@ -33,10 +33,26 @@ export async function openNorwoodCamera(video: HTMLVideoElement, signal: AbortSi
       })(),
       new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("Camera timed out")), 15_000); }),
     ]);
+    let signature: number[] | undefined;
     return {
+      signature: () => signature,
       photo: () => {
         if (ended || signal.aborted || !stream?.active || video.paused || video.readyState < 2 || !stream.getVideoTracks().some(t => t.readyState === "live")) throw new Error("Camera paused");
-        return prepareNorwoodPhoto(video, video.videoWidth, video.videoHeight, false, false);
+        const snapshot = document.createElement("canvas"); snapshot.width = video.videoWidth; snapshot.height = video.videoHeight;
+        const context = snapshot.getContext("2d"); if (!context) throw new Error("Camera unavailable");
+        context.drawImage(video, 0, 0);
+        // A tiny, local brightness-normalised thumbnail preserves different poses
+        // when a slow movement exceeds eight frames. It is not head detection.
+        const thumbnail = document.createElement("canvas"); thumbnail.width = thumbnail.height = 12;
+        const small = thumbnail.getContext("2d", { willReadFrequently: true });
+        if (small) {
+          small.drawImage(snapshot, 0, 0, 12, 12);
+          const rgba = small.getImageData(0, 0, 12, 12).data;
+          const light = Array.from({ length: 144 }, (_, i) => .299 * rgba[i * 4] + .587 * rgba[i * 4 + 1] + .114 * rgba[i * 4 + 2]);
+          const mean = light.reduce((a, b) => a + b, 0) / light.length;
+          signature = light.map(value => value - mean);
+        }
+        return prepareNorwoodPhoto(snapshot, snapshot.width, snapshot.height, false, false);
       }, stop,
     };
   } catch (error) { stop(); throw error; }

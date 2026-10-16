@@ -3,7 +3,7 @@ import type { NorwoodPhotoCheck } from "./norwood-photo-check";
 
 export type CapturePhase = "guide" | "opening" | "camera" | "scanning" | "checking" | "retake" | "connection" | "camera_error";
 export type CaptureState = { phase: CapturePhase; seconds: number | null; message: string; review?: string };
-export type CaptureCamera = { photo(): string; stop(): void };
+export type CaptureCamera = { photo(): string; signature?(): number[] | undefined; stop(): void };
 type Ports = {
   open(signal: AbortSignal): Promise<CaptureCamera>;
   check(photos: string[], view: NorwoodView): Promise<NorwoodPhotoCheck>;
@@ -20,14 +20,17 @@ export const CAPTURE_MAX_TICKS = 40; // 28 seconds, with an explicit Done button
 
 /** Keep coverage across the movement, not just the last frames after looking up. */
 export class CaptureSamples {
-  private frames: { tick: number; photo: string }[] = [];
-  add(tick: number, photo: string) {
-    this.frames.push({ tick, photo });
+  private frames: { tick: number; photo: string; signature?: number[] }[] = [];
+  add(tick: number, photo: string, signature?: number[]) {
+    this.frames.push({ tick, photo, signature });
     if (this.frames.length > CAPTURE_MAX_FRAMES) {
-      let remove = 1, shortest = Infinity;
+      let remove = 1, shortest = Infinity, closest = Infinity;
+      const visual = this.frames.every(frame => frame.signature?.length === 144);
       for (let i = 1; i < this.frames.length - 1; i++) {
         const span = this.frames[i + 1].tick - this.frames[i - 1].tick;
-        if (span < shortest) { shortest = span; remove = i; }
+        const nearest = visual ? Math.min(...this.frames.filter((_, j) => j !== i).map(other =>
+          this.frames[i].signature!.reduce((sum, value, k) => sum + Math.abs(value - other.signature![k]), 0) / 144)) : 0;
+        if (nearest < closest || (nearest === closest && span < shortest)) { closest = nearest; shortest = span; remove = i; }
       }
       this.frames.splice(remove, 1);
     }
@@ -69,7 +72,8 @@ export class NorwoodCaptureController {
     try {
       for (let tick = 0; tick < CAPTURE_MAX_TICKS; tick++) {
         if (signal.aborted || !this.camera) return;
-        this.samples.add(tick, this.camera.photo());
+        const photo = this.camera.photo();
+        this.samples.add(tick, photo, this.camera.signature?.());
         this.update("scanning", "", Math.floor(tick * .7));
         await wait(700, signal);
       }

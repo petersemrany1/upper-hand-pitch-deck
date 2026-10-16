@@ -40,11 +40,19 @@ test("technical recovery never turns a wrong angle or blurred photo into an acce
 
 test("the send-link readiness check uses a synthetic image and caches a successful real-service check", async () => {
   let calls = 0; let sent = "";
-  const request = (async (_: unknown, init: RequestInit) => { calls++; sent = String(init.body); const blank={head_present:false,requested_view_visible:false,problem:"no_head"};
-    return calls === 1 ? reply({frames:Array.from({length:8},(_,i)=>i===6?{head_present:true,requested_view_visible:true,problem:"none"}:blank),best_frame:6}) : reply({frames:[{head_present:true,requested_view_visible:false,problem:"wrong_angle"}],best_frame:null}); }) as typeof fetch;
+  const request = (async (_: unknown, init: RequestInit) => {
+    calls++; sent = String(init.body); const body = JSON.parse(sent);
+    const images = body.messages[0].content.filter((block:any) => block.type === "image");
+    const front = body.system.includes("Requested anatomy: Front view");
+    const frames = images.map((image:any) => image.source.data.length > 10000
+      ? {head_present:true,requested_view_visible:front,problem:front?"none":"wrong_angle"}
+      : {head_present:false,requested_view_visible:false,problem:"no_head"});
+    const best = frames.findIndex((frame:any) => frame.problem === "none");
+    return reply({frames,best_frame:best < 0 ? null : best});
+  }) as typeof fetch;
   await checkNorwoodPhotoService("key", "claude-fixture-health", request);
   await checkNorwoodPhotoService("key", "claude-fixture-health", request);
-  expect(calls).toBe(2);
+  expect(calls).toBe(4);
   expect(JSON.parse(sent).messages[0].content[1].source.data.startsWith("/9j/")).toBe(true);
   expect(sent).not.toContain("patient-token");
 });

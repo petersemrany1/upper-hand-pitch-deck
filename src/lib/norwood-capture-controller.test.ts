@@ -73,3 +73,9 @@ test("native camera fallback and camera errors use the same recoverable path",as
  h.setResponse(async()=>({ready:false,message:"wrong angle",reviewIndex:0}));await h.controller.usePhoto("native-photo");expect(h.controller.state.review).toBe("native-photo");
  h.ports.open=async()=>h.camera;h.camera.photo=()=>{throw new Error("track ended");};await h.controller.open();await h.controller.take();expect(h.controller.state.phase).toBe("camera_error");h.controller.dispose();
 });
+
+ test("a brief different pose survives a slow return to the screen instead of being discarded by time spacing",()=>{
+ const samples=new CaptureSamples();
+ for(let tick=0;tick<40;tick++) {const scalp=tick===11||tick===12; samples.add(tick,scalp?"scalp":"face",Array.from({length:144},(_,i)=>scalp?(i<72?50:-50):0));}
+ expect(samples.photos()).toHaveLength(8);expect(samples.photos()).toContain("scalp");expect(samples.photos()[0]).toBe("face");expect(samples.photos().at(-1)).toBe("face");
+ });

@@ -39,3 +39,17 @@ test("one provider call jointly checks the originals and chooses an index; no se
  const failed=parseNorwoodBurstCheck(JSON.stringify({frames:[{head_present:false,requested_view_visible:false,problem:"no_head"},blurred],best_frame:null}),"front",2);
  expect(failed.reviewIndex).toBe(1);
  });
+
+ test("long movement is checked in groups of at most three and maps selected/review indices back to originals",async()=>{
+ const sizes:number[]=[];
+ const request=(async(_url:unknown,init:RequestInit)=>{
+   const body=JSON.parse(String(init.body)), images=body.messages[0].content.filter((block:any)=>block.type==="image");sizes.push(images.length);
+   const frames=images.map((image:any)=>image.source.data==="good"?usable:{head_present:false,requested_view_visible:false,problem:"no_head"});
+   const index=frames.findIndex((frame:any)=>frame.problem==="none");
+   return Response.json({stop_reason:"end_turn",content:[{type:"text",text:JSON.stringify({frames,best_frame:index<0?null:index})}]});
+ }) as typeof fetch;
+ const check=await requestNorwoodBurstCheck("front",["a","b","c","d","e","f","good","h"],"key",request);
+ expect(sizes).toEqual([3,3,2]);expect(check.selectedIndex).toBe(6);expect(check.ready).toBe(true);
+ const rejected=await requestNorwoodBurstCheck("crown",Array(8).fill("blank"),"key",request);
+ expect(rejected.ready).toBe(false);expect(rejected.reviewIndex).toBe(0);
+ });

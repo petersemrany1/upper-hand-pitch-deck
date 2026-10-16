@@ -1,12 +1,26 @@
 import { NORWOOD_MODEL, type NorwoodView } from "../lib/norwood-assessment";
-import { BURST_PROBLEMS, parseNorwoodBurstCheck } from "../lib/norwood-burst-check";
+import { BURST_PROBLEMS, parseNorwoodBurstCheck, type BurstCheck } from "../lib/norwood-burst-check";
 import { NORWOOD_PHOTO_REGIONS } from "./norwood-photo-check.server";
 import { requestNorwoodJson } from "./norwood-json.server";
 
-/** Select and validate together. Only the exact chosen original is stored. */
-export async function requestNorwoodBurstCheck(view: NorwoodView, photos: string[], apiKey: string, request: typeof fetch = fetch, model = NORWOOD_MODEL) {
+/** Keep each visual decision small; a long movement is not one crowded AI prompt. */
+export async function requestNorwoodBurstCheck(view: NorwoodView, photos: string[], apiKey: string, request: typeof fetch = fetch, model = NORWOOD_MODEL): Promise<BurstCheck> {
   if (!photos.length || photos.length > 8) throw new Error("Expected one to eight photos");
-  return requestNorwoodJson({ model, apiKey, request, maxTokens: 2048,
+  const groups = Array.from({ length: Math.ceil(photos.length / 3) }, (_, group) => ({ offset: group * 3, photos: photos.slice(group * 3, group * 3 + 3) }));
+  const checked = await Promise.all(groups.map(async group => {
+    const result = await requestSmallBurst(view, group.photos, apiKey, request, model);
+    return { ...result, selectedIndex: result.selectedIndex === null ? null : result.selectedIndex + group.offset,
+      ...(result.reviewIndex === undefined ? {} : { reviewIndex: result.reviewIndex + group.offset }) };
+  }));
+  // Every candidate chosen here has independently passed the same anatomy gate.
+  // Prefer the middle of the movement over the starting/returning face selfie.
+  const usable = checked.filter(result => result.ready && result.selectedIndex !== null);
+  if (usable.length) return usable.sort((a, b) => Math.abs(a.selectedIndex! - (photos.length - 1) / 2) - Math.abs(b.selectedIndex! - (photos.length - 1) / 2))[0];
+  return checked.find(result => result.problem !== "no_head") ?? checked[0];
+}
+
+async function requestSmallBurst(view: NorwoodView, photos: string[], apiKey: string, request: typeof fetch, model: string) {
+  return requestNorwoodJson({ model, apiKey, request, maxTokens: 1024,
     // The provider supports minItems 0/1 only; exact count is enforced by our parser.
     schema: { type: "object", additionalProperties: false, required: ["frames", "best_frame"], properties: {
       frames: { type: "array", minItems: 1, description: `Exactly ${photos.length} items, one per photograph in the original order.`, items: { type: "object", additionalProperties: false, required: ["head_present", "requested_view_visible", "problem"], properties: {
