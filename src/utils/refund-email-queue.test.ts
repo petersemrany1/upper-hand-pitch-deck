@@ -9,7 +9,8 @@ afterEach(() => {
   for (const key of keys) { if (originalEnv[key] === undefined) delete process.env[key]; else process.env[key] = originalEnv[key]; }
 });
 
-function setup(emailResult: "ok" | "reject" | "429" | "not-accepted" | "failed-run" | "other-conflict" = "ok", duplicate = false) {
+function setup(emailResult: "ok" | "reject" | "429" | "not-accepted" | "failed-run" | "other-conflict" = "ok", duplicate = false,
+  handover?: "pending" | "complete" | "lookup-failed" | "suppressed") {
   process.env.LOVABLE_API_KEY = "fixture-api-key";
   process.env.LOVABLE_SEND_URL = "https://email.fixture.test/send";
   process.env.VITE_SUPABASE_URL = "https://db.fixture.test";
@@ -31,14 +32,22 @@ function setup(emailResult: "ok" | "reject" | "429" | "not-accepted" | "failed-r
     if (!url.startsWith("https://db.fixture.test/")) throw new Error(`Unexpected network request: ${url}`);
     if (url.includes("/rpc/read_email_batch")) {
       reads.push(body.queue_name);
-      return Response.json(body.queue_name === "refund_alert_emails" ? [{ msg_id: 1, read_ct: 1, message: {
+      return Response.json(body.queue_name === (handover ? "handover_alert_emails" : "refund_alert_emails") ? [{ msg_id: 1, read_ct: 1, message: {
         message_id: "test-message", to: "peter@gobold.com.au", from: "Hair Transplant Group <noreply@notify.hairtransplantgroup.com.au>",
         sender_domain: "notify.hairtransplantgroup.com.au", subject: "[TEST] Refund alert", html: "<p>Test</p>", text: "Test",
-        purpose: "transactional", label: "refund-alert", idempotency_key: "refund-alert-test", unsubscribe_token: "fixture-unsubscribe-token", queued_at: new Date().toISOString(),
+        purpose: "transactional", label: handover ? "handover-overdue" : "refund-alert", idempotency_key: "refund-alert-test", unsubscribe_token: "fixture-unsubscribe-token", queued_at: new Date().toISOString(),
+        ...(handover ? { handover_appointment_id: "fixture-appointment" } : {}),
       } }] : []);
     }
     if (url.includes("/rpc/delete_email")) { deletes.push(body); return Response.json(true); }
     if (url.includes("/rpc/renew_failed_refund_email")) { renewals.push(body); return Response.json(true); }
+    if (url.includes("/rpc/renew_failed_handover_email")) { renewals.push(body); return Response.json(true); }
+    if (url.includes("/pending_clinic_handovers")) {
+      if (handover === "lookup-failed") return Response.json({message:"database read failed"},{status:400});
+      return Response.json(handover === "complete" ? [] : [{appointment_id:"fixture-appointment"}]);
+    }
+    if (url.includes("/suppressed_emails")) return Response.json(handover === "suppressed" ? [{email:"peter@gobold.com.au"}] : []);
+    if (url.includes("/email_unsubscribe_tokens")) return Response.json([{used_at:null}]);
     if (url.includes("/email_send_state")) return Response.json(init?.method === "PATCH" ? null : { batch_size: 10, send_delay_ms: 0 });
     if (url.includes("/email_send_log")) {
       if (init?.method === "POST") { logs.push(body); return new Response(null, { status: 201 }); }
@@ -48,7 +57,7 @@ function setup(emailResult: "ok" | "reject" | "429" | "not-accepted" | "failed-r
     throw new Error(`Unexpected database request: ${url}`);
   }) as typeof fetch;
   const run = async (refundOnly: boolean) => (Route.options as any).server.handlers.POST({ request: new Request("https://fixture.test/lovable/email/queue/process", {
-    method: "POST", headers: { authorization: "Bearer fixture-service-role", "content-type": "application/json" }, body: JSON.stringify({ refundAlertsOnly: refundOnly }),
+    method: "POST", headers: { authorization: "Bearer fixture-service-role", "content-type": "application/json" }, body: JSON.stringify(handover ? {handoverAlertsOnly:true} : { refundAlertsOnly: refundOnly }),
   }) });
   return { reads, deletes, logs, sends, renewals, run };
 }
@@ -84,4 +93,28 @@ test("HTTP 200 without provider acceptance does not mark the email sent", async 
 });
 test("already-sent owner emails are removed without sending again", async () => {
   const f = setup("ok", true); await f.run(true); expect(f.sends).toHaveLength(0); expect(f.deletes).toHaveLength(1);
+});
+
+test("handover alerts use only their dedicated queue and verified provider acceptance",async()=>{
+  const f=setup("ok",false,"pending");await f.run(false);
+  expect(f.reads).toEqual(["handover_alert_emails"]);expect(f.sends).toHaveLength(1);
+  expect(f.sends[0].label).toBe("handover-overdue");expect(f.logs.some(row=>row.status==="sent")).toBe(true);
+});
+test("a completed handover cancels the queued owner alert",async()=>{
+  const f=setup("ok",false,"complete");await f.run(false);
+  expect(f.sends).toHaveLength(0);expect(f.deletes).toHaveLength(1);expect(f.logs.some(row=>row.status==="suppressed")).toBe(true);
+});
+test("failed eligibility reads retain the handover alert without sending",async()=>{
+  const f=setup("ok",false,"lookup-failed");await f.run(false);expect(f.sends).toHaveLength(0);expect(f.deletes).toHaveLength(0);
+});
+test("recipient suppression after enqueue prevents handover alert delivery",async()=>{
+  const f=setup("ok",false,"suppressed");await f.run(false);expect(f.sends).toHaveLength(0);expect(f.deletes).toHaveLength(1);
+});
+test("unaccepted handover alert stays queued",async()=>{
+  const f=setup("not-accepted",false,"pending");await f.run(false);expect(f.deletes).toHaveLength(0);expect(f.logs.some(row=>row.status==="sent")).toBe(false);
+});
+test("handover retry renews only a definitively failed run",async()=>{
+  const f=setup("failed-run",false,"pending");await f.run(false);expect(f.renewals).toHaveLength(1);
+  expect(f.renewals[0].p_next_key).toMatch(/^handover-overdue-test-message-/);
+  const uncertain=setup("reject",false,"pending");await uncertain.run(false);expect(uncertain.renewals).toHaveLength(0);
 });

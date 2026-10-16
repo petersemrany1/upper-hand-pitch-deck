@@ -13,6 +13,7 @@ mock.module("./lead-skips",()=>({recordLeadSkip:(r:any)=>{savedRequests.push(r);
 const { createRoot } = await import("react-dom/client");
 const { SkipLeadDialog } = await import("./SkipLeadDialog");
 const { useSessionCompletion } = await import("./useSessionCompletion");
+const { PendingHandoversNotice } = await import("./PendingHandoversNotice");
 let host:HTMLDivElement, root:ReturnType<typeof createRoot>;
 beforeEach(()=>{host=document.createElement("div");document.body.append(host);root=createRoot(host);savedRequests.length=0;saveImpl=async()=>({id:"saved"});});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
@@ -52,4 +53,18 @@ test("manual end during a pending check cannot reopen or complete the session",a
  await act(async()=>root.render(h(Harness,{enabled:true,options})));
  await act(async()=>root.render(h(Harness,{enabled:false,options})));
  await act(async()=>resolve([{id:"new"}]));expect(restore).not.toHaveBeenCalled();expect(complete).not.toHaveBeenCalled();
+});
+test("outstanding handover notice opens the selected booking and supports a checked retry",async()=>{
+ const open=mock(()=>{}),retry=mock(()=>{});
+ const props={pending:[{lead_id:"fixture",patient_name:"Fixture Patient",clinic_name:"Fixture Clinic",appointment_date:"2026-10-20",appointment_time:"12:00"}],checking:false,onOpen:open,onRetry:retry};
+ await act(async()=>root.render(h(PendingHandoversNotice,props)));
+ expect(host.querySelector('[role="alert"]')?.textContent).toContain("Fixture Patient");
+ await act(async()=>Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="Open handover")!.click());
+ expect(open).toHaveBeenCalledWith("fixture");
+ await act(async()=>Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="Check again and end session")!.click());
+ expect(retry).toHaveBeenCalledTimes(1);
+ await act(async()=>root.render(h(PendingHandoversNotice,{...props,checking:true})));
+ expect(Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="Checking handovers…")!.disabled).toBe(true);
+ await act(async()=>root.render(h(PendingHandoversNotice,{...props,pending:[]})));
+ expect(host.textContent).toBe("");
 });
