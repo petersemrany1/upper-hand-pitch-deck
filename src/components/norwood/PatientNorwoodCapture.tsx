@@ -4,6 +4,7 @@ import { NORWOOD_VIEWS, type NorwoodView, type PatientNorwoodSession } from "@/l
 import type { NorwoodPatientApi } from "@/lib/norwood-preview-session";
 import NorwoodPoseGuide, { CAPTURE_STEPS } from "./NorwoodPoseGuide";
 import { prepareNorwoodPhoto, useNorwoodCamera } from "./useNorwoodCamera";
+import PatientNorwoodLive from './PatientNorwoodLive';
 import NorwoodGuidedCapture from "./NorwoodGuidedCapture";
 import NorwoodVideoScan from "./NorwoodVideoScan";
 import hairlineScan from "@/assets/norwood-hairline-scan.jpg";
@@ -126,6 +127,7 @@ export default function PatientNorwoodCapture({ api, linkToken: token, mode = "l
             <button className="nw-primary" disabled={!accepted || busy} onClick={() => void begin()}>{busy ? "Starting…" : "Start my scan"}<ChevronRight size={20} /></button>
           </div>
             : allPhotos ? <div className="nw-card nw-result" aria-live="polite">{session.status !== "failed" && <span className="nw-spinner" />}<h1>{session.status === "failed" ? "Let’s check this together" : "Analysing…"}</h1><p>Your advisor will see the result too.</p>{error && <p className="nw-error" role="alert">{error}</p>}{session.canRetry && <button className="nw-primary" disabled={busy} onClick={() => void runAnalysis()}>Try again</button>}{session.status === "failed" && !session.canRetry && <p>Your advisor can review the photos with you.</p>}</div>
+              : api.liveCamera && api.capturePatientNorwoodFrame ? <PatientNorwoodLive token={token} views={session.views} api={api.liveCamera} capture={capturePhoto} />
               : api.capturePatientNorwoodFrame ? <NorwoodGuidedCapture token={token} views={session.views} capture={capturePhoto} />
               : api.selectPatientNorwoodFrames ? <NorwoodVideoScan api={api} token={token} views={session.views} save={savePhoto} />
               : <div className="nw-card nw-capture">

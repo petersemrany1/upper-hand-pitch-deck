@@ -32,6 +32,7 @@ await db.exec(existing.match(/CREATE OR REPLACE FUNCTION public\.booking_sales_a
 await db.exec(readFileSync(new URL('../supabase/migrations/20261015030000_norwood_preview_phone_test.sql', import.meta.url),'utf8'));
 await db.exec(readFileSync(new URL('../supabase/migrations/20261015040000_norwood_preview_framing.sql', import.meta.url),'utf8'));
 
+await db.exec(readFileSync(new URL('../supabase/migrations/20261016050000_norwood_preview_live.sql',import.meta.url),'utf8'));
 const actor = async (role, n=1, email='admin@test.invalid') => {
   await db.exec('RESET ROLE');
   await db.query("select set_config('request.jwt.claims',$1,false)", [JSON.stringify({sub:id(n),email,role})]);
@@ -52,6 +53,37 @@ await action(hash(1),'consent');
 // Existing consent for five photos does not silently authorise live camera frames.
 await assert.rejects(db.query('select reserve_norwood_preview_frame($1,$2)',[hash(1),'front']),/agree/);
 await db.query('select consent_norwood_preview_camera($1)',[hash(1)]);
+const live=async(role,action,client=1,room=null,rep=null,sdp=null)=>(await db.query('select * from norwood_preview_live_action($1,$2,$3,$4,$5,$6,$7)',[session.id,role,action,id(100+client),room,rep?safeRep(rep):null,sdp])).rows[0];
+const safeRep=n=>id(n);
+let lr=await live('patient','start');
+assert.equal(lr.patient_client,id(101));
+assert.equal(lr.offer,null);
+await assert.rejects(live('patient','start',2),/another tab/);
+await assert.rejects(live('patient','poll',2,lr.room_id),/access required/);
+await assert.rejects(live('patient','poll',1,id(999)),/stopped/);
+await live('patient','sdp',1,lr.room_id,null,'v=0\r\no=patient');
+assert.equal((await live('rep','find',3)).offer,'v=0\r\no=patient');
+await live('rep','join',3,lr.room_id,2);
+await assert.rejects(live('rep','join',4,lr.room_id,1),/already joined/);
+await assert.rejects(live('rep','poll',3,lr.room_id,1),/access required/);
+await live('rep','sdp',3,lr.room_id,2,'v=0\r\no=rep');
+assert.equal((await live('patient','poll',1,lr.room_id)).answer,'v=0\r\no=rep');
+await assert.rejects(live('patient','sdp',1,lr.room_id,null,'v=0\r\no=other'),/again/);
+await live('patient','stop',1,lr.room_id);
+await assert.rejects(live('rep','poll',3,lr.room_id,2),/stopped/);
+assert.equal((await db.query('select offer from norwood_preview_live')).rows[0].offer,null);
+lr=await live('patient','start');
+await actor('anon');
+await assert.rejects(db.query('select * from norwood_preview_live'),/permission denied/);
+await assert.rejects(live('rep','find',3),/permission denied/);
+await actor('authenticated',2,'rep@test.invalid');
+await assert.rejects(db.query('select * from norwood_preview_live'),/permission denied/);
+await assert.rejects(live('rep','find',3),/permission denied/);
+await actor('service_role');
+await db.query("update norwood_preview_live set expires_at=now()-interval '1 second'");
+await assert.rejects(live('patient','poll',1,lr.room_id),/stopped/);
+console.log('PASS live camera: explicit consent, session/role/client binding, exclusive advisor, SDP fencing, stop, expiry, no direct anon/staff DB access.');
+
 assert.equal((await db.query('select reserve_norwood_preview_frame($1,$2) allowed',[hash(1),'front'])).rows[0].allowed,true);
 assert.equal((await db.query('select reserve_norwood_preview_frame($1,$2) allowed',[hash(1),'front'])).rows[0].allowed,false);
 await db.query("update norwood_preview_assessments set framing_attempts=120 where id=$1",[session.id]);

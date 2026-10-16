@@ -1,3 +1,4 @@
+import { checkLiveSetup } from './norwood-live.server';
 import { checkNorwoodPhotoService } from "./norwood-photo-service.server";
 import { configuredNorwoodModel } from "./norwood-inference.server";
 import { createServerFn } from "@tanstack/react-start";
@@ -32,6 +33,7 @@ export const getNorwoodSandboxReadiness = createServerFn({ method: "POST" }).mid
     await assertNorwoodStaff(context.supabase, data.leadId);
     patientPreviewUrl("readiness-check");
     if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.ANTHROPIC_API_KEY) throw new Error("The phone test needs its server-side SMS and AI connections.");
+    await checkLiveSetup();
     await checkNorwoodPhotoService(process.env.ANTHROPIC_API_KEY, configuredNorwoodModel());
     return true;
   }));

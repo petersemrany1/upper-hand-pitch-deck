@@ -6,7 +6,10 @@ import { isNorwoodPreviewHost } from "@/lib/norwood-preview-access";
 import { NORWOOD_SANDBOX_LEAD_IDS } from "@/lib/norwood-sandbox-access";
 import { confirmSandboxNorwood, getNorwoodSandboxReadiness, getNorwoodPhotoLinks, getRepNorwoodAssessment, retryRepNorwoodAssessment, sendAiNorwoodLink } from "@/utils/norwood-sandbox.functions";
 
-const api = { getNorwoodPhotoLinks, getRepNorwoodAssessment, retryRepNorwoodAssessment, sendAiNorwoodLink };
+import { testNorwoodLiveRelay } from '@/lib/norwood-live-smoke';
+import { repNorwoodLive, testNorwoodCameraRelay } from '@/utils/norwood-live.functions';
+
+const api = { liveCamera: repNorwoodLive, getNorwoodPhotoLinks, getRepNorwoodAssessment, retryRepNorwoodAssessment, sendAiNorwoodLink };
 type State = { enabled: boolean; suggestions: Record<string, NorwoodSuggestion | null>; offer: (leadId: string, value: NorwoodSuggestion | null) => void };
 const Context = createContext<State | null>(null);
 
@@ -24,6 +27,13 @@ export function NorwoodSandboxProvider({ children }: { children: ReactNode }) {
 
 export function NorwoodSandboxPanel({ leadId, clinicId, phone }: { leadId: string; clinicId: string; phone: string | null }) {
   const context = useContext(Context);
+  const [relayBusy,setRelayBusy]=useState(false),[relayStatus,setRelayStatus]=useState('');
+  async function checkRelay(){
+    if(relayBusy)return;setRelayBusy(true);setRelayStatus('Checking video connection…');
+    try{const reply=await testNorwoodCameraRelay({data:{leadId}});if(!reply.ok)throw new Error(reply.error);await testNorwoodLiveRelay(reply.data);setRelayStatus('Video and capture controls connected successfully.');}
+    catch(e){setRelayStatus(e instanceof Error?e.message:'Video connection failed.');}
+    finally{setRelayBusy(false);}
+  }
   const [ready, setReady] = useState(false), [setupMessage, setSetupMessage] = useState("Checking phone test setup…");
   useEffect(() => {
     setReady(false); setSetupMessage("Checking phone test setup…");
@@ -39,6 +49,8 @@ export function NorwoodSandboxPanel({ leadId, clinicId, phone }: { leadId: strin
   return <div style={{ padding: "14px 18px", borderTop: "0.5px solid #e5e5e5" }}>
     <p className="mb-2 text-xs text-muted-foreground">Phone test · SMS goes to this test lead’s mobile: <strong>{phone || "Add a mobile number first"}</strong></p>
     <AiNorwoodAssessment key={leadId} leadId={leadId} clinicId={clinicId} api={api} mode="sms" sendingDisabled={!ready} onSuggestion={value => context.offer(leadId, value)} />
+    <button type="button" className="mt-2 text-xs underline" disabled={relayBusy} onClick={()=>void checkRelay()}>{relayBusy?'Checking video…':'Check video connection'}</button>
+    {relayStatus && <p className="mt-1 text-xs" role="status">{relayStatus}</p>}
     {setupMessage && <p className="mt-2 text-xs text-amber-800" role="status">{setupMessage}</p>}
   </div>;
 }
