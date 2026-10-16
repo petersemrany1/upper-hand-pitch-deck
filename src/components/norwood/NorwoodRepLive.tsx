@@ -61,6 +61,7 @@ export default function NorwoodRepLive({leadId,assessmentId,api}:{leadId:string;
   try{peer.current!.send({type:'capture',id,view});captureTimer.current=setTimeout(()=>{pending.current=undefined;setBusy(false);setMessage('Still waiting for the photo check. The saved-photo count will update when it finishes.');},95_000);}
   catch{stop('Camera disconnected. Ask the patient to share again.');}
  }
+ if(views.length===5)return <section className="nw-rep-live" aria-live="polite"><strong>All five photos checked</strong><p>The estimate will appear here shortly.</p></section>;
  return <section className="nw-rep-live" aria-label="Guide the patient camera">
   <div className="nw-rep-title"><strong>Guide the patient’s camera</strong><span>{views.length}/5 checked</span></div>
   <div className="nw-rep-video"><video ref={video} autoPlay playsInline muted aria-label="Patient live camera"/>{phase!=='live'&&<div><Video size={34}/><span>{phase==='connecting'?'Connecting camera…':'See what they’re showing you'}</span></div>}</div>

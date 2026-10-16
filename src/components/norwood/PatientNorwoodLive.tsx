@@ -11,7 +11,7 @@ export default function PatientNorwoodLive({token,views,api,capture}:{token:stri
  const video=useRef<HTMLVideoElement>(null),client=useRef(crypto.randomUUID()),run=useRef(0),room=useRef<string | undefined>(undefined),peer=useRef<NorwoodLivePeer | undefined>(undefined),camera=useRef<CaptureCamera | undefined>(undefined),abort=useRef<AbortController | undefined>(undefined),timer=useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
  const currentViews=useRef(views),captureFn=useRef(capture),busy=useRef(false),handled=useRef(new Set<string>());
  currentViews.current=views;captureFn.current=capture;
- const [phase,setPhase]=useState<'idle'|'opening'|'waiting'|'live'|'capturing'>('idle'),[error,setError]=useState('');
+ const [phase,setPhase]=useState<'idle'|'opening'|'waiting'|'live'|'capturing'|'checking'>('idle'),[error,setError]=useState('');
  const call=async (input:Omit<LiveRequest,'clientId'>)=>{
   const result=await Promise.race([api({data:{...input,clientId:client.current,token}}),new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('Connection interrupted. Tap Share camera to reconnect.')),12_000))]);
   if(!result.ok)throw new Error(result.error);return result.data;
@@ -72,6 +72,7 @@ export default function PatientNorwoodLive({token,views,api,capture}:{token:stri
     if(run.current!==version||!camera.current)throw new Error('Camera stopped');
     photos.push(camera.current.photo());if(i<2)await new Promise(resolve=>setTimeout(resolve,350));
    }
+   setPhase('checking');
    const result=await captureFn.current(photos[0],message.view,photos.slice(1));
    if(run.current!==version)return;
    const saved=result.ready?Array.from(new Set([...currentViews.current,message.view])):currentViews.current;
@@ -82,15 +83,15 @@ export default function PatientNorwoodLive({token,views,api,capture}:{token:stri
  }
  const active=phase!=='idle';
  return <section className="nw-live-patient nw-card" aria-label="Camera with your advisor">
-  <div className="nw-live-heading"><span className="nw-eyebrow">WITH YOUR ADVISOR</span><h1>{phase==='capturing'?'Hold still':phase==='live'?'Your advisor can see you':phase==='waiting'?'Waiting for your advisor':phase==='opening'?'Opening your camera…':'Let’s do this together'}</h1></div>
+  <div className="nw-live-heading"><span className="nw-eyebrow">WITH YOUR ADVISOR</span><h1>{phase==='capturing'?'Hold still':phase==='checking'?'Photo taken':phase==='live'?'Your advisor can see you':phase==='waiting'?'Waiting for your advisor':phase==='opening'?'Opening your camera…':'Let’s do this together'}</h1></div>
   <div className={`nw-live-view ${!active?'nw-live-idle':''}`}>
    <video ref={video} autoPlay muted playsInline aria-label="Your camera" />
    {!active&&<div className="nw-live-invite"><Video size={56} strokeWidth={1.2}/><p>Hold your phone.<br/>Your advisor will guide you.</p></div>}
-   {active&&<span className="nw-live-badge">{phase==='live'||phase==='capturing'?'● Sharing camera':'Connecting…'}</span>}
+   {active&&<span className="nw-live-badge">{phase==='live'||phase==='capturing'||phase==='checking'?'● Sharing camera':'Connecting…'}</span>}
   </div>
   <div className="nw-live-controls">
    {error&&<p className="nw-error" role="alert">{error}</p>}
-   {!active?<><p className="nw-live-disclosure">Share live camera video with your advisor. Only the 5 photos are saved.</p><button className="nw-primary" onClick={()=>void start()}><Camera size={20}/>Share camera with my advisor</button><p className="nw-live-footnote">Only start when safely stopped, never while driving.</p></>:<><p className="nw-live-one-line">{phase==='capturing'?'Your advisor is taking a photo.':'Stay on your call. Listen to your advisor.'}</p><button className="nw-live-stop" onClick={()=>stop()}><VideoOff size={20}/>Stop sharing</button></>}
+   {!active?<><p className="nw-live-disclosure">Share live camera video with your advisor. Only the 5 photos are saved.</p><button className="nw-primary" onClick={()=>void start()}><Camera size={20}/>Share camera with my advisor</button><p className="nw-live-footnote">Only start when safely stopped, never while driving.</p></>:<><p className="nw-live-one-line">{phase==='capturing'?'Your advisor is taking a photo.':phase==='checking'?'You can lower your arm.':'Stay on your call. Listen to your advisor.'}</p><button className="nw-live-stop" onClick={()=>stop()}><VideoOff size={20}/>Stop sharing</button></>}
   </div>
  </section>;
 }

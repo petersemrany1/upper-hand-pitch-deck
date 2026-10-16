@@ -52,6 +52,7 @@ await assert.rejects(db.query('select reserve_norwood_preview_frame($1,$2)',[has
 await action(hash(1),'consent');
 // Existing consent for five photos does not silently authorise live camera frames.
 await assert.rejects(db.query('select reserve_norwood_preview_frame($1,$2)',[hash(1),'front']),/agree/);
+await assert.rejects(db.query('select norwood_preview_live_action($1,$2,$3,$4)',[session.id,'patient','start',id(101)]),/camera session is unavailable/);
 await db.query('select consent_norwood_preview_camera($1)',[hash(1)]);
 const live=async(role,action,client=1,room=null,rep=null,sdp=null)=>(await db.query('select * from norwood_preview_live_action($1,$2,$3,$4,$5,$6,$7)',[session.id,role,action,id(100+client),room,rep?safeRep(rep):null,sdp])).rows[0];
 const safeRep=n=>id(n);

@@ -1,6 +1,6 @@
 -- Preview-only video signalling. No video, audio or photographs in this table.
 BEGIN;
-CREATE TABLE public.norwood_preview_live (
+CREATE TABLE IF NOT EXISTS public.norwood_preview_live (
  assessment_id uuid PRIMARY KEY REFERENCES public.norwood_preview_assessments(id) ON DELETE CASCADE,
  room_id uuid NOT NULL DEFAULT gen_random_uuid(), patient_client uuid NOT NULL,
  rep_id uuid REFERENCES public.sales_reps(id), rep_client uuid,
@@ -12,7 +12,7 @@ CREATE TABLE public.norwood_preview_live (
 ALTER TABLE public.norwood_preview_live ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.norwood_preview_live FROM public,anon,authenticated;
 GRANT ALL ON public.norwood_preview_live TO service_role;
-CREATE FUNCTION public.norwood_preview_live_action(p_assessment uuid,p_role text,p_action text,p_client uuid,p_room uuid DEFAULT NULL,p_rep uuid DEFAULT NULL,p_sdp text DEFAULT NULL)
+CREATE OR REPLACE FUNCTION public.norwood_preview_live_action(p_assessment uuid,p_role text,p_action text,p_client uuid,p_room uuid DEFAULT NULL,p_rep uuid DEFAULT NULL,p_sdp text DEFAULT NULL)
 RETURNS public.norwood_preview_live LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE a public.norwood_preview_assessments; r public.norwood_preview_live;
 BEGIN
