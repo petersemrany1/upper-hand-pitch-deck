@@ -25,9 +25,24 @@ function fixture() {
 
 describe("refund copy and provider verification", () => {
   test("exact approved copy and actual amounts", () => {
-    expect(refundText(75)).toBe("Hi, your $75 deposit has been refunded. It can take 4–14 business days to show in your account.");
+    expect(refundText(75)).toBe("Hi, your $75 deposit refund has been initiated. The time it takes to appear in your account depends on your bank.");
     expect(refundText(50.25)).toContain("$50.25");
     for (const n of [0, -75, NaN, Infinity, 75.001]) expect(() => refundText(n)).toThrow();
+  });
+  test("processing copy acknowledges initiation without claiming completion or bank receipt", () => {
+    const text = refundText(75);
+    expect(text).toContain("$75 deposit refund has been initiated");
+    expect(text).toContain("depends on your bank");
+    expect(text).not.toContain("has been refunded");
+    expect(refundText(50.25)).toContain("$50.25");
+  });
+  test("Square processing receipts require a matching refund and verified AUD amount", () => {
+    const ref = { refundId: "r", paymentId: "p" };
+    const raw = { id: "r", payment_id: "p", status: "PENDING", amount_money: { amount: 7500, currency: "AUD" } };
+    expect(checkRefundObject("square", raw, ref)).toEqual({ state: "pending", amount: 75 });
+    for (const patch of [{ id: "wrong" }, { payment_id: "wrong" }, { amount_money: { amount: 7500, currency: "USD" } }, { amount_money: { amount: 0, currency: "AUD" } }, { amount_money: null }]) {
+      expect(() => checkRefundObject("square", { ...raw, ...patch }, ref)).toThrow();
+    }
   });
   test("normalises Australian numbers without guessing invalid recipients", () => {
     expect(refundPhone("0400 000 000")).toBe("+61400000000");
@@ -73,6 +88,39 @@ describe("durable refund notification worker", () => {
     const f = fixture(); f.d.verify = async () => ({ state: "pending" });
     await processRefundNotice(f.e, f.d);
     expect(f.sends).toHaveLength(0); expect(f.settled).toHaveLength(0); expect(f.saved[0].status).toBe("pending");
+  });
+  test("verified Square pending refund sends one processing receipt without marking money refunded", async () => {
+    const f = fixture(); f.d.verify = async () => ({ state: "pending", amount: 75 });
+    await processRefundNotice(f.e, f.d);
+    expect(f.sends).toEqual([["+61400000000", refundText(75)]]);
+    expect(f.settled).toHaveLength(0);
+    expect(f.saved[0].verification_next_at).toBe("2026-10-15T00:05:00.000Z");
+    expect(f.recorded).toEqual([[sid, "queued"]]);
+    for (const status of ["accepted", "delivered", "cancelled", "uncertain", "failed"]) {
+      f.e.status = status;
+      await processRefundNotice(f.e, f.d);
+    }
+    expect(f.sends).toHaveLength(1);
+  });
+  test("cancelled confirmation and revoked in-flight claim cannot send a processing text", async () => {
+    const f = fixture(); f.e.status = "cancelled";
+    f.d.verify = async () => { throw new Error("Cancelled text must not be processed"); };
+    await processRefundNotice(f.e, f.d);
+    expect(f.sends).toHaveLength(0); expect(f.saved).toHaveLength(0);
+    f.e.status = "checking"; f.d.verify = async () => ({ state: "pending", amount: 75 });
+    f.d.save = async () => false;
+    await processRefundNotice(f.e, f.d);
+    expect(f.sends).toHaveLength(0);
+  });
+  test("pending Stripe, invalid amounts and action-needed refunds cannot get a processing receipt", async () => {
+    for (const [processor, amount, error] of [["stripe", 75, undefined], ["square", 0, undefined], ["square", 75, "Insufficient funds"]] as const) {
+      const f = fixture(); f.e.payload.processor = processor;
+      const a = (await f.d.appointment("a"))!;
+      f.d.appointment = async () => ({ ...a, stripe_payment_intent_id: "payment-1", stripe_refund_id: "refund-1" });
+      f.d.verify = async () => ({ state: "pending", amount, error });
+      await processRefundNotice(f.e, f.d);
+      expect(f.sends).toHaveLength(0); expect(f.settled).toHaveLength(0);
+    }
   });
   test("action-needed refunds wait and alert", async () => {
     const f = fixture(); f.d.verify = async () => ({ state: "pending", error: "Requires action" });
