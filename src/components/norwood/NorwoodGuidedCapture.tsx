@@ -61,7 +61,7 @@ export default function NorwoodGuidedCapture({ token, views, capture }: {
     }
   }
   const title = setup ? "Rest your phone here" : phase === "checking" ? "Checking this photo" : phase === "connection" ? "Let’s reconnect" : showReview ? "Let’s adjust this" : pose.title;
-  const instruction = setup ? "Sit facing the screen. Rest it at eye level." : fileError || state.message || (phase === "checking" ? "You can relax." : phase === "scanning" ? pose.live : example && live ? pose.instruction : phase === "camera" ? view === "front" ? "Fit your whole head inside the outline." : "Get comfortable. Tap Start when ready." : pose.instruction);
+  const instruction = setup ? "Screen at eye level, about an arm’s length away." : fileError || state.message || (phase === "checking" ? "You can relax." : phase === "scanning" ? pose.live : example && live ? pose.instruction : phase === "camera" ? view === "front" ? "Fit your whole head inside the outline." : "Get comfortable. Tap Start when ready." : pose.instruction);
   return <section className="nw-card nw-easy" aria-label="Guided hair photos">
     <div className="nw-easy-progress"><span>{setup ? "Get comfortable" : `Photo ${views.length + 1} of 5`}</span><div aria-label={`${views.length} photos saved`}>{NORWOOD_VIEWS.map(v => <span key={v} className={views.includes(v) ? "done" : v === view ? "current" : ""}/>)}</div></div>
     <h1 ref={heading} tabIndex={-1}>{title}</h1>

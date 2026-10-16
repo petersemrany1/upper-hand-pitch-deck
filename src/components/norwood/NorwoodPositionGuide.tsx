@@ -28,7 +28,7 @@ export default function NorwoodPositionGuide({ view, setup = false }: { view: No
       <path d="M278 142v71" stroke="#e9efd9" strokeWidth="3"/>
       <circle cx="278" cy="139" r="2" fill="white" stroke="none"/>
       <path d="M271 136L199 105M271 220L200 263" stroke="#9eae90" strokeDasharray="4 6" strokeWidth="1.3"/>
-      <g className="nw-demo-body">
+      <g transform="translate(-25 30) scale(.8)"><g className="nw-demo-body">
         <path d="M43 330L43 268Q44 227 87 222Q118 220 130 258L135 330" fill="#cbd8c8"/>
         <g className="nw-demo-head">
           <path d="M74 233L75 204Q46 187 48 148Q47 104 80 94Q116 82 139 112Q146 124 145 143L158 161L143 169L142 190Q133 205 107 202L108 236" fill={`url(#skin-${view})`}/>
@@ -38,7 +38,7 @@ export default function NorwoodPositionGuide({ view, setup = false }: { view: No
           {bow && <path d={view === "crown" ? "M47 141Q42 108 65 93" : "M64 93Q107 71 136 109"} fill="none" stroke="#c6d68e" strokeWidth="10"/>}
         </g>
         <path d="M89 255L125 290H211" fill="none" stroke="#ddba98" strokeWidth="16"/>
-      </g>
+      </g></g>
       <text x="217" y="67" fontSize="15" fontWeight="600" stroke="none" fill="#4b6555">Phone stays here</text>
       <path d="M276 78v38m-5-6 5 6 5-6" fill="none" stroke="#7f9472"/>
       {bow && <path d="M156 85Q209 111 202 158m-8-12 8 12 10-10" fill="none" stroke="#8b9e6e" strokeWidth="4"/>}
