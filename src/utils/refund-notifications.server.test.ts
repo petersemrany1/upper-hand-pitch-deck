@@ -1,12 +1,68 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { sendRefundSms, REFUND_STATUS_CALLBACK } from "./refund-notifications.server";
+import { sendRefundSms, processRefundNotifications, REFUND_STATUS_CALLBACK } from "./refund-notifications.server";
 import { PATIENT_SMS_FROM } from "@/lib/booking-confirmation-sms";
 import { handleRefundNotifications } from "@/routes/api.public.hooks.refund-notifications";
 
 const original = { sid: process.env.TWILIO_ACCOUNT_SID, token: process.env.TWILIO_AUTH_TOKEN, service: process.env.SUPABASE_SERVICE_ROLE_KEY };
+const originalFetch = globalThis.fetch;
+const originalSquareToken = process.env.SQUARE_ACCESS_TOKEN;
 afterEach(() => {
+  globalThis.fetch = originalFetch;
+  if (originalSquareToken === undefined) delete process.env.SQUARE_ACCESS_TOKEN;
+  else process.env.SQUARE_ACCESS_TOKEN = originalSquareToken;
   for (const [key,value] of Object.entries({ TWILIO_ACCOUNT_SID: original.sid, TWILIO_AUTH_TOKEN: original.token, SUPABASE_SERVICE_ROLE_KEY: original.service })) {
     if (value === undefined) delete process.env[key]; else process.env[key] = value;
+  }
+});
+
+test("refund monitoring settles processing receipts and cancelled texts without any second send", async () => {
+  process.env.SQUARE_ACCESS_TOKEN = "fixture-square-token";
+  for (const notificationStatus of ["delivered", "cancelled"]) {
+    for (const providerStatus of ["COMPLETED", "PENDING", "FAILED"]) {
+      const writes: Array<{ table: string; patch: any }> = [];
+      const calls: string[] = [];
+      const db = {
+        rpc: async (name: string) => { calls.push(name); return { error: null }; },
+        from(table: string) {
+          let monitoring = false, mutation = false;
+          const q: any = {
+            select: () => q, eq: () => q, neq: () => q, not: () => q, gte: () => q,
+            order: () => q, limit: () => q,
+            in: (_field: string, states: string[]) => {
+              if (states.includes("delivered")) {
+                expect(states).toContain("cancelled"); monitoring = true;
+              }
+              return q;
+            },
+            lte: () => q,
+            update: (patch: any) => { mutation = true; writes.push({ table, patch }); return q; },
+            then: (resolve: (r: any) => void) => resolve({ error: null, data: !mutation && monitoring ? [{
+              id: "notice", kind: "patient_sms", appointment_id: "appointment", status: notificationStatus,
+              created_at: new Date().toISOString(), payload: { processor: "square", refund_id: "refund", payment_id: "payment" },
+            }] : [] }),
+          };
+          return q;
+        },
+      };
+      globalThis.fetch = (async (url, init) => {
+        expect(String(url)).toContain("/v2/refunds/refund");
+        expect(init?.method || "GET").toBe("GET");
+        return Response.json({ refund: { id: "refund", payment_id: "payment", status: providerStatus, amount_money: { amount: 7500, currency: "AUD" } } });
+      }) as typeof fetch;
+      const result = await processRefundNotifications(db);
+      expect(result.errors).toEqual([]);
+      expect(calls).toEqual(["recover_refund_notifications"]);
+      const appointment = writes.find(w => w.table === "clinic_appointments");
+      if (providerStatus === "PENDING") expect(appointment).toBeUndefined();
+      else expect(appointment?.patch.refund_status).toBe(providerStatus === "COMPLETED" ? "refunded" : "failed");
+      // No status reset can re-queue a delivered or explicitly cancelled text.
+      for (const w of writes.filter(w => w.table === "refund_notifications")) {
+        expect(Object.keys(w.patch)).toEqual(["verification_next_at"]);
+        const delay = Date.parse(w.patch.verification_next_at) - Date.now();
+        expect(delay).toBeGreaterThan(providerStatus === "PENDING" ? 290_000 : 21_590_000);
+        expect(delay).toBeLessThanOrEqual(providerStatus === "PENDING" ? 300_000 : 21_600_000);
+      }
+    }
   }
 });
 const configure = () => { process.env.TWILIO_ACCOUNT_SID = "ACfixture"; process.env.TWILIO_AUTH_TOKEN = "fixture-token"; };

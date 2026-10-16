@@ -22,7 +22,7 @@ export type RefundNotice = {
 export function refundText(amount: number): string {
   if (!Number.isFinite(amount) || amount <= 0 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001) throw new Error("Refund amount is missing or invalid");
   const value = Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
-  return `Hi, your $${value} deposit has been refunded. It can take 4–14 business days to show in your account.`;
+  return `Hi, your $${value} deposit refund has been initiated. The time it takes to appear in your account depends on your bank.`;
 }
 
 export function refundPhone(phone: string | undefined): string {
@@ -43,12 +43,16 @@ export function checkRefundObject(processor: string, raw: any, expected: { refun
   const status = String(raw.status || "").toUpperCase();
   if (["FAILED", "REJECTED", "CANCELED"].includes(status)) return { state: "failed", error: raw.failure_reason || `Payment provider reported refund ${status.toLowerCase()}` };
   if (status === "REQUIRES_ACTION") return { state: "pending", error: "The payment provider requires action to complete this refund" };
-  if (status === "PENDING") return { state: "pending", ...(raw.pending_reason === "insufficient_funds" ? { error: "Refund is pending because the payment provider has insufficient funds" } : {}) };
-  if (!(processor === "square" ? status === "COMPLETED" : status === "SUCCEEDED")) throw new Error(`Unrecognised refund status: ${status || "missing"}`);
+  if (status === "PENDING" && raw.pending_reason === "insufficient_funds") return { state: "pending", error: "Refund is pending because the payment provider has insufficient funds" };
+  // Only Square's verified PENDING refunds qualify for the processing receipt.
+  // Stripe retains its existing completed-only notification policy.
+  const processing = processor === "square" && status === "PENDING";
+  if (status === "PENDING" && !processing) return { state: "pending" };
+  if (!processing && !(processor === "square" ? status === "COMPLETED" : status === "SUCCEEDED")) throw new Error(`Unrecognised refund status: ${status || "missing"}`);
   const cents = processor === "square" ? Number(raw.amount_money?.amount) : Number(raw.amount);
   const currency = processor === "square" ? raw.amount_money?.currency : raw.currency;
   if (String(currency).toUpperCase() !== "AUD" || !Number.isSafeInteger(cents) || cents <= 0) throw new Error("Refund currency or amount could not be verified");
-  return { state: "completed", amount: cents / 100 };
+  return { state: processing ? "pending" : "completed", amount: cents / 100 };
 }
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));

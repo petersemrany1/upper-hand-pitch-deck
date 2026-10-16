@@ -163,19 +163,28 @@ export async function processRefundNotifications(db: any, dryRun = false) {
   // A bank can reject a refund after initial success. Poll new refunds for 45 days
   // as a fallback when a provider webhook is delayed or its subscription omits refunds.
   const monitoring: RefundNotice[] = checked(await db.from("refund_notifications").select("*")
-    .eq("kind", "patient_sms").in("status", ["accepted", "delivered", "failed", "uncertain"])
+    .eq("kind", "patient_sms").in("status", ["accepted", "delivered", "failed", "uncertain", "cancelled"])
     .not("payload->>refund_id", "is", null).gte("created_at", new Date(Date.now() - 45 * 86400_000).toISOString())
     .lte("verification_next_at", new Date().toISOString()).order("verification_next_at").limit(5));
   for (const e of monitoring) {
     if (Date.now() - started > 45_000) break;
     try {
       const state = await verifyRecordedRefund(e);
-      if (state.state === "failed") {
+      if (state.state === "failed" || state.state === "completed") {
         const field = e.payload.processor === "square" ? "square_refund_id" : "stripe_refund_id";
-        checked(await db.from("clinic_appointments").update({ refund_status: "failed", refund_error: state.error || "The payment provider reported a late refund failure" })
-          .eq("id", e.appointment_id).eq(field, e.payload.refund_id).neq("refund_status", "failed"));
+        const status = state.state === "completed" ? "refunded" : "failed";
+        checked(await db.from("clinic_appointments").update({ refund_status: status,
+          refund_error: state.state === "failed" ? state.error || "The payment provider reported a refund failure" : null,
+          ...(state.state === "completed" ? { refund_processed_at: new Date().toISOString() } : {}),
+        }).eq("id", e.appointment_id).eq(field, e.payload.refund_id).neq("refund_status", status));
       }
-      checked(await db.from("refund_notifications").update({ verification_next_at: new Date(Date.now() + 6 * 3600_000).toISOString() }).eq("id", e.id));
+      if (state.state === "pending" && state.error) {
+        checked(await db.rpc("flag_refund_notification", { p_id: e.id, p_category: "verification", p_reason: state.error }));
+      }
+      // Processing receipts and cancelled texts must not stop refund settlement checks.
+      // This updates the refund only; the original unique notice is never re-opened.
+      const recheckMs = state.state === "pending" ? 5 * 60_000 : 6 * 3600_000;
+      checked(await db.from("refund_notifications").update({ verification_next_at: new Date(Date.now() + recheckMs).toISOString() }).eq("id", e.id));
     } catch (error) {
       errors.push(`${e.id}: refund recheck: ${errorText(error)}`);
       checked(await db.from("refund_notifications").update({ verification_next_at: new Date(Date.now() + 3600_000).toISOString() }).eq("id", e.id));
