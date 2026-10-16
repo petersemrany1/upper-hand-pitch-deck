@@ -35,14 +35,15 @@ export default function PatientNorwoodCapture({ api, linkToken: token, mode = "l
   }
   async function capturePhoto(photo: string, captureView: NorwoodView, alternatives?: string[]) {
     sessionRevision.current++; busyRef.current = true;
+    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 70_000);
     try {
-      const result = await api.capturePatientNorwoodFrame!({ data: { token, view: captureView, photo, alternatives } });
+      const result = await api.capturePatientNorwoodFrame!({ signal: controller.signal, data: { token, view: captureView, photo, alternatives } });
       if (activeToken.current !== token) return { ready: false, message: "Link changed." };
       if (!result.ok) throw new Error(result.error);
       if (result.data.check.ready && !result.data.session?.views.includes(captureView)) throw new Error("Your photo could not be saved. Tap Retry.");
       if (result.data.session) setSession(result.data.session);
       return result.data.check;
-    } finally { if (activeToken.current === token) busyRef.current = false; }
+    } finally { clearTimeout(timeout); if (activeToken.current === token) busyRef.current = false; }
   }
   const camera = useNorwoodCamera({ api, token, view, enabled, save: savePhoto });
 

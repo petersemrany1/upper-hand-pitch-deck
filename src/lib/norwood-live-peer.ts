@@ -4,9 +4,14 @@ export class NorwoodLivePeer {
  readonly pc:RTCPeerConnection;
  private channel:RTCDataChannel|null=null;
  private closed=false;
+ private reconnectTimer:ReturnType<typeof setTimeout>|undefined;
  constructor(iceServers:RTCIceServer[],private callbacks:{message:(m:LiveMessage)=>void;connected:()=>void;interrupted:()=>void;stream?:(s:MediaStream)=>void},relay=true){
   this.pc=new RTCPeerConnection({iceServers,iceTransportPolicy:relay?'relay':'all'});
-  this.pc.onconnectionstatechange=()=>{if(this.closed)return;if(['failed','disconnected'].includes(this.pc.connectionState))callbacks.interrupted();};
+  this.pc.onconnectionstatechange=()=>{
+   if(this.closed)return;clearTimeout(this.reconnectTimer);
+   if(this.pc.connectionState==='failed')callbacks.interrupted();
+   else if(this.pc.connectionState==='disconnected')this.reconnectTimer=setTimeout(()=>{if(!this.closed&&this.pc.connectionState==='disconnected')callbacks.interrupted();},5000);
+  };
   this.pc.ontrack=e=>{if(e.track.kind==='video')callbacks.stream?.(new MediaStream([e.track]));};
   this.pc.ondatachannel=e=>this.attach(e.channel);
  }
@@ -44,5 +49,5 @@ export class NorwoodLivePeer {
   if(this.closed||!this.pc.localDescription?.sdp)throw new Error('Camera stopped');
   return this.pc.localDescription.sdp;
  }
- close(){this.closed=true;this.channel?.close();this.pc.close();this.callbacks.stream?.(new MediaStream());}
+ close(){this.closed=true;clearTimeout(this.reconnectTimer);this.channel?.close();this.pc.close();this.callbacks.stream?.(new MediaStream());}
 }

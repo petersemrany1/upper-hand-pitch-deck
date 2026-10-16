@@ -4,7 +4,7 @@ type Reply<T> = { ok: true; data: T } | { ok: false; error: string };
 type Token = { data: { token: string } };
 export type NorwoodPatientApi = {
   liveCamera?: import('./norwood-live').PatientLiveApi;
-  capturePatientNorwoodFrame?: (input: { data: { token: string; view: NorwoodView; photo: string; alternatives?: string[] } }) => Promise<Reply<{ check: import("./norwood-photo-check").NorwoodPhotoCheck; session: PatientNorwoodSession | null }>>;
+  capturePatientNorwoodFrame?: (input: { signal?: AbortSignal; data: { token: string; view: NorwoodView; photo: string; alternatives?: string[] } }) => Promise<Reply<{ check: import("./norwood-photo-check").NorwoodPhotoCheck; session: PatientNorwoodSession | null }>>;
   selectPatientNorwoodFrames?: (input: { data: { token: string; scan: import("./norwood-video-scan").NorwoodScan; frames: string[] } }) => Promise<Reply<import("./norwood-video-scan").NorwoodScanSelection>>;
   checkPatientNorwoodFrame?: (input: { data: { token: string; view: NorwoodView; photo: string } }) => Promise<Reply<import("./norwood-photo-check").NorwoodPhotoCheck>>;
   openPatientNorwood: (input: Token) => Promise<Reply<PatientNorwoodSession>>;
@@ -34,7 +34,7 @@ export function createNorwoodPreviewSession(clinicName: string, token: string, e
   const fail = (error: string): Reply<never> => ({ ok: false, error });
   const publish = () => { state = { ...state, session: { ...state.session } }; listeners.forEach(fn => fn()); };
   const valid = (value: string) => !disposed && state.started && value === token && Date.parse(state.session.expiresAt) > Date.now();
-  const rep = (): RepNorwoodSession => ({ id: `preview-${state.generation}`, clinicId: "preview-clinic", clinicName, status: state.session.status, expiresAt: state.session.expiresAt, expired: Date.parse(state.session.expiresAt) <= Date.now(), revoked: disposed, openedAt: state.session.status === "sent" ? null : "preview-opened", photoCount: state.photos.length, result: state.result, finalNorwood: state.finalNorwood, reviewedAt: state.finalNorwood == null ? null : "preview-confirmed", canRetry: state.session.canRetry });
+  const rep = (): RepNorwoodSession => ({ id: `preview-${state.generation}`, clinicId: "preview-clinic", clinicName, status: state.session.status, expiresAt: state.session.expiresAt, expired: Date.parse(state.session.expiresAt) <= Date.now(), revoked: disposed, openedAt: state.session.status === "sent" ? null : "preview-opened", photoCount: state.photos.length, views: state.session.views, result: state.result, finalNorwood: state.finalNorwood, reviewedAt: state.finalNorwood == null ? null : "preview-confirmed", canRetry: state.session.canRetry });
   const analyse = async ({ data }: Token): Promise<Reply<PatientNorwoodSession>> => {
     if (!valid(data.token)) return fail("This preview session expired. Start a new test.");
     if (state.result) return ok(state.session);

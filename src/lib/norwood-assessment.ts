@@ -35,6 +35,7 @@ export type RepNorwoodSession = {
   revoked: boolean;
   openedAt: string | null;
   photoCount: number;
+  views: NorwoodView[];
   result: NorwoodResult | null;
   finalNorwood: number | null;
   reviewedAt: string | null;

@@ -61,6 +61,7 @@ export function repSession(row: AssessmentRow): RepNorwoodSession {
     id: row.id, clinicId: row.clinic_id, clinicName: row.clinic_name, status: row.status,
     expiresAt: row.expires_at, expired: Date.parse(row.expires_at) <= Date.now(), revoked: Boolean(row.revoked_at),
     openedAt: row.opened_at, photoCount: Object.keys(row.photos).length,
+    views: NORWOOD_VIEWS.filter(view => Boolean(row.photos[view])),
     result: row.status === "ready" ? parseNorwoodResult(JSON.stringify({ norwood: row.ai_norwood, confidence: row.ai_confidence, reason: row.ai_reason, photo_problems: row.photo_problems })) : null,
     finalNorwood: row.final_norwood, reviewedAt: row.reviewed_at, canRetry: retryAvailable(row),
   };
@@ -235,7 +236,8 @@ export async function captureNorwoodFrame(token: string, view: NorwoodView, phot
   const checked = await requestNorwoodBurstCheck(view, photos, process.env.ANTHROPIC_API_KEY, fetch, configuredNorwoodModel());
   // Enum-only diagnostics. No photo, token, lead, storage path or model prose.
   console.info("Norwood capture check", { view, frames: photos.length, accepted: checked.ready, problem: checked.problem });
-  const check = { ready: checked.ready, message: checked.message, ...(checked.reviewIndex !== undefined ? { reviewIndex: checked.reviewIndex } : {}) };
+  const reviewIndex = checked.selectedIndex ?? checked.reviewIndex;
+  const check = { ready: checked.ready, message: checked.message, ...(reviewIndex != null ? { reviewIndex } : {}) };
   if (!checked.ready || checked.selectedIndex === null) return { check, session: null };
   const row = await patientAction(hash, "reserve_upload");
   // reserve_upload rechecks expiry, consent and session state after inference.

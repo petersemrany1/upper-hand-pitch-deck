@@ -8,7 +8,7 @@ describe('live camera message boundaries',()=>{
   for(const value of [{type:'capture',id,view:'face'},{type:'capture',id,view:'front',audio:true},{type:'capture',id:'bad',view:'front'},{type:'capture',id,view:'front',photo:'private'}])expect(parseLiveMessage(JSON.stringify(value))).toBeNull();
   expect(parseLiveMessage('x'.repeat(2001))).toBeNull();expect(parseLiveMessage('{}')).toBeNull();
  });
- it('does not carry patient identifiers or photo bytes in capture responses',()=>{
+ it('does not carry patient identifiers or arbitrary photo fields in capture results',()=>{
   expect(parseLiveMessage(JSON.stringify({type:'result',id,view:'front',ready:true,message:'Saved',views:['front']}))?.type).toBe('result');
   expect(parseLiveMessage(JSON.stringify({type:'result',id,view:'front',ready:true,message:'Saved',views:['front'],name:'Patient'}))).toBeNull();
  });
@@ -23,3 +23,24 @@ describe('live camera message boundaries',()=>{
   finally{globalThis.RTCPeerConnection=Original;}
  });
 });
+
+// A mobile radio handover can briefly enter disconnected while the data channel
+// remains usable. It must not force the patient to restart immediately.
+it('allows a brief network interruption to recover, but ends a persistent disconnect', async () => {
+  const Original = globalThis.RTCPeerConnection;
+  class FakePeer { connectionState = 'new'; onconnectionstatechange?: () => void; close() {} }
+  (globalThis as any).RTCPeerConnection = FakePeer;
+  let interruptions = 0;
+  try {
+    const peer = new NorwoodLivePeer([], {message:()=>{},connected:()=>{},interrupted:()=>interruptions++});
+    const pc = peer.pc as unknown as FakePeer;
+    pc.connectionState = 'disconnected'; pc.onconnectionstatechange!();
+    expect(interruptions).toBe(0);
+    pc.connectionState = 'connected'; pc.onconnectionstatechange!();
+    await new Promise(resolve => setTimeout(resolve, 5100));
+    expect(interruptions).toBe(0);
+    pc.connectionState = 'disconnected'; pc.onconnectionstatechange!();
+    await new Promise(resolve => setTimeout(resolve, 5100));
+    expect(interruptions).toBe(1); peer.close();
+  } finally { globalThis.RTCPeerConnection = Original; }
+}, 12000);

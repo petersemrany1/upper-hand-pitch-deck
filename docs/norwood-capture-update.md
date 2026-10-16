@@ -78,3 +78,16 @@ Technical references: [Twilio short-lived TURN credentials](https://www.twilio.c
 Verified in the shared preview: Twilio relay transmitted a moving synthetic video and control messages successfully. In the local two-panel harness using short-lived credentials from that preview check, the actual patient/rep components connected over relay and advanced through captures; a forced crown rejection kept the view pending and showed its reason to the rep. Tests use a generated pattern and mocked AI outcomes, not patient photographs or a clinical accuracy set. After the 0.7-second still capture, the patient sees **Photo taken — You can lower your arm** while the check finishes.
 
 The relay harness also verified patient Stop sharing, reconnect with four saved angles preserved, the fifth capture, automatic camera teardown, and result rendering. The synthetic result was fixed at Norwood 4 by the harness; it is not a clinical test. All 72 automated tests passed; strict TypeScript, database/RLS checks and the production build passed. Small-phone layout measured 320×568 with no overflow.
+
+
+## Capture rejection and recovery — 16 October 2026
+
+The reported live test reached the framing service twice. Both front-view bursts were rejected (`hair_covering`, then `wrong_angle`); no upload was attempted. This establishes why progress remained at zero, but does not establish that the model's visual decisions were correct: rejected originals were not stored.
+
+- Both screens now explicitly show a retake and the short correction. The rep sees the actual frame used for that correction, with a clear “not saved” label and focused Retry button. The patient sees the current angle and saved count.
+- A downsampled preview travels only over the existing authenticated, consented video connection in bounded 8 KiB messages. It remains in memory, clears on retry/stop/unmount, and is never written to signalling, logs or browser storage. Full-resolution selected originals still use the existing AI check and private bucket.
+- Rep progress reconciles with the saved views from the authenticated assessment poll. A dropped completion message or video interruption cannot erase saved progress or leave the selector on a saved angle. Older polls cannot roll progress backwards.
+- Capturing is disabled until a real video frame is available. Capture requests are bounded; actionable service errors are preserved. Brief WebRTC disconnects get five seconds to recover; failed connections still end. Explicit stop, page hide and the ten-minute lease retain their existing behaviour.
+- The opening page, medical rubric, photo acceptance requirements, staff confirmation and booking gates are unchanged. No protected SalesCallPortal edit or production publish.
+
+Verification: automated progress/message/privacy/recovery checks and a real WebRTC relay with a synthetic camera and mocked AI outcomes. Replayed both observed rejection types, then accepted all five views; dropped a completion message and stopped video while a submitted photo was checking. Saved progress recovered and resumed at the remaining angle. These checks verify capture behaviour, not clinical grading accuracy.

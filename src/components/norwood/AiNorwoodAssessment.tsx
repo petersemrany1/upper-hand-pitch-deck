@@ -94,7 +94,7 @@ export default function AiNorwoodAssessment({ leadId, clinicId, onSuggestion, ap
       <div className="flex gap-1" aria-live="polite">{[mode === "sms" ? "Sent" : "Test started", "Opened", "Photos in", "Result ready"].map((label, i) => <div key={label} className={`flex-1 rounded px-1 py-2 text-center text-[10px] ${i <= progress ? "bg-emerald-50 text-emerald-800" : "bg-muted text-muted-foreground"}`}><span className="block">{i <= progress ? "✓" : i + 1}</span>{label}</div>)}</div>
       <p className="text-xs text-muted-foreground">{session.clinicName} · {session.photoCount}/5 photos{stopped ? " · Link expired or replaced" : ""}</p>
       {clinicId && clinicId !== session.clinicId && <p className="text-xs text-amber-800">The selected clinic changed. Send a fresh link to use its branding.</p>}
-      {api.liveCamera && !stopped && session.photoCount < 5 && ['sent', 'opened'].includes(session.status) && <NorwoodRepLive key={session.id} leadId={leadId} assessmentId={session.id} api={api.liveCamera} />}
+      {api.liveCamera && !stopped && session.photoCount < 5 && ['sent', 'opened'].includes(session.status) && <NorwoodRepLive key={session.id} leadId={leadId} assessmentId={session.id} savedViews={session.views ?? []} api={api.liveCamera} />}
       {session.status === "analysing" && !stopped && <p className="flex items-center gap-2 text-xs" role="status"><Loader2 size={13} className="animate-spin" />Analysing all five photos…</p>}
       {session.status === "send_failed" && <p className="text-xs text-destructive">The text could not be confirmed. Send a fresh link.</p>}
       {session.status === "failed" && <p className="text-xs text-amber-800">The estimate could not finish. The photos are saved for review.</p>}
