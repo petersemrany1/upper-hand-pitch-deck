@@ -32,13 +32,13 @@ export default function PatientNorwoodCapture({ api, linkToken: token, mode = "l
       setSession(result.data);
     } finally { if (activeToken.current === token) { busyRef.current = false; setBusy(false); } }
   }
-  async function capturePhoto(photo: string, captureView: NorwoodView) {
+  async function capturePhoto(photo: string, captureView: NorwoodView, alternatives?: string[]) {
     sessionRevision.current++; busyRef.current = true;
     try {
-      const result = await api.capturePatientNorwoodFrame!({ data: { token, view: captureView, photo } });
+      const result = await api.capturePatientNorwoodFrame!({ data: { token, view: captureView, photo, alternatives } });
       if (activeToken.current !== token) return { ready: false, message: "Link changed." };
       if (!result.ok) throw new Error(result.error);
-      if (result.data.check.ready && !result.data.session) throw new Error("Your photo could not be saved. Tap Retry.");
+      if (result.data.check.ready && !result.data.session?.views.includes(captureView)) throw new Error("Your photo could not be saved. Tap Retry.");
       if (result.data.session) setSession(result.data.session);
       return result.data.check;
     } finally { if (activeToken.current === token) busyRef.current = false; }

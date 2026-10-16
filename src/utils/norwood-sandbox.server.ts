@@ -1,3 +1,4 @@
+import { requestNorwoodBurstCheck } from "./norwood-burst-check.server";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { bookingActor } from "./booking-access.server";
@@ -222,15 +223,21 @@ export async function selectNorwoodFrames(token: string, scan: NorwoodScan, fram
 
 // Check and save the SAME full-resolution still. A later camera frame must never
 // replace the one that passed. This avoids a second, contradictory AI gate.
-export async function captureNorwoodFrame(token: string, view: NorwoodView, photo: string) {
-  const bytes = decodeNorwoodPhoto(photo), hash = hashNorwoodToken(token);
+export async function captureNorwoodFrame(token: string, view: NorwoodView, photo: string, alternatives: string[] = []) {
+  if (alternatives.length > 2) throw new Error("Too many photos");
+  const photos = [photo, ...alternatives], bytes = photos.map(decodeNorwoodPhoto), hash = hashNorwoodToken(token);
+  const existing = await patientAction(hash, "open");
+  if (existing.photos[view]) return { check: { ready: true, message: "Photo saved" }, session: patientSession(existing) };
   const { data, error } = await db().rpc("reserve_norwood_preview_frame", { p_hash: hash, p_view: view });
   if (error) throw new Error(error.message.startsWith("This link has expired") || error.message.startsWith("Please ask your advisor") ? error.message : "The camera check could not start. Tap Retry.");
   if (!data) throw new Error("Please wait a moment, then tap Retry.");
   if (!process.env.ANTHROPIC_API_KEY) throw new Error("The photo check is unavailable. Please ask your advisor.");
-  const check = await requestNorwoodPhotoCheck(view, photo, process.env.ANTHROPIC_API_KEY, fetch, configuredNorwoodModel());
-  if (!check.ready) return { check, session: null };
+  const checked = await requestNorwoodBurstCheck(view, photos, process.env.ANTHROPIC_API_KEY, fetch, configuredNorwoodModel());
+  // Enum-only diagnostics. No photo, token, lead, storage path or model prose.
+  console.info("Norwood capture check", { view, frames: photos.length, accepted: checked.ready, problem: checked.problem });
+  const check = { ready: checked.ready, message: checked.message };
+  if (!checked.ready || checked.selectedIndex === null) return { check, session: null };
   const row = await patientAction(hash, "reserve_upload");
   // reserve_upload rechecks expiry, consent and session state after inference.
-  return { check, session: await storeCheckedNorwoodPhoto(hash, row, view, bytes) };
+  return { check, session: await storeCheckedNorwoodPhoto(hash, row, view, bytes[checked.selectedIndex]) };
 }
