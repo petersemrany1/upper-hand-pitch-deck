@@ -25,14 +25,14 @@ function fixture() {
 
 describe("refund copy and provider verification", () => {
   test("exact approved copy and actual amounts", () => {
-    expect(refundText(75)).toBe("Hi, your $75 deposit refund has been initiated. The time it takes to appear in your account depends on your bank.");
+    expect(refundText(75)).toBe("Hi, your $75 deposit refund has been initiated. It can take 4–14 business days to appear in your account.");
     expect(refundText(50.25)).toContain("$50.25");
     for (const n of [0, -75, NaN, Infinity, 75.001]) expect(() => refundText(n)).toThrow();
   });
   test("processing copy acknowledges initiation without claiming completion or bank receipt", () => {
     const text = refundText(75);
     expect(text).toContain("$75 deposit refund has been initiated");
-    expect(text).toContain("depends on your bank");
+    expect(text).toContain("4–14 business days");
     expect(text).not.toContain("has been refunded");
     expect(refundText(50.25)).toContain("$50.25");
   });

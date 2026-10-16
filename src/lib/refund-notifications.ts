@@ -22,7 +22,7 @@ export type RefundNotice = {
 export function refundText(amount: number): string {
   if (!Number.isFinite(amount) || amount <= 0 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001) throw new Error("Refund amount is missing or invalid");
   const value = Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
-  return `Hi, your $${value} deposit refund has been initiated. The time it takes to appear in your account depends on your bank.`;
+  return `Hi, your $${value} deposit refund has been initiated. It can take 4–14 business days to appear in your account.`;
 }
 
 export function refundPhone(phone: string | undefined): string {
