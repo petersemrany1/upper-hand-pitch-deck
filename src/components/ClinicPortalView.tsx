@@ -27,6 +27,7 @@ import { CALENDAR_APPROVAL_ONLY, isCalendarApprovalHost } from "@/lib/calendar-r
 import { ConnectedScheduleSlotPicker } from "./ConnectedScheduleSlotPicker";
 import { ClinicScheduleSlotPicker } from "./ClinicScheduleSlotPicker";
 import { useDemoClinic } from "./DemoClinicContext";
+import { ReclassificationSection } from "./ReclassificationSection";
 
 export type ChaseStatus = "requested" | "rebooked" | "not_proceeding" | "no_answer" | "voicemail";
 
@@ -242,18 +243,19 @@ function fmtTime(t: string) {
   return `${h}:${min}${ampm}`;
 }
 
-type ClinicPortalProps = { clinicId: string; clinicName: string; isAdmin?: boolean };
+type ClinicPortalProps = { clinicId: string; clinicName: string; isAdmin?: boolean; initialAppointmentId?: string };
 
 export function ClinicPortalView(props: ClinicPortalProps) {
   return <ClinicPortalContent key={props.clinicId} {...props} />;
 }
 
-function ClinicPortalContent({ clinicId, clinicName, isAdmin = false }: ClinicPortalProps) {
+function ClinicPortalContent({ clinicId, clinicName, isAdmin = false, initialAppointmentId }: ClinicPortalProps) {
   const { role, userType } = useAuth();
   const showBilling = role === "admin" || userType === "clinic";
   const [tab, setTab] = useState<"appointments" | "availability">("appointments");
   const [refresh, setRefresh] = useState(0);
   const [selected, setSelected] = useState<ClinicAppointment | null>(null);
+  const openedLink = useRef<string | null>(null);
   const fetchPortal = useCallback(async () => {
     const results = await Promise.all([
       supabase.from("clinic_appointments").select("*").eq("clinic_id", clinicId).not("patient_name", "ilike", "%test%").order("appointment_date"),
@@ -293,6 +295,14 @@ function ClinicPortalContent({ clinicId, clinicName, isAdmin = false }: ClinicPo
 
 
   const reload = () => setRefresh((n) => n + 1);
+
+  useEffect(() => {
+    if (!initialAppointmentId || !portal || openedLink.current === initialAppointmentId) return;
+    openedLink.current = initialAppointmentId;
+    const appointment = appts.find(a => a.id === initialAppointmentId);
+    if (appointment) setSelected(appointment);
+    else toast.error("This patient card is unavailable in this clinic.");
+  }, [initialAppointmentId, portal]);
 
   useEffect(() => {
     const refreshVisible = () => { if (document.visibilityState === "visible") setRefresh(n => n + 1); };
@@ -1292,6 +1302,8 @@ export function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clini
           )}
         </div>
       )}
+
+      <ReclassificationSection key={appt.id} appointmentId={appt.id} patientName={appt.patient_name} disqualified={appt.outcome === "disqualified" || !!appt.disqualified_at} />
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
         <button onClick={onClose} style={{ ...navBtn, fontSize: 13 }}>Close</button>

@@ -2,9 +2,10 @@ import { z } from "zod";
 
 export const partnerViewInput = z.object({ clinicId: z.string().uuid() });
 
-export function partnerViewSearch(search: Record<string, unknown>): { viewClinic?: string } {
+export function partnerViewSearch(search: Record<string, unknown>): { viewClinic?: string; appointmentId?: string } {
   const result = partnerViewInput.shape.clinicId.safeParse(search.viewClinic);
-  return result.success ? { viewClinic: result.data } : {};
+  const appointment = z.string().uuid().safeParse(search.appointmentId);
+  return { ...(result.success ? { viewClinic: result.data } : {}), ...(appointment.success ? { appointmentId: appointment.data } : {}) };
 }
 
 export function clinicPortalTarget(userType: string, ownClinicId: string | null, viewClinic?: string) {
