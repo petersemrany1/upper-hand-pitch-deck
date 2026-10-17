@@ -4,7 +4,7 @@ export const NORWOOD_VIEWS = ["front", "top", "crown", "left", "right"] as const
 export type NorwoodView = typeof NORWOOD_VIEWS[number];
 export const NORWOOD_LINK_HOURS = 2;
 export const NORWOOD_MAX_PHOTO_BYTES = 2 * 1024 * 1024;
-export const NORWOOD_PROMPT_VERSION = "2026-10-15.3";
+export const NORWOOD_PROMPT_VERSION = "2026-10-17.1";
 export const NORWOOD_MODEL = "claude-haiku-4-5-20251001"; // Same model as auto-analyse-call.
 export const NORWOOD_IMAGE_PIPELINE = { version: "jpeg-1536-q88-v1", maxDimension: 1536, jpegQuality: .88 } as const;
 export const norwoodResultSchema = z.object({
@@ -37,6 +37,7 @@ export type RepNorwoodSession = {
   photoCount: number;
   views: NorwoodView[];
   result: NorwoodResult | null;
+  analysisFailure?: "review" | "service" | null;
   finalNorwood: number | null;
   reviewedAt: string | null;
   canRetry: boolean;

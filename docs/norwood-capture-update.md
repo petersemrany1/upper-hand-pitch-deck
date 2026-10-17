@@ -91,3 +91,14 @@ The reported live test reached the framing service twice. Both front-view bursts
 - The opening page, medical rubric, photo acceptance requirements, staff confirmation and booking gates are unchanged. No protected SalesCallPortal edit or production publish.
 
 Verification: automated progress/message/privacy/recovery checks and a real WebRTC relay with a synthetic camera and mocked AI outcomes. Replayed both observed rejection types, then accepted all five views; dropped a completion message and stopped video while a submitted photo was checking. Saved progress recovered and resumed at the remaining angle. These checks verify capture behaviour, not clinical grading accuracy.
+
+
+### 17 October: automatic advisor connection and final-estimate recovery
+
+The preview now discovers an explicitly shared patient camera while the sending advisor has that lead's camera panel visible. It joins a fresh room automatically, never an already answered/occupied/previously attempted room. Leaving the panel cancels pending discovery. Patient permission and Show advisor remain explicit; no audio is requested. Discovery waits quietly before consent and is limited to the authenticated sender; existing single-client room claims still protect joins.
+
+Final grading now uses the bounded structured-output transport already used for capture checks (up to two transport attempts, one shared 40-second deadline, same five originals, same configured model). A correctly formatted abstention or contradictory evidence is a human-review outcome, not a format retry and never a guessed grade. The clinical consistency rules are unchanged. Final failures persist only an allowlisted diagnostic code in the existing failed assessment's photo_problems field. This does not change lead statuses or clinic handovers and needs no migration.
+
+After all five photos save, the patient sees that their photos are saved and the advisor handles the result. Only the advisor receives an analysis-retry action for technical failures. A review outcome has no retry loop. The approved opening page and protected SalesCallPortal.tsx are unchanged by this repair.
+
+Validation: 85 focused non-UI tests passed, plus two React tests covering automatic connection, no duplicate/repeated join after ending sharing, and navigation during pending discovery. TypeScript and production build passed. Synthetic browser testing verifies connection without an advisor click and the saved-photo review screen; it is not a real-phone usability or clinical-accuracy benchmark.

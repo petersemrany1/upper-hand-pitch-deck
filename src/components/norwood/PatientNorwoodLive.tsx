@@ -119,13 +119,13 @@ export default function PatientNorwoodLive({ token, views, api, capture }: {
     <div className="nw-live-heading" aria-live="polite"><span className="nw-eyebrow">{sharing ? `${views.length} OF 5 PHOTOS SAVED` : 'WITH YOUR ADVISOR'}</span><h1>{title}</h1></div>
     <div className={`nw-live-view ${!active ? 'nw-live-idle' : ''}`}>
       <video ref={video} autoPlay muted playsInline aria-label="Your camera"/>
-      {!active && <div className="nw-live-invite"><Video size={56} strokeWidth={1.2}/><p>Hold your phone.<br/>Your advisor will guide you.</p></div>}
+      {!active && <div className="nw-live-invite"><Video size={56} strokeWidth={1.2}/><p>Put your call on speaker.<br/>Your advisor will guide you.</p></div>}
       {active && <span className="nw-live-badge">{sharing ? '● Sharing camera' : 'Connecting…'}</span>}
     </div>
     <div className="nw-live-controls">
       {error && <p className="nw-error" role="alert">{error}</p>}
-      {!active ? <><p className="nw-live-disclosure">Share live camera video with your advisor. Only the 5 photos are saved.</p><button className="nw-primary" onClick={() => void start()}><Camera size={20}/>Share camera with my advisor</button><p className="nw-live-footnote">Only start when safely stopped, never while driving.</p></> : <>
-        <p className={`nw-live-one-line ${feedback?.kind === 'retake' ? 'nw-live-correction' : ''}`} role="status">{phase === 'capturing' ? 'Your advisor is taking a photo.' : phase === 'checking' ? 'You can lower your arm.' : feedback?.kind === 'retake' ? feedback.message : feedback?.kind === 'saved' ? `${feedback.message}. Follow your advisor.` : 'Stay on your call. Listen to your advisor.'}</p>
+      {!active ? <><p className="nw-live-disclosure">Share live camera video with your advisor. Only the 5 photos are saved.</p><button className="nw-primary" onClick={() => void start()}><Camera size={20}/>Show advisor</button><p className="nw-live-footnote">Only start when safely stopped, never while driving.</p></> : <>
+        <p className={`nw-live-one-line ${feedback?.kind === 'retake' ? 'nw-live-correction' : ''}`} role="status">{phase === 'capturing' ? 'Your advisor is taking a photo.' : phase === 'checking' ? 'You can lower your arm.' : feedback?.kind === 'retake' ? feedback.message : feedback?.kind === 'saved' ? `${feedback.message}. Follow your advisor.` : 'Listen to your advisor. They’ll take the photos.'}</p>
         <button className="nw-live-stop" onClick={() => stop()}><VideoOff size={20}/>Stop sharing</button>
       </>}
     </div>

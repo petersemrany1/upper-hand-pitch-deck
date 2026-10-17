@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, Video, VideoOff, Check, RotateCcw, AlertCircle } from 'lucide-react';
 import { NORWOOD_VIEWS, type NorwoodView } from '@/lib/norwood-assessment';
-import { LIVE_ANGLES, type LiveRequest, type RepLiveApi } from '@/lib/norwood-live';
+import { LIVE_ANGLES, type LiveRequest, type LiveState, type RepLiveApi } from '@/lib/norwood-live';
 import { NorwoodLivePeer } from '@/lib/norwood-live-peer';
+import { canAutoJoin } from '@/lib/norwood-live-autoconnect';
 import { CapturePreview } from '@/lib/norwood-live-preview';
 import { mergeSavedViews, nextCaptureView } from '@/lib/norwood-live-progress';
 import './norwood-live.css';
@@ -15,6 +16,7 @@ export default function NorwoodRepLive({ leadId, assessmentId, api, savedViews =
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined), captureTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pending = useRef<{ id: string; view: NorwoodView } | undefined>(undefined), previewBuffer = useRef(new CapturePreview());
   const confirmed = useRef<NorwoodView[]>(savedViews);
+  const phaseRef = useRef<'idle' | 'connecting' | 'live'>('idle'), attemptedRooms = useRef(new Set<string>());
   const [phase, setPhase] = useState<'idle' | 'connecting' | 'live'>('idle');
   const [error, setError] = useState(''), [message, setMessage] = useState(''), [busy, setBusy] = useState(false);
   const [views, setViews] = useState<NorwoodView[]>(savedViews), [view, setView] = useState<NorwoodView>(NORWOOD_VIEWS.find(v => !savedViews.includes(v)) ?? 'right');
@@ -52,27 +54,27 @@ export default function NorwoodRepLive({ leadId, assessmentId, api, savedViews =
     previewBuffer.current.clear(); setPreview(null); setRetake(false);
     if (video.current) video.current.srcObject = null;
     const id = room.current; room.current = undefined; if (id) void call({ action: 'stop', roomId: id }).catch(() => {});
-    setPhase('idle'); setError(reason);
+    phaseRef.current = 'idle'; setPhase('idle'); setError(reason);
   };
   useEffect(() => () => stop(), [leadId, assessmentId]);
 
-  async function join() {
-    if (phase !== 'idle') return;
+  async function join(foundState?: LiveState) {
+    if (phaseRef.current !== 'idle') return;
+    phaseRef.current = 'connecting';
     const version = ++run.current; setPhase('connecting'); setError(''); setMessage('');
     try {
-      let found = await call({ action: 'find' });
-      for (let attempt = 0; !found.state?.offer && attempt < 25; attempt++) {
-        if (run.current !== version) return; await new Promise(resolve => setTimeout(resolve, 2000));
-        if (run.current !== version) return; found = await call({ action: 'find' });
-      }
+      const found = foundState ? { state: foundState } : await call({ action: 'find' });
       if (run.current !== version) return;
-      if (!found.state?.offer) throw new Error('Ask the patient to tap “Share camera with my advisor”, then connect.');
+      if (!found.state?.offer || found.state.ended || !found.state.patientPresent) {
+        phaseRef.current = 'idle'; setPhase('idle'); return;
+      }
+      attemptedRooms.current.add(found.state.roomId);
       const joined = await call({ action: 'join', roomId: found.state.roomId });
       if (run.current !== version) { if (joined.state) void call({ action: 'stop', roomId: joined.state.roomId }).catch(() => {}); return; }
       if (!joined.state?.offer || !joined.iceServers) throw new Error('Patient camera is not ready yet.');
       const state = joined.state; room.current = state.roomId;
       const connection = new NorwoodLivePeer(joined.iceServers, {
-        connected: () => { if (run.current === version) { setPhase('live'); connection.send({ type: 'guide', view: selected.current }); } },
+        connected: () => { if (run.current === version) { phaseRef.current = 'live'; setPhase('live'); connection.send({ type: 'guide', view: selected.current }); } },
         interrupted: () => { if (run.current === version) stop('Camera disconnected. Saved photos are kept. Ask the patient to share again.'); },
         stream: stream => { if (video.current && run.current === version) { video.current.srcObject = stream; void video.current.play().catch(() => {}); } },
         message: m => {
@@ -107,6 +109,28 @@ export default function NorwoodRepLive({ leadId, assessmentId, api, savedViews =
       await call({ action: 'sdp', roomId: state.roomId, sdp: answer });
     } catch (e) { if (run.current === version) stop(e instanceof Error ? e.message : 'Could not connect the camera.'); }
   }
+  const autoConnect = useRef({ call, join }); autoConnect.current = { call, join };
+  useEffect(() => {
+    let cancelled = false, watch: ReturnType<typeof setTimeout>;
+    const check = async () => {
+      if (cancelled) return;
+      if (phaseRef.current === 'idle' && !document.hidden) {
+        const version = run.current;
+        try {
+          const found = await autoConnect.current.call({ action: 'find' });
+          if (!cancelled && version === run.current && phaseRef.current === 'idle'
+            && !document.hidden && canAutoJoin(found.state, attemptedRooms.current)) {
+            await autoConnect.current.join(found.state!);
+          }
+        } catch {
+          if (!cancelled && version === run.current) setError('Checking the camera connection…');
+        }
+      }
+      if (!cancelled) watch = setTimeout(check, 2000);
+    };
+    void check();
+    return () => { cancelled = true; clearTimeout(watch); };
+  }, [leadId, assessmentId]);
   function take() {
     if (phase !== 'live' || busy || views.includes(view)) return;
     if (!video.current || video.current.readyState < 2) { setError('Wait for the live camera image before taking the photo.'); return; }
@@ -134,16 +158,16 @@ export default function NorwoodRepLive({ leadId, assessmentId, api, savedViews =
     <div className="nw-rep-video">
       <video ref={video} autoPlay playsInline muted aria-label="Patient live camera" onLoadedData={() => setVideoReady(true)} onEmptied={() => setVideoReady(false)}/>
       {retake && preview && <><img className="nw-rep-review" src={preview} alt={`The ${LIVE_ANGLES[view].name.toLowerCase()} photo the AI could not verify`}/><span className="nw-rep-review-label">Photo checked · not saved</span></>}
-      {phase !== 'live' && <div><Video size={34}/><span>{phase === 'connecting' ? 'Connecting camera…' : 'See what they’re showing you'}</span></div>}
+      {phase !== 'live' && <div><Video size={34}/><span>{phase === 'connecting' ? 'Connecting camera…' : 'Waiting for the patient to tap Show advisor'}</span></div>}
     </div>
     {phase === 'live' ? <>
       <div className="nw-rep-angles">{NORWOOD_VIEWS.map(v => <button key={v} disabled={busy} aria-pressed={view === v} onClick={() => choose(v)}>{views.includes(v) && <Check size={12}/>} {LIVE_ANGLES[v].name}</button>)}</div>
       <div className="nw-rep-direction"><b>Say: “{LIVE_ANGLES[view].instruction}”</b><p>{LIVE_ANGLES[view].check}</p></div>
     {retake && <div className="nw-rep-retake" role="alert"><AlertCircle size={20}/><div><strong>{LIVE_ANGLES[view].name} not saved</strong><p>{message}</p></div></div>}
       {retake ? <button ref={retryButton} className="nw-rep-capture" onClick={retry}><RotateCcw size={18}/>Retry {LIVE_ANGLES[view].name.toLowerCase()}</button> : <button className="nw-rep-capture" disabled={busy || views.includes(view) || !videoReady} onClick={take}><Camera size={18}/>{busy ? 'Checking photo…' : views.includes(view) ? 'Photo saved' : !videoReady ? 'Waiting for camera image…' : `Capture ${LIVE_ANGLES[view].name.toLowerCase()}`}</button>}
-    </> : <button className="nw-rep-capture" disabled={phase === 'connecting'} onClick={() => void join()}><Video size={18}/>{phase === 'connecting' ? 'Connecting…' : 'Connect to patient camera'}</button>}
+    </> : <button className="nw-rep-capture" disabled={phase === 'connecting'} onClick={() => void join()}><Video size={18}/>{phase === 'connecting' ? 'Connecting…' : 'Check camera connection'}</button>}
     {(error || (!retake && message)) && <p role="status" className={error ? 'nw-rep-error' : ''}>{error || message}</p>}
     {phase !== 'idle' && <button className="nw-rep-end" onClick={() => stop()}><VideoOff size={15}/>End camera sharing</button>}
-    <small>The patient keeps holding their phone. Guide one movement at a time. Only scan once safely stopped.</small>
+    <small>Connects automatically when this patient taps Show advisor. Keep their call on speaker or earbuds. Only scan once safely stopped.</small>
   </section>;
 }

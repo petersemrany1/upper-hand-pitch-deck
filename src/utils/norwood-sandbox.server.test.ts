@@ -39,16 +39,17 @@ test("the provider receives all five labelled photos together in one server-side
   const calls: { url: string; body: any; key: string | null }[] = [];
   const request = (async (url: RequestInfo | URL, init?: RequestInit) => {
     calls.push({ url: String(url), body: JSON.parse(String(init?.body)), key: new Headers(init?.headers).get("x-api-key") });
-    return Response.json({ stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify({ norwood: 5, confidence: "medium", reason: "The separating bridge appears narrow.", photo_problems: [], observations: {
+    return Response.json({ stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify({ assessment: { norwood: 5, confidence: "medium", reason: "The separating bridge appears narrow.", photo_problems: [], observations: {
       views: { front: "clear", top: "clear", crown: "clear", left: "clear", right: "clear" },
       pattern: "standard", hairline: "extensive", crown: "distinct_loss", bridge: "narrow_sparse", fringe: "broad", anterior_extent: "not_applicable", boundary_uncertain: false,
-    } }) }] });
+    } } }) }] });
   }) as typeof fetch;
   const result = await requestNorwoodEstimate(NORWOOD_VIEWS.map(view => ({ view, base64: `test-${view}` })), "fixture-secret", request);
   expect(result.norwood).toBe(5); expect(calls).toHaveLength(1);
   expect(calls[0].url).toBe("https://api.anthropic.com/v1/messages");
   expect(calls[0].key).toBe("fixture-secret"); expect(calls[0].body.model).toBe(NORWOOD_MODEL);
-  expect(calls[0].body.system).toBe(NORWOOD_SYSTEM_PROMPT);
+  expect(calls[0].body.system).toContain(NORWOOD_SYSTEM_PROMPT);
+  expect(calls[0].body.output_config.format.schema.properties.assessment.anyOf).toHaveLength(2);
   const blocks = calls[0].body.messages[0].content;
   expect(blocks.filter((b: any) => b.type === "image").map((b: any) => b.source.data)).toEqual(NORWOOD_VIEWS.map(v => `test-${v}`));
   expect(blocks.filter((b: any) => b.type === "text").slice(0,5).map((b: any) => b.text)).toEqual(NORWOOD_VIEWS.map(v => `Photo: ${v}`));
@@ -61,7 +62,7 @@ test("a refusal, truncated response or provider failure never becomes a displaye
     Response.json({ stop_reason: "end_turn", content: [{ type: "text", text: "null" }] }),
     Response.json({ stop_reason: "max_tokens", content: [{ type: "text", text: "{}" }] }),
     Response.json({ error: "unavailable" }, { status: 503 }),
-  ]) await expect(requestNorwoodEstimate(images,"fixture-secret", (async () => response) as unknown as typeof fetch)).rejects.toThrow();
+  ]) await expect(requestNorwoodEstimate(images,"fixture-secret", (async () => response.clone()) as unknown as typeof fetch)).rejects.toThrow();
 });
 
 import { assertNorwoodSandboxLead, NORWOOD_PATIENT_PREVIEW_ORIGIN } from "../lib/norwood-sandbox-access";
@@ -97,4 +98,13 @@ test("phone link uses the approved short preview URL and preserves two-hour pati
     if (previous === undefined) delete process.env.NORWOOD_PREVIEW_GUEST_URL; else process.env.NORWOOD_PREVIEW_GUEST_URL = previous;
     if (previousExpiry === undefined) delete process.env.NORWOOD_PREVIEW_GUEST_EXPIRES_AT; else process.env.NORWOOD_PREVIEW_GUEST_EXPIRES_AT = previousExpiry;
   }
+});
+
+test("review outcomes keep saved photos and do not invite repeated analysis", () => {
+  const reviewed = { ...row, status: "failed" as const, photo_problems: ["HP-EVIDENCE"] };
+  expect(retryAvailable(reviewed)).toBe(false);
+  expect(patientSession(reviewed).needsReview).toBe(true);
+  expect(patientSession(reviewed).estimate).toBeNull();
+  expect(patientSession({...reviewed, photo_problems:["HP-529"]}).canRetry).toBe(true);
+  expect(patientSession({...reviewed, photo_problems:["HP-529"]}).needsReview).toBe(false);
 });

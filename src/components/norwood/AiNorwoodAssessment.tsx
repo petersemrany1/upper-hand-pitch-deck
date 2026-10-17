@@ -97,7 +97,7 @@ export default function AiNorwoodAssessment({ leadId, clinicId, onSuggestion, ap
       {api.liveCamera && !stopped && session.photoCount < 5 && ['sent', 'opened'].includes(session.status) && <NorwoodRepLive key={session.id} leadId={leadId} assessmentId={session.id} savedViews={session.views ?? []} api={api.liveCamera} />}
       {session.status === "analysing" && !stopped && <p className="flex items-center gap-2 text-xs" role="status"><Loader2 size={13} className="animate-spin" />Analysing all five photos…</p>}
       {session.status === "send_failed" && <p className="text-xs text-destructive">The text could not be confirmed. Send a fresh link.</p>}
-      {session.status === "failed" && <p className="text-xs text-amber-800">The estimate could not finish. The photos are saved for review.</p>}
+      {session.status === "failed" && <p className="text-xs text-amber-800">{session.analysisFailure === "review" ? "AI could not support a consistent Norwood estimate. All 5 photos are saved for review; no AI number has been filled in." : "All 5 photos are saved. The estimate service could not finish. Retry the estimate below; the patient does not need to retake photos."}</p>}
       {photos.length > 0 && <div className="grid grid-cols-5 gap-1.5">{photos.map(photo => <button type="button" key={photo.view} onClick={() => setEnlarged(photo.view)} className="min-w-0 text-center" aria-label={`Enlarge ${NORWOOD_GUIDES[photo.view].title.toLowerCase()} photo`}><img className="aspect-square w-full rounded-md object-cover" src={photo.url} alt={`${NORWOOD_GUIDES[photo.view].title} photo`} referrerPolicy="no-referrer" /><span className="text-[9px] text-muted-foreground">{NORWOOD_GUIDES[photo.view].title}</span></button>)}</div>}
       {session.result && <div className="rounded-md border border-emerald-100 bg-emerald-50/50 p-3 space-y-2">
         <div className="flex items-center justify-between gap-2"><strong className="text-sm">AI estimate: Norwood {session.result.norwood}</strong><span className="text-[10px] uppercase text-muted-foreground">{session.result.confidence} confidence</span></div>
@@ -107,7 +107,7 @@ export default function AiNorwoodAssessment({ leadId, clinicId, onSuggestion, ap
         {session.result.photo_problems.length > 0 && <ul className="list-disc pl-4 text-xs text-amber-800">{session.result.photo_problems.map((problem, i) => <li key={i}>{problem}</li>)}</ul>}
         {session.finalNorwood == null ? <p className="text-xs font-medium">Suggested below. Tap a Norwood number to confirm or change it before booking.</p> : <p className="flex items-center gap-1 text-xs text-emerald-800"><Check size={12} />Rep confirmed: Norwood {session.finalNorwood}{session.finalNorwood !== session.result.norwood ? " · AI estimate kept separately" : ""}</p>}
       </div>}
-      {session.canRetry && !stopped && <button type="button" className="text-xs underline" disabled={busy} onClick={() => void retry()}>Retry estimate</button>}
+      {session.canRetry && !stopped && <button type="button" className="text-xs underline" disabled={busy} onClick={() => void retry()}>Retry estimate with saved photos</button>}
       {stopped && !session.result && <p className="text-xs text-muted-foreground">Send a fresh link to continue.</p>}
     </>}
     {(error || connectionError || photoError) && <p className="text-xs text-destructive" role="alert">{error || connectionError || photoError}</p>}

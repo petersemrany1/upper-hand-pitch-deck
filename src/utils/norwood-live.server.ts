@@ -37,6 +37,9 @@ export async function repLive(userDb:any,leadId:string,assessmentId:string,input
  const actor=await assertNorwoodStaff(userDb,leadId);
  const row=await latestNorwood(userDb,leadId);
  if(!row||row.id!==assessmentId)throw new Error('This camera session was replaced. Refresh the assessment.');
+ // Waiting for patient consent is normal. Only the rep who sent this link
+ // discovers it automatically; other signed-in reps must not race to join it.
+ if(input.action==='find' && (!row.consented_at || !row.framing_consented_at || (row.created_by && row.created_by!==actor.id)))return {state:null};
  const state=await action(row,'rep',input,actor.id);
  const iceServers=input.action==='join'?await liveIceServers():undefined;
  return {state,iceServers};

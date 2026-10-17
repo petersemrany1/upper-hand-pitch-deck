@@ -1,3 +1,6 @@
+import { analysisNeedsReview, analysisFailure } from "@/lib/norwood-analysis-state";
+import { NorwoodAbstentionError } from "@/lib/norwood-evidence";
+import { NorwoodServiceError } from "./norwood-json.server";
 import { requestNorwoodBurstCheck } from "./norwood-burst-check.server";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -34,7 +37,7 @@ export function patientPreviewUrl(token: string) {
   return url.toString();
 }
 export type AssessmentRow = {
-  id: string; lead_id: string; clinic_id: string; clinic_name: string; token_hash: string;
+  id: string; created_by?: string; lead_id: string; clinic_id: string; clinic_name: string; token_hash: string;
   status: NorwoodAssessmentStatus; expires_at: string; revoked_at: string | null;
   opened_at: string | null; consented_at: string | null; framing_consented_at?: string | null;
   photos: Partial<Record<NorwoodView, { path: string; sha256: string }>>;
@@ -44,7 +47,7 @@ export type AssessmentRow = {
 };
 export const hashNorwoodToken = (token: string) => createHash("sha256").update(token).digest("hex");
 export function retryAvailable(row: AssessmentRow, now = Date.now()) {
-  return row.analysis_attempts < 3 && (row.status === "failed" ||
+  return !analysisNeedsReview(row.status, row.photo_problems) && row.analysis_attempts < 3 && (row.status === "failed" ||
     (row.status === "analysing" && now - Date.parse(row.analysis_started_at ?? "") >= 90_000));
 }
 export function patientSession(row: AssessmentRow): PatientNorwoodSession {
@@ -53,7 +56,7 @@ export function patientSession(row: AssessmentRow): PatientNorwoodSession {
     clinicName: row.clinic_name, expiresAt: row.expires_at, status: row.status,
     views: NORWOOD_VIEWS.filter(v => Boolean(row.photos[v])), consented: Boolean(row.consented_at && row.framing_consented_at),
     estimate: row.status === "ready" ? row.ai_norwood : null,
-    needsReview: row.status === "ready" && (row.ai_confidence === "low" || row.photo_problems.length > 0), canRetry: retryAvailable(row),
+    needsReview: analysisNeedsReview(row.status, row.photo_problems) || (row.status === "ready" && (row.ai_confidence === "low" || row.photo_problems.length > 0)), canRetry: retryAvailable(row),
   };
 }
 export function repSession(row: AssessmentRow): RepNorwoodSession {
@@ -63,6 +66,7 @@ export function repSession(row: AssessmentRow): RepNorwoodSession {
     openedAt: row.opened_at, photoCount: Object.keys(row.photos).length,
     views: NORWOOD_VIEWS.filter(view => Boolean(row.photos[view])),
     result: row.status === "ready" ? parseNorwoodResult(JSON.stringify({ norwood: row.ai_norwood, confidence: row.ai_confidence, reason: row.ai_reason, photo_problems: row.photo_problems })) : null,
+    analysisFailure: analysisFailure(row.status, row.photo_problems),
     finalNorwood: row.final_norwood, reviewedAt: row.reviewed_at, canRetry: retryAvailable(row),
   };
 }
@@ -192,9 +196,12 @@ export async function analyseNorwood(hash: string): Promise<PatientNorwoodSessio
     }).eq("id", row.id).eq("analysis_run", run).is("revoked_at", null).select("*").maybeSingle();
     if (error || !saved) throw new Error("Estimate could not be saved");
     return patientSession(saved);
-  } catch {
-    await db().from("norwood_preview_assessments").update({ status: "failed" }).eq("id", row.id).eq("analysis_run", run).is("revoked_at", null);
-    throw new Error("We couldn't finish the estimate. Please try again or ask your advisor to review the photos.");
+  } catch (error) {
+    const code = error instanceof NorwoodAbstentionError || error instanceof NorwoodServiceError ? error.code : "HP-ANALYSIS";
+    console.warn("Norwood estimate outcome", { code, version: "structured-estimate-v2" });
+    const { data: failed, error: saveError } = await db().from("norwood_preview_assessments").update({ status: "failed", photo_problems: [code] }).eq("id", row.id).eq("analysis_run", run).is("revoked_at", null).select("*").maybeSingle();
+    if (saveError || !failed) throw new Error("Your photos are saved. Your advisor can check the estimate status.");
+    return patientSession(failed);
   }
 }
 
