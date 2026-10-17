@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { decodeNorwoodPhoto, patientPreviewUrl, hashNorwoodToken, patientSession, requestNorwoodEstimate, retryAvailable, type AssessmentRow } from "./norwood-sandbox.server";
-import { NORWOOD_MODEL, NORWOOD_SYSTEM_PROMPT, NORWOOD_VIEWS } from "../lib/norwood-assessment";
+import { NORWOOD_MODEL, NORWOOD_SYSTEM_PROMPT, NORWOOD_PROMPT_VERSION, NORWOOD_VIEWS } from "../lib/norwood-assessment";
 const row = {
   id: "secret-session", lead_id: "private-lead", token_hash: "private-hash", clinic_id: "private-clinic",
   clinic_name: "Test Clinic", status: "ready", expires_at: "2099-01-01T00:00:00Z", revoked_at: null,
@@ -101,8 +101,9 @@ test("phone link uses the approved short preview URL and preserves two-hour pati
 });
 
 test("review outcomes keep saved photos and do not invite repeated analysis", () => {
-  const reviewed = { ...row, status: "failed" as const, photo_problems: ["HP-EVIDENCE"] };
+  const reviewed = { ...row, prompt_version: NORWOOD_PROMPT_VERSION, status: "failed" as const, photo_problems: ["HP-EVIDENCE"] };
   expect(retryAvailable(reviewed)).toBe(false);
+  expect(retryAvailable({...reviewed, prompt_version:"older-version"})).toBe(true);
   expect(patientSession(reviewed).needsReview).toBe(true);
   expect(patientSession(reviewed).estimate).toBeNull();
   expect(patientSession({...reviewed, photo_problems:["HP-529"]}).canRetry).toBe(true);

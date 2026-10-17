@@ -37,7 +37,7 @@ export function patientPreviewUrl(token: string) {
   return url.toString();
 }
 export type AssessmentRow = {
-  id: string; created_by?: string; lead_id: string; clinic_id: string; clinic_name: string; token_hash: string;
+  id: string; prompt_version?: string | null; created_by?: string; lead_id: string; clinic_id: string; clinic_name: string; token_hash: string;
   status: NorwoodAssessmentStatus; expires_at: string; revoked_at: string | null;
   opened_at: string | null; consented_at: string | null; framing_consented_at?: string | null;
   photos: Partial<Record<NorwoodView, { path: string; sha256: string }>>;
@@ -47,7 +47,7 @@ export type AssessmentRow = {
 };
 export const hashNorwoodToken = (token: string) => createHash("sha256").update(token).digest("hex");
 export function retryAvailable(row: AssessmentRow, now = Date.now()) {
-  return !analysisNeedsReview(row.status, row.photo_problems) && row.analysis_attempts < 3 && (row.status === "failed" ||
+  return (!analysisNeedsReview(row.status, row.photo_problems) || row.prompt_version !== NORWOOD_PROMPT_VERSION) && row.analysis_attempts < 3 && (row.status === "failed" ||
     (row.status === "analysing" && now - Date.parse(row.analysis_started_at ?? "") >= 90_000));
 }
 export function patientSession(row: AssessmentRow): PatientNorwoodSession {
@@ -199,7 +199,7 @@ export async function analyseNorwood(hash: string): Promise<PatientNorwoodSessio
   } catch (error) {
     const code = error instanceof NorwoodAbstentionError || error instanceof NorwoodServiceError ? error.code : "HP-ANALYSIS";
     console.warn("Norwood estimate outcome", { code, version: "structured-estimate-v2" });
-    const { data: failed, error: saveError } = await db().from("norwood_preview_assessments").update({ status: "failed", photo_problems: [code] }).eq("id", row.id).eq("analysis_run", run).is("revoked_at", null).select("*").maybeSingle();
+    const { data: failed, error: saveError } = await db().from("norwood_preview_assessments").update({ status: "failed", photo_problems: [code], prompt_version: NORWOOD_PROMPT_VERSION, ai_observations: error instanceof NorwoodAbstentionError && error.evidence ? { proposed_norwood: error.evidence.norwood, observations: error.evidence.observations } : null }).eq("id", row.id).eq("analysis_run", run).is("revoked_at", null).select("*").maybeSingle();
     if (saveError || !failed) throw new Error("Your photos are saved. Your advisor can check the estimate status.");
     return patientSession(failed);
   }

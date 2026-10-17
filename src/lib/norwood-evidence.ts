@@ -17,7 +17,7 @@ export type NorwoodModelResult = NorwoodResult & { observations: NorwoodObservat
 export const norwoodModelSchema = norwoodResultSchema.extend({ observations: norwoodObservationsSchema }).strict();
 
 export class NorwoodAbstentionError extends Error {
-  constructor(public code: "HP-REVIEW" | "HP-EVIDENCE" = "HP-REVIEW") { super("These photos do not support a consistent estimate. Advisor review required."); this.name = "NorwoodAbstentionError"; }
+  constructor(public code: "HP-REVIEW" | "HP-EVIDENCE" = "HP-REVIEW", public evidence?: NorwoodModelResult) { super("These photos do not support a consistent estimate. Advisor review required."); this.name = "NorwoodAbstentionError"; }
 }
 
 // These are conservative consistency checks, NOT a clinically validated classifier.
@@ -59,7 +59,7 @@ export function parseNorwoodModelResult(raw: string): NorwoodModelResult {
   if (value === null) throw new NorwoodAbstentionError();
   const result = norwoodModelSchema.parse(value);
   const o = result.observations;
-  if (!stageSupportedByObservations(result.norwood, o)) throw new NorwoodAbstentionError("HP-EVIDENCE");
+  if (!stageSupportedByObservations(result.norwood, o)) throw new NorwoodAbstentionError("HP-EVIDENCE", result);
   const limitedViews = NORWOOD_VIEWS.filter(v => o.views[v] === "limited").map(v => `${v} view is partly unclear`);
   result.photo_problems = [...new Set([...result.photo_problems, ...limitedViews])].slice(0, 10);
   if (result.photo_problems.length || o.pattern === "anterior" || o.boundary_uncertain) result.confidence = "low";
