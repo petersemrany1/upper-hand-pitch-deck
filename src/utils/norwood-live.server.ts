@@ -1,3 +1,4 @@
+import { readFramingReview, signFramingReview } from './norwood-framing-review.server';
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
 import { assertNorwoodStaff, hashNorwoodToken, latestNorwood, patientAction, type AssessmentRow } from './norwood-sandbox.server';
 import type { LiveRequest, LiveState } from '@/lib/norwood-live';
@@ -23,6 +24,7 @@ async function action(row:AssessmentRow,role:'patient'|'rep',input:LiveRequest,r
   const safe=['This camera','Invalid camera','Your camera','Please ask','Camera sharing','Wait for','An advisor','Camera access','Connect the'];
   throw new Error(safe.some(s=>error.message.startsWith(s))?error.message:'Live camera setup is unavailable. Your advisor can retry shortly.');
  }
+ if(input.action==='stop')console.info('Norwood camera stopped',{side:role,reason:input.stopReason??'user_stop'});
  return publicState(data);
 }
 export async function patientLive(token:string,input:LiveRequest){
@@ -33,13 +35,25 @@ export async function patientLive(token:string,input:LiveRequest){
  return {state,iceServers};
 }
 export async function repLive(userDb:any,leadId:string,assessmentId:string,input:LiveRequest){
- if(!['find','join','poll','sdp','stop'].includes(input.action))throw new Error('Invalid camera request');
+ if(!['find','join','poll','sdp','stop','review'].includes(input.action))throw new Error('Invalid camera request');
  const actor=await assertNorwoodStaff(userDb,leadId);
  const row=await latestNorwood(userDb,leadId);
  if(!row||row.id!==assessmentId)throw new Error('This camera session was replaced. Refresh the assessment.');
  // Waiting for patient consent is normal. Only the rep who sent this link
  // discovers it automatically; other signed-in reps must not race to join it.
  if(input.action==='find' && (!row.consented_at || !row.framing_consented_at || (row.created_by && row.created_by!==actor.id)))return {state:null};
+ if(input.action==='review'){
+  if(!input.reviewTicket || !input.reviewConfirmed || !input.roomId || row.revoked_at || Date.parse(row.expires_at)<=Date.now() || !row.consented_at || !row.framing_consented_at || !['sent','opened'].includes(row.status))throw new Error('Photo review is unavailable.');
+  const key=process.env.SUPABASE_SERVICE_ROLE_KEY??'';
+  const ticket=readFramingReview(input.reviewTicket,key,'framing-review');
+  if(ticket.assessment!==row.id)throw new Error('Photo review does not match this assessment.');
+  // The RPC authenticates the joined rep, browser client and room, checks live
+  // consent/expiry, and refreshes their heartbeat before issuing an approval.
+  const state=await action(row,'rep',{...input,action:'poll'},actor.id);
+  if(!state || state.ended)throw new Error('Camera sharing stopped.');
+  const reviewApproval=signFramingReview({...ticket,purpose:'framing-approved',reviewer:actor.id,room:state.roomId,expires:Math.min(ticket.expires,Date.parse(state.expiresAt))},key);
+  return {state,reviewApproval};
+ }
  const state=await action(row,'rep',input,actor.id);
  const iceServers=input.action==='join'?await liveIceServers():undefined;
  return {state,iceServers};

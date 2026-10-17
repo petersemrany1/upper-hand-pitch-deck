@@ -26,21 +26,18 @@ describe('live camera message boundaries',()=>{
 
 // A mobile radio handover can briefly enter disconnected while the data channel
 // remains usable. It must not force the patient to restart immediately.
-it('allows a brief network interruption to recover, but ends a persistent disconnect', async () => {
-  const Original = globalThis.RTCPeerConnection;
-  class FakePeer { connectionState = 'new'; onconnectionstatechange?: () => void; close() {} }
-  (globalThis as any).RTCPeerConnection = FakePeer;
-  let interruptions = 0;
-  try {
-    const peer = new NorwoodLivePeer([], {message:()=>{},connected:()=>{},interrupted:()=>interruptions++});
-    const pc = peer.pc as unknown as FakePeer;
-    pc.connectionState = 'disconnected'; pc.onconnectionstatechange!();
-    expect(interruptions).toBe(0);
-    pc.connectionState = 'connected'; pc.onconnectionstatechange!();
-    await new Promise(resolve => setTimeout(resolve, 5100));
-    expect(interruptions).toBe(0);
-    pc.connectionState = 'disconnected'; pc.onconnectionstatechange!();
-    await new Promise(resolve => setTimeout(resolve, 5100));
-    expect(interruptions).toBe(1); peer.close();
-  } finally { globalThis.RTCPeerConnection = Original; }
-}, 12000);
+it('allows transport recovery for 15 seconds, clears the deadline on recovery and stops persistent loss', () => {
+  const Original=globalThis.RTCPeerConnection, originalTimeout=globalThis.setTimeout, originalClear=globalThis.clearTimeout;
+  const timers=new Map<number,()=>void>();let next=0,interruptions=0;const recovery:boolean[]=[];
+  class FakePeer{connectionState='new';onconnectionstatechange?:()=>void;close(){}}
+  (globalThis as any).RTCPeerConnection=FakePeer;
+  (globalThis as any).setTimeout=(cb:()=>void,ms:number)=>{expect(ms).toBe(15000);timers.set(++next,cb);return next;};
+  (globalThis as any).clearTimeout=(id:number)=>timers.delete(id);
+  try{
+    const peer=new NorwoodLivePeer([],{message:()=>{},connected:()=>{},interrupted:()=>interruptions++,recovering:v=>recovery.push(v)});
+    const pc=peer.pc as unknown as FakePeer;
+    pc.connectionState='disconnected';pc.onconnectionstatechange!();expect(interruptions).toBe(0);expect(timers.size).toBe(1);
+    pc.connectionState='connected';pc.onconnectionstatechange!();expect(timers.size).toBe(0);expect(recovery).toEqual([true,false]);
+    pc.connectionState='disconnected';pc.onconnectionstatechange!();[...timers.values()][0]();expect(interruptions).toBe(1);peer.close();expect(timers.size).toBe(0);
+  }finally{globalThis.RTCPeerConnection=Original;globalThis.setTimeout=originalTimeout;globalThis.clearTimeout=originalClear;}
+});

@@ -1,3 +1,6 @@
+import { createIsomorphicFn } from '@tanstack/react-start';
+import { getRequest } from '@tanstack/react-start/server';
+import { isHairProfileGuestEntry, hairProfileShareMeta } from '@/lib/norwood-share-meta';
 import { Outlet, Link, createRootRoute, HeadContent, Scripts, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
@@ -78,6 +81,8 @@ function NotFoundComponent() {
   );
 }
 
+const guestShareEntry=createIsomorphicFn().server(()=>{try{return isHairProfileGuestEntry(getRequest().url);}catch{return false;}}).client(()=>isHairProfileGuestEntry(window.location.href));
+
 export const Route = createRootRoute({
   head: () => ({
     meta: [
@@ -86,6 +91,7 @@ export const Route = createRootRoute({
       { title: "Hair Transplant Group Portal" },
       { name: "description", content: "Hair Transplant Group Portal is a web app for hair transplant clinics to acquire new patients." },
       { name: "author", content: "Lovable" },
+      ...(guestShareEntry()?hairProfileShareMeta():[
       { property: "og:title", content: "Hair Transplant Group Portal" },
       { property: "og:description", content: "Hair Transplant Group Portal is a web app for hair transplant clinics to acquire new patients." },
       { property: "og:type", content: "website" },
@@ -95,6 +101,7 @@ export const Route = createRootRoute({
       { name: "twitter:description", content: "Hair Transplant Group Portal is a web app for hair transplant clinics to acquire new patients." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b3623e69-825b-4ea0-9f1e-954fb164b4b2/id-preview-d5f0506f--1d2b5d82-7b6e-4a9c-9899-a64f78717875.lovable.app-1776646147165.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b3623e69-825b-4ea0-9f1e-954fb164b4b2/id-preview-d5f0506f--1d2b5d82-7b6e-4a9c-9899-a64f78717875.lovable.app-1776646147165.png" },
+      ]),
     ],
     links: [
       {

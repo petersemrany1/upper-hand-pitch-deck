@@ -6,7 +6,7 @@ const checkSchema = z.object({
   requested_view_visible: z.boolean(),
   quality: z.enum(["clear", "dark", "blurry", "obscured", "too_far"]),
 }).strict();
-export type NorwoodPhotoCheck = { ready: boolean; message: string; reviewIndex?: number };
+export type NorwoodPhotoCheck = { ready: boolean; message: string; reviewIndex?: number; reviewTicket?: string };
 export const VIEW_CORRECTIONS: Record<NorwoodView, string> = {
   front: "Show your hairline and both temples. Push your hair back.",
   top: "Lift the phone above your forehead and aim down at the top.",

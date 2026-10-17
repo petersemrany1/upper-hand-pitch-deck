@@ -1,3 +1,4 @@
+import { REVIEWABLE_FRAMING, readFramingReview, reviewedPhotoMatches, signFramingReview } from './norwood-framing-review.server';
 import { recoverEarlyNorwoodEvidence } from "@/lib/norwood-evidence-recovery";
 import { analysisNeedsReview, analysisFailure } from "@/lib/norwood-analysis-state";
 import { NorwoodAbstentionError } from "@/lib/norwood-evidence";
@@ -162,12 +163,12 @@ export async function uploadNorwoodPhoto(token: string, view: NorwoodView, base6
   return storeCheckedNorwoodPhoto(hash, row, view, bytes);
 }
 
-async function storeCheckedNorwoodPhoto(hash: string, row: AssessmentRow, view: NorwoodView, bytes: Buffer) {
+async function storeCheckedNorwoodPhoto(hash: string, row: AssessmentRow, view: NorwoodView, bytes: Buffer, review?: { by: string; at: string; problem: string }) {
   const path = `${row.id}/${view}-${randomUUID()}.jpg`;
   const { error } = await db().storage.from(BUCKET).upload(path, bytes, { contentType: "image/jpeg", upsert: false, cacheControl: "0" });
   if (error) throw new Error("Your photo could not be uploaded. Please try again.");
   try {
-    const updated = await patientAction(hash, "photo", view, { path, sha256: createHash("sha256").update(bytes).digest("hex") });
+    const updated = await patientAction(hash, "photo", view, { path, sha256: createHash("sha256").update(bytes).digest("hex"), ...(review ? { review } : {}) });
     if (row.photos[view]) await db().storage.from(BUCKET).remove([row.photos[view]!.path]);
     return patientSession(updated);
   } catch (error) {
@@ -249,11 +250,22 @@ export async function selectNorwoodFrames(token: string, scan: NorwoodScan, fram
 
 // Check and save the SAME full-resolution still. A later camera frame must never
 // replace the one that passed. This avoids a second, contradictory AI gate.
-export async function captureNorwoodFrame(token: string, view: NorwoodView, photo: string, alternatives: string[] = []) {
+export async function captureNorwoodFrame(token: string, view: NorwoodView, photo: string, alternatives: string[] = [], reviewApproval?: string) {
   if (alternatives.length > 7) throw new Error("Too many photos");
   const photos = [photo, ...alternatives], bytes = photos.map(decodeNorwoodPhoto), hash = hashNorwoodToken(token);
   const existing = await patientAction(hash, "open");
   if (existing.photos[view]) return { check: { ready: true, message: "Photo saved" }, session: patientSession(existing) };
+  if (reviewApproval) {
+    const review = readFramingReview(reviewApproval, process.env.SUPABASE_SERVICE_ROLE_KEY ?? '', 'framing-approved');
+    if (alternatives.length || !reviewedPhotoMatches(review, existing.id, view, bytes[0])) throw new Error('Photo review does not match this photo.');
+    const { data: live, error: liveError } = await db().from('norwood_preview_live').select('room_id,rep_id,ended,expires_at').eq('assessment_id', existing.id).maybeSingle();
+    if (liveError || !live || live.ended || live.room_id !== review.room || live.rep_id !== review.reviewer || Date.parse(live.expires_at) <= Date.now()) throw new Error('Camera sharing stopped. Capture this angle with your advisor again.');
+    const row = await patientAction(hash, 'reserve_upload');
+    // Explicit staff framing review, recorded separately from the final AI grade.
+    const session = await storeCheckedNorwoodPhoto(hash, row, view, bytes[0], {by:review.reviewer!,at:new Date().toISOString(),problem:review.problem});
+    console.info('Norwood framing review', {view, problem:review.problem, accepted:true});
+    return {check:{ready:true,message:'Photo saved',reviewIndex:0},session};
+  }
   const { data, error } = await db().rpc("reserve_norwood_preview_frame", { p_hash: hash, p_view: view });
   if (error) throw new Error(error.message.startsWith("This link has expired") || error.message.startsWith("Please ask your advisor") ? error.message : "The camera check could not start. Tap Retry.");
   if (!data) throw new Error("Please wait a moment, then tap Retry.");
@@ -262,7 +274,9 @@ export async function captureNorwoodFrame(token: string, view: NorwoodView, phot
   // Enum-only diagnostics. No photo, token, lead, storage path or model prose.
   console.info("Norwood capture check", { view, frames: photos.length, accepted: checked.ready, problem: checked.problem });
   const reviewIndex = checked.selectedIndex ?? checked.reviewIndex;
-  const check = { ready: checked.ready, message: checked.message, ...(reviewIndex != null ? { reviewIndex } : {}) };
+  const reviewTicket = !checked.ready && reviewIndex != null && (REVIEWABLE_FRAMING as readonly string[]).includes(checked.problem)
+    ? signFramingReview({purpose:'framing-review',assessment:existing.id,view,sha256:createHash('sha256').update(bytes[reviewIndex]).digest('hex'),problem:checked.problem as typeof REVIEWABLE_FRAMING[number],expires:Math.min(Date.parse(existing.expires_at),Date.now()+120_000)},process.env.SUPABASE_SERVICE_ROLE_KEY ?? '') : undefined;
+  const check = { ...(reviewTicket ? {reviewTicket} : {}), ready: checked.ready, message: checked.message, ...(reviewIndex != null ? { reviewIndex } : {}) };
   if (!checked.ready || checked.selectedIndex === null) return { check, session: null };
   const row = await patientAction(hash, "reserve_upload");
   // reserve_upload rechecks expiry, consent and session state after inference.

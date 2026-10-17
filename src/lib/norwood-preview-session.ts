@@ -4,7 +4,7 @@ type Reply<T> = { ok: true; data: T } | { ok: false; error: string };
 type Token = { data: { token: string } };
 export type NorwoodPatientApi = {
   liveCamera?: import('./norwood-live').PatientLiveApi;
-  capturePatientNorwoodFrame?: (input: { signal?: AbortSignal; data: { token: string; view: NorwoodView; photo: string; alternatives?: string[] } }) => Promise<Reply<{ check: import("./norwood-photo-check").NorwoodPhotoCheck; session: PatientNorwoodSession | null }>>;
+  capturePatientNorwoodFrame?: (input: { signal?: AbortSignal; data: { token: string; view: NorwoodView; photo: string; alternatives?: string[]; reviewApproval?: string } }) => Promise<Reply<{ check: import("./norwood-photo-check").NorwoodPhotoCheck; session: PatientNorwoodSession | null }>>;
   selectPatientNorwoodFrames?: (input: { data: { token: string; scan: import("./norwood-video-scan").NorwoodScan; frames: string[] } }) => Promise<Reply<import("./norwood-video-scan").NorwoodScanSelection>>;
   checkPatientNorwoodFrame?: (input: { data: { token: string; view: NorwoodView; photo: string } }) => Promise<Reply<import("./norwood-photo-check").NorwoodPhotoCheck>>;
   openPatientNorwood: (input: Token) => Promise<Reply<PatientNorwoodSession>>;

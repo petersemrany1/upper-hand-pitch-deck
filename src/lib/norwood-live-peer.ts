@@ -1,3 +1,4 @@
+import type { LiveStopReason } from './norwood-live-health';
 import { parseLiveMessage,type LiveMessage } from './norwood-live';
 /** Video-only, one-way WebRTC. Signalling travels through the authenticated app server. */
 export class NorwoodLivePeer {
@@ -5,12 +6,13 @@ export class NorwoodLivePeer {
  private channel:RTCDataChannel|null=null;
  private closed=false;
  private reconnectTimer:ReturnType<typeof setTimeout>|undefined;
- constructor(iceServers:RTCIceServer[],private callbacks:{message:(m:LiveMessage)=>void;connected:()=>void;interrupted:()=>void;stream?:(s:MediaStream)=>void},relay=true){
+ constructor(iceServers:RTCIceServer[],private callbacks:{message:(m:LiveMessage)=>void;connected:()=>void;interrupted:(reason?:LiveStopReason)=>void;recovering?:(value:boolean)=>void;stream?:(s:MediaStream)=>void},relay=true){
   this.pc=new RTCPeerConnection({iceServers,iceTransportPolicy:relay?'relay':'all'});
   this.pc.onconnectionstatechange=()=>{
    if(this.closed)return;clearTimeout(this.reconnectTimer);
-   if(this.pc.connectionState==='failed')callbacks.interrupted();
-   else if(this.pc.connectionState==='disconnected')this.reconnectTimer=setTimeout(()=>{if(!this.closed&&this.pc.connectionState==='disconnected')callbacks.interrupted();},5000);
+   if(this.pc.connectionState==='failed')callbacks.interrupted('peer_failed');
+   else if(this.pc.connectionState==='disconnected'){callbacks.recovering?.(true);this.reconnectTimer=setTimeout(()=>{if(!this.closed&&this.pc.connectionState==='disconnected')callbacks.interrupted('peer_timeout');},15_000);}
+   else if(this.pc.connectionState==='connected')callbacks.recovering?.(false);
   };
   this.pc.ontrack=e=>{if(e.track.kind==='video')callbacks.stream?.(new MediaStream([e.track]));};
   this.pc.ondatachannel=e=>this.attach(e.channel);
@@ -20,7 +22,7 @@ export class NorwoodLivePeer {
   this.channel=channel;
   channel.onopen=()=>{if(!this.closed)this.callbacks.connected();};
   channel.onmessage=e=>{const message=parseLiveMessage(e.data);if(message&&!this.closed)this.callbacks.message(message);};
-  channel.onclose=()=>{if(!this.closed)this.callbacks.interrupted();};
+  channel.onclose=()=>{if(!this.closed)this.callbacks.interrupted('channel_closed');};
  }
  send(message:LiveMessage){if(this.closed||this.channel?.readyState!=='open')throw new Error('Camera disconnected');this.channel.send(JSON.stringify(message));}
  async offer(stream:MediaStream){

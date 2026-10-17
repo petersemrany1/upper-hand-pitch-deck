@@ -6,9 +6,10 @@ const environment={window:browser,document:browser.document,navigator:browser.na
 const previous=new Map(Object.keys(environment).map(k=>[k,Object.getOwnPropertyDescriptor(globalThis,k)]));
 for(const [k,v] of Object.entries(environment))Object.defineProperty(globalThis,k,{configurable:true,writable:true,value:v});
 Object.defineProperty(browser.document,'hidden',{get:()=>false});
+let peerCallbacks:any;const sent:any[]=[];
 mock.module('@/lib/norwood-live-peer',()=>({NorwoodLivePeer:class {
-  pc={connectionState:'connected'}; constructor(_ice:any,private callbacks:any){}
-  async answer(){this.callbacks.connected();return 'v=0 answer';} send(){} close(){}
+  pc={connectionState:'connected'}; constructor(_ice:any,private callbacks:any){peerCallbacks=callbacks;}
+  async answer(){this.callbacks.connected();return 'v=0 answer';} send(m:any){sent.push(m);} close(){}
 }}));
 const {default:NorwoodWorkspace}=await import('./NorwoodWorkspace');
 Object.defineProperty(browser.HTMLDialogElement.prototype,'showModal',{value:function(){this.open=true;}});
@@ -16,7 +17,7 @@ Object.defineProperty(browser.HTMLDialogElement.prototype,'close',{value:functio
 const {createRoot}=await import('react-dom/client');
 const {default:NorwoodRepLive}=await import('./NorwoodRepLive');
 afterAll(()=>{browser.happyDOM.abort();for(const[k,d]of previous){if(d)Object.defineProperty(globalThis,k,d);else Reflect.deleteProperty(globalThis,k);}});
-const shared={roomId:'r',offer:'v=0 offer',answer:null,ended:false,patientPresent:true,repPresent:false,expiresAt:'2099-01-01'};
+const shared={roomId:'r',offer:'v=0 offer',answer:null,ended:false,patientPresent:true,repPresent:false,expiresAt:new Date(Date.now()+600000).toISOString()};
 test('patient sharing connects the rep automatically without a rep click',async()=>{
   let sharing=false;const actions:string[]=[];
   const api=async({data}:any)=>{actions.push(data.action);return {ok:true as const,data:{state:sharing?shared:null,iceServers:[]}};};
@@ -78,4 +79,43 @@ test('expanding and closing the camera preserves one peer, selected angle and vi
     expect(document.body.style.overflow).toBe('');
   }finally{await act(async()=>root.unmount());host.remove();}
   expect(actions.filter(a=>a==='stop')).toHaveLength(1);
+});
+
+test('one failed heartbeat keeps the camera, then recovers; explicit stop still ends it',async()=>{
+ let polls=0,ended=false;const actions:string[]=[];
+ const api=async({data}:any)=>{actions.push(data.action);if(data.action==='poll'&&++polls===1)throw new Error('Failed to fetch');return{ok:true as const,data:{state:{...shared,ended},iceServers:[]}};};
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(h(NorwoodRepLive,{leadId:'lead',assessmentId:'assessment',api,savedViews:['top','left','crown']})));
+  const video=host.querySelector('video');expect(host.textContent).toContain('Reconnecting…');expect(actions).not.toContain('stop');
+  await act(async()=>{await new Promise(r=>setTimeout(r,2150));});
+  expect(host.querySelector('video')).toBe(video);expect(host.textContent).not.toContain('Reconnecting…');expect(host.textContent).toContain('3/5 saved');expect(actions.filter(a=>a==='join')).toHaveLength(1);
+  ended=true;await act(async()=>{await new Promise(r=>setTimeout(r,2150));});
+  expect(host.textContent).toContain('Patient stopped sharing');expect(actions.filter(a=>a==='stop')).toHaveLength(1);
+ }finally{await act(async()=>root.unmount());host.remove();}
+},10000);
+test('framing review requires displayed exact preview and explicit rep confirmation',async()=>{
+ sent.length=0;const actions:any[]=[];
+ const api=async({data}:any)=>{actions.push(data);return{ok:true as const,data:{state:shared,iceServers:[],...(data.action==='review'?{reviewApproval:'signed-approval'}:{})}};};
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(h(NorwoodRepLive,{leadId:'lead',assessmentId:'assessment',api,savedViews:['top','left','crown']})));
+  const video=host.querySelector('video')!;Object.defineProperty(video,'readyState',{value:2});
+  await act(async()=>video.dispatchEvent(new browser.Event('loadeddata') as unknown as Event));
+  await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='Capture hairline')!.click());
+  const capture=sent.find(m=>m.type==='capture');
+  // The preview is the checked JPEG, received BEFORE its result.
+  await act(async()=>{
+   peerCallbacks.message({type:'photo-preview',id:capture.id,index:0,total:1,data:'/9j/AAAA/9k='});
+   peerCallbacks.message({type:'result',id:capture.id,view:'front',ready:false,message:'Move back',views:['top','left','crown'],reviewTicket:'signed-ticket'});
+  });
+  const usePhoto=[...host.querySelectorAll('button')].find(b=>b.textContent==='Use reviewed photo')!;
+  expect(usePhoto).toBeTruthy();expect(usePhoto.disabled).toBe(true);expect(actions.some(a=>a.action==='review')).toBe(false);
+  await act(async()=>host.querySelector('img.nw-rep-review')!.dispatchEvent(new browser.Event('load') as unknown as Event));
+  await act(async()=>host.querySelector<HTMLInputElement>('input[type=checkbox]')!.click());expect(usePhoto.disabled).toBe(false);
+  await act(async()=>usePhoto.click());
+  expect(actions.find(a=>a.action==='review').reviewConfirmed).toBe(true);expect(sent.find(m=>m.type==='accept-photo')).toEqual({type:'accept-photo',id:capture.id,view:'front',approval:'signed-approval'});
+  await act(async()=>peerCallbacks.message({type:'result',id:capture.id,view:'front',ready:true,message:'Saved',views:['front','top','left','crown']}));
+  expect(host.textContent).toContain('4/5 saved');expect(host.querySelector('[aria-pressed=true]')?.textContent).toContain('Right side');expect(host.textContent).not.toContain('Use reviewed photo');
+ }finally{await act(async()=>root.unmount());host.remove();}
 });
