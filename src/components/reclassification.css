@@ -1,0 +1,23 @@
+.reclassification-section { margin-top:18px; padding-top:16px; border-top:1px solid #e2e6ec; color:#34445c; font-size:12px; line-height:1.6; }
+.reclassification-section summary { cursor:pointer; font-weight:600; color:#1a3a6b; }
+.reclassification-section p { margin:6px 0; }
+.reclass-button { border:1px solid #c9d3e1; border-radius:7px; background:#fff; color:#1a3a6b; font:inherit; font-weight:600; padding:10px 14px; cursor:pointer; }
+.reclassification-section details > .reclass-button { margin-top:10px; width:100%; text-align:left; }
+.reclass-button:disabled { opacity:.5; cursor:not-allowed; }
+.reclass-button:focus-visible, .reclass-link:focus-visible, .reclass-dialog textarea:focus-visible { outline:2px solid #316ac1; outline-offset:3px; }
+.reclass-submit { background:#1a3a6b; border-color:#1a3a6b; color:#fff; }
+.reclass-dialog { width:calc(100% - 32px); max-width:560px; max-height:90dvh; overflow-y:auto; color:#24364f; font-family:'Plus Jakarta Sans',system-ui,sans-serif; gap:10px; }
+.reclass-explanation { background:#edf2f9; border:1px solid #cfdcef; border-radius:10px; padding:14px; font-size:13px; line-height:1.55; }
+.reclass-explanation strong { color:#1a3a6b; font-size:14px; }
+.reclass-explanation p { margin-top:8px; }
+.reclass-field { font-size:13px; font-weight:600; margin-top:4px; }
+.reclass-field span, .reclass-help { color:#5b6b80; font-size:12px; font-weight:400; }
+.reclass-dialog textarea { border:1px solid #bdc9d8; border-radius:7px; padding:10px 12px; width:100%; resize:vertical; font-size:14px; line-height:1.6; }
+.reclass-ack { display:flex; align-items:flex-start; gap:10px; font-size:12px; line-height:1.6; cursor:pointer; }
+.reclass-ack input { margin-top:4px; flex-shrink:0; width:17px; height:17px; accent-color:#1a3a6b; }
+.reclass-footer { display:flex; justify-content:flex-end; gap:10px; padding-top:6px; }
+.reclass-error { color:#a52626; font-size:13px; }
+.reclass-receipt { background:#edf2f9; border:1px solid #cfdcef; border-radius:9px; padding:14px; }
+.reclass-reason { white-space:pre-wrap; overflow-wrap:anywhere; }
+.reclass-link { text-decoration:underline; color:#1a3a6b; }
+@media(max-width:480px) { .reclass-dialog { padding:20px; } .reclass-footer .reclass-button { flex:1; } }

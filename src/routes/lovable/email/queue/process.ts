@@ -95,12 +95,14 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
         // Other callers retain their original auth + transactional queue behaviour.
         let refundAlertsOnly = false
         let handoverAlertsOnly = false
+        let reclassificationAlertsOnly = false
         try {
           const body = await request.json()
           refundAlertsOnly = body?.refundAlertsOnly === true
           handoverAlertsOnly = body?.handoverAlertsOnly === true
+          reclassificationAlertsOnly = body?.reclassificationAlertsOnly === true
         } catch { /* Existing callers use empty bodies. */ }
-        if (refundAlertsOnly && handoverAlertsOnly) return Response.json({ error: 'Select one alert queue' }, { status: 400 })
+        if ([refundAlertsOnly, handoverAlertsOnly, reclassificationAlertsOnly].filter(Boolean).length > 1) return Response.json({ error: 'Select one alert queue' }, { status: 400 })
 
         // 1. Check rate-limit cooldown and read queue config
         const { data: state } = await supabase
@@ -119,12 +121,14 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
           transactional_emails: state?.transactional_email_ttl_minutes ?? DEFAULT_TRANSACTIONAL_TTL_MINUTES,
           refund_alert_emails: 1440,
           handover_alert_emails: 1440,
+          reclassification_alert_emails: 1440,
         }
 
         let totalProcessed = 0
 
         // 2. Process auth_emails first (priority), then transactional_emails
-        for (const queue of (handoverAlertsOnly ? ['handover_alert_emails'] : refundAlertsOnly ? ['refund_alert_emails'] : ['auth_emails', 'transactional_emails'])) {
+        for (const queue of (reclassificationAlertsOnly ? ['reclassification_alert_emails'] : handoverAlertsOnly ? ['handover_alert_emails'] : refundAlertsOnly ? ['refund_alert_emails'] : ['auth_emails', 'transactional_emails'])) {
+          const isOwnerAlert = ['refund_alert_emails', 'handover_alert_emails', 'reclassification_alert_emails'].includes(queue)
           const { data: messages, error: readError } = await supabase.rpc('read_email_batch', {
             queue_name: queue,
             batch_size: batchSize,
@@ -184,6 +188,23 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
                 : msg.read_ct ?? 0
 
             let alertDueAt: string | undefined
+            if (queue === 'reclassification_alert_emails') {
+              if (payload.label !== 'reclassification-request' || payload.to !== 'peter@gobold.com.au' || !payload.reclassification_request_id) {
+                await moveToDlq(supabase, queue, msg, 'Invalid reclassification alert')
+                continue
+              }
+              const { data: record, error: recordError } = await supabase.from('clinic_reclassification_requests')
+                .select('id,email_message_id').eq('id', payload.reclassification_request_id).maybeSingle()
+              const { data: suppressed, error: suppressionError } = await supabase.from('suppressed_emails')
+                .select('email').eq('email', payload.to).maybeSingle()
+              const { data: token, error: tokenError } = await supabase.from('email_unsubscribe_tokens')
+                .select('used_at').eq('email', payload.to).eq('token', payload.unsubscribe_token).maybeSingle()
+              if (recordError || suppressionError || tokenError) continue
+              if (!record || record.email_message_id !== payload.message_id || suppressed || !token || token.used_at) {
+                await moveToDlq(supabase, queue, msg, !record || record.email_message_id !== payload.message_id ? 'Request no longer matches this notification' : 'Owner email is suppressed')
+                continue
+              }
+            }
             if (queue === 'handover_alert_emails') {
               if (payload.label !== 'handover-overdue' || payload.to !== 'peter@gobold.com.au' || !payload.handover_appointment_id) {
                 await moveToDlq(supabase, queue, msg, 'Invalid handover alert')
@@ -311,7 +332,7 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
                 },
                 { apiKey, sendUrl: process.env.LOVABLE_SEND_URL }
               )
-              if ((queue === 'refund_alert_emails' || queue === 'handover_alert_emails') && receipt.success !== true) throw new Error('Owner alert email was not accepted by the email provider')
+              if (isOwnerAlert && receipt.success !== true) throw new Error('Owner alert email was not accepted by the email provider')
 
               // Log success
               await supabase.from('email_send_log').insert({
@@ -342,13 +363,14 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
 
               // A confirmed failed run cannot be reused. Persist a new key only for
               // that explicit rejection; timeouts/5xx keep the original key to avoid duplicates.
-              if ((queue === 'refund_alert_emails' || queue === 'handover_alert_emails') && error instanceof EmailAPIError
+              if (isOwnerAlert && error instanceof EmailAPIError
                 && error.status === 409 && /"type"\s*:\s*"run_failed"/.test(error.message)
                 && typeof payload.idempotency_key === 'string') {
-                const { error: renewError } = await supabase.rpc(queue === 'handover_alert_emails' ? 'renew_failed_handover_email' : 'renew_failed_refund_email', {
+                const renewFunction = queue === 'reclassification_alert_emails' ? 'renew_failed_reclassification_email' : queue === 'handover_alert_emails' ? 'renew_failed_handover_email' : 'renew_failed_refund_email'
+                const { error: renewError } = await supabase.rpc(renewFunction, {
                   p_message_id: msg.msg_id,
                   p_previous_key: payload.idempotency_key,
-                  p_next_key: `${queue === 'handover_alert_emails' ? 'handover-overdue' : 'refund-alert'}-${payload.message_id}-${crypto.randomUUID()}`,
+                  p_next_key: `${queue === 'reclassification_alert_emails' ? 'reclassification-request' : queue === 'handover_alert_emails' ? 'handover-overdue' : 'refund-alert'}-${payload.message_id}-${crypto.randomUUID()}`,
                 })
                 if (renewError) console.error('Could not renew rejected refund email run', { msg_id: msg.msg_id, error: renewError })
               }

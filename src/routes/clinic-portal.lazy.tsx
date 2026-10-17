@@ -16,7 +16,7 @@ const NAVY = "#1a3a6b";
 function ClinicPortalPage() {
   const navigate = useNavigate();
   const { ready, session, userType, clinicId, signOut } = useAuth();
-  const { viewClinic } = Route.useSearch();
+  const { viewClinic, appointmentId } = Route.useSearch();
   const userId = session?.user.id;
   const target = clinicPortalTarget(userType, clinicId, viewClinic);
   const portalId = target?.clinicId;
@@ -83,7 +83,7 @@ function ClinicPortalPage() {
       </header>
       {failure?.key === requestKey ? <div role="alert" style={{ padding: 24 }}><p>{failure.message}</p><button onClick={() => setAttempt(n => n + 1)} style={{ marginTop: 12, color: NAVY, textDecoration: "underline" }}>Retry</button></div>
         : clinic?.key !== requestKey ? <p role="status" style={{ padding: 24 }}>Loading partner portal…</p>
-        : <ClinicPortalView clinicId={portalId} clinicName={clinicName} isAdmin={false} />}
+        : <ClinicPortalView clinicId={portalId} clinicName={clinicName} isAdmin={false} initialAppointmentId={appointmentId} />}
     </div>
   );
 }

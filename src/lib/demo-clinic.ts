@@ -2,6 +2,7 @@ import type { ClinicAppointment, ApptNote } from "@/components/ClinicPortalView"
 import { addDays, asDate, applyScheduleCommand, futureScheduleSlots, type ClinicSchedule, type ScheduleCommand } from "./clinic-schedule";
 import { sydneyTodayISO } from "./timezone";
 import type { CalendarHistoryData, CalendarHistoryEntry, CalendarHistoryLoader } from "./calendar-history";
+import type { ReclassificationRequest } from "./reclassification";
 
 // Intentionally not a database UUID. This clinic exists only in this tab's memory.
 export const DEMO_CLINIC_ID = "training-demo-clinic";
@@ -45,6 +46,7 @@ function appointmentHistory(a: ClinicAppointment): CalendarHistoryData {
 /** No storage, auth, database, fetch, messages or payment dependencies. */
 export class DemoClinicStore {
   private state: DemoSnapshot;
+  private reclassifications = new Map<string, ReclassificationRequest>();
   private listeners = new Set<() => void>();
   constructor(now = new Date()) { this.state = createDemoSnapshot(now); }
   getSnapshot = () => this.state;
@@ -82,6 +84,17 @@ export class DemoClinicStore {
     this.patchAppointment(id, { appointment_date: date, appointment_time: time });
   }
   notesFor(id: string) { this.appointment(id); return this.state.notes.filter(n => n.appointment_id === id); }
+  reclassificationFor(id: string) { this.appointment(id); return this.reclassifications.get(id) ?? null; }
+  requestReclassification(id: string, reason: string, acknowledged: boolean) {
+    const appointment = this.appointment(id);
+    if (!acknowledged || reason.trim().length < 20 || reason.trim().length > 4000) throw new Error("Add supporting details and acknowledge the review terms.");
+    const previous = this.reclassifications.get(id);
+    if (previous) return previous;
+    if (appointment.outcome === "disqualified" || appointment.disqualified_at) throw new Error("This lead is already disqualified.");
+    const request: ReclassificationRequest = { id: crypto.randomUUID(), appointment_id: id, created_at: new Date().toISOString(), reason: reason.trim(), status: "pending" };
+    this.reclassifications.set(id, request);
+    return request;
+  }
   addNote(id: string, body: string) {
     this.appointment(id);
     if (!body.trim()) return;
@@ -125,5 +138,5 @@ export class DemoClinicStore {
       return [entry.before_data, entry.after_data].some(data => data && [data.appointment_date, data.slot_date, data.override_date].includes(date));
     }).slice(0, 51),
   });
-  reset = () => this.publish(createDemoSnapshot());
+  reset = () => { this.reclassifications.clear(); this.publish(createDemoSnapshot()); };
 }

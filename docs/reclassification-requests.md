@@ -1,0 +1,13 @@
+# Clinic reclassification requests
+
+On a patient card, open **More actions → Submit a reclassification request**. The form asks which agreement criterion was not met and requires 20–4000 characters of supporting details plus explicit acknowledgement of the 1–2 week review timeframe. It does not claim an AI or dedicated-team workflow. The specific signed contract is held in DocuSeal, not in this repository; no new qualification criteria or contract deadlines are introduced here.
+
+Submission preserves attendance, qualification, pack counts and all payment/refund fields. It records the authenticated requester, clinic and patient snapshot, explanation, timestamp and acknowledgement version `2026-10-17-v1`. The card displays the stored pending request and date. There is one request per appointment; repeated clicks, retries and other clinic users receive the existing receipt. Already-disqualified leads cannot create a new request. There is no automatic decision or refund workflow in this release.
+
+The authenticated database function derives ownership and requester identity. Clinics can only read their own requests while the appointment still belongs to them; admins can read all. Direct client insert/update/delete is denied. Email links open the requested patient card within the authorised clinic portal.
+
+A minute-by-minute job queues notifications to **peter@gobold.com.au**, including the clinic, patient, requester, supporting details and patient-card link. Requests survive queue outages or recipient suppression. The dedicated `reclassification_alert_emails` queue uses the verified sender, required unsubscribe token, provider idempotency and existing five-failure/24-hour retry policy. Explicit provider `run_failed` rejection permits a durably renewed key; uncertain sends retain the original. Pending/sent/failed/dead-letter records use `email_send_log.template_name='reclassification-request'`. No clinic or patient email is sent by this flow.
+
+The demo portal saves requests only in memory, sends nothing, and resets on refresh/reset. Verify it at `/demo-clinic` with fictional patients.
+
+Deploy the core of `20261017020000_clinic_reclassification.sql` before publishing code, then activate its deployment scheduling section. Check cron and the authenticated dispatcher's `reclassificationAlertsOnly` response. Tests: `bun test`, `bun scripts/test-reclassification-ui.ts`, `PGLITE_MODULE=<installed PGlite module> node scripts/test-reclassification.mjs`, TypeScript and the production build. These tests do not contact patients, payment providers or the real email recipient.
