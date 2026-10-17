@@ -51,3 +51,14 @@ Validation:
 SMS claiming prevents duplicate sends across tabs and retries. Provider-accepted
 texts are not described as delivered. Unknown provider outcomes cannot be blindly
 retried; inspect the existing SMS conversation/provider status first.
+# Dated callbacks and availability
+
+Use **Call back later** on a confirmation or **Can’t choose now? Call back later** in the reschedule window. Save a date, optional time and note. All callback times use Sydney time; the patient card also shows the current time in Perth or Sydney. The **Callbacks** list shows how many are due and keeps overdue callbacks visible after the original appointment date passes. Change the callback or mark it done after the call. Confirming attendance or successfully rescheduling closes the pending callback automatically.
+
+Scheduling a callback leaves the clinic portal, appointment, reminders, booking owner, lead status and deposit unchanged. The original slot stays booked until a reschedule is confirmed. A callback does not send any text or email. The normal confirmation text is disabled for a past/inactive appointment; its SMS conversation remains available.
+
+Rescheduling displays a week of available days and selectable times from the existing clinic calendar, including closures, bookings, consultation lengths and buffers. Availability refreshes every 30 seconds while choosing and can be refreshed manually. Review still shows the patient text and clinic email; **Confirm reschedule & send** commits the new booking and sends them through the existing delivery process. Saving rechecks the current schedule and rejects stale/conflicting choices.
+
+Deploy `20261016010000_confirmation_callbacks.sql` before publishing the UI. The callback table is sales-only and scoped to existing booking ownership. RPCs derive the actor from the authenticated session, serialize changes with the booking lock, reject stale callback edits, and preserve replaced/completed rows as an audit trail. Reschedule completion runs in the same transaction as the booking change, so a failed reschedule keeps the callback pending.
+
+Validation: `bun test`, `bunx tsc --noEmit`, `bun run build`, plus `PGLITE_MODULE=<pglite-module> node scripts/test-confirmation-callbacks.mjs` and the existing confirmation/reschedule/calendar migration checks. Use the development-only `/confirmation-preview` for simulated callbacks; it never calls or texts patients.

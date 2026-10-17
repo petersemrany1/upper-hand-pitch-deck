@@ -2,19 +2,21 @@
 
 New refund state changes are captured atomically in `refund_notifications`. Historical completed refunds are not backfilled. The patient message is:
 
-> Hi, your $75 deposit has been refunded. It can take 4–14 business days to show in your account.
+> Hi, your $75 deposit refund has been initiated. It can take 4–14 business days to appear in your account.
 
-The amount comes from the verified provider refund (or the recorded amount for an admin-confirmed manual refund). A missing/invalid amount or phone stops the text and raises an owner alert. Marking attendance alone never sends this message.
+For a Square refund verified as `PENDING`, send this acknowledgement on the next worker run instead of waiting for settlement. The same wording is used if the refund has already completed.
+
+There is still only one patient text per refund. A processing acknowledgement does not mark the refund completed, and later completion does not send a second text. Stripe and manual refunds retain their completed-only timing. The amount comes from the verified provider refund (or the recorded amount for an admin-confirmed manual refund). A missing/invalid amount or phone stops the text and raises an owner alert. Marking attendance alone never sends this message.
 
 ## Delivery
 
-- A minute-by-minute service-authenticated worker claims due records atomically. Square and both existing Stripe accounts are supported. It retrieves the provider's current refund status before sending; pending refunds wait and failures alert Peter. It never creates or retries a monetary refund.
+- A minute-by-minute service-authenticated worker claims due records atomically. Square and both existing Stripe accounts are supported. It retrieves the provider's current refund status before sending; verified Square pending refunds receive the processing acknowledgement, other pending refunds wait, and failures alert Peter. It never creates or retries a monetary refund.
 - A unique key per provider refund prevents duplicate notifications. Manual refunds have one notification per appointment. Failure emails are captured once per transition into failed/manual-required; subsequent retries can create a new failure alert.
 - Texts use the existing patient SMS number. The `sending` state is saved before contacting Twilio. A timeout, ambiguous 5xx, or crashed sender becomes `uncertain`, emails Peter, and never automatically resends. Explicit rate limiting can retry. Definitive SMS rejection or undeliverable status also emails Peter.
 - Signed callbacks and a delivery polling fallback update status. Inbox logging is atomic and deduplicated by Twilio SID. Delayed callbacks cannot regress a delivered message. Failed inbox writes retry without resending.
 - Owner emails go only to **peter@gobold.com.au**, through a dedicated `refund_alert_emails` queue and the existing verified sender. Enqueue and outbox status are committed together. The existing email dispatcher handles provider retries and delivery logs in a dedicated refund-only mode, without draining other queues. Suppression is honoured and remains visible as failure.
 - Migration `20261015022000_refund_email_failed_run_retry.sql` supports a fresh, durably saved send reference only when the provider explicitly reports HTTP 409 `run_failed`. Ambiguous responses keep the original reference. Concurrent renewals and already-sent messages cannot create duplicate retry references.
-- Provider webhooks retrieve current state to avoid out-of-order status changes. A six-hourly check of new provider refunds for 45 days also detects later bank rejection if webhooks are unavailable.
+- Provider webhooks retrieve current state to avoid out-of-order status changes. After a processing acknowledgement, the worker checks pending refunds every five minutes and updates the appointment when completed or failed. Completed refunds are checked every six hours for 45 days to detect later bank rejection. Cancelling a text does not stop these refund checks and never reopens the cancelled message.
 
 ## Deployment and checks
 

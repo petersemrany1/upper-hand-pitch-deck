@@ -19,6 +19,7 @@ export interface RefundWorkerDependencies {
 
 /** Only 'checking' jobs are handed here after an atomic DB claim. No payment is initiated here. */
 export async function processRefundNotice(e: RefundNotice, d: RefundWorkerDependencies): Promise<void> {
+  if (e.status !== "checking") return;
   const later = (minutes: number) => new Date(d.now() + minutes * 60_000).toISOString();
   if (e.kind === "ops_email") {
     try { await d.queueEmail(refundAlert(e)); }
@@ -29,6 +30,7 @@ export async function processRefundNotice(e: RefundNotice, d: RefundWorkerDepend
   let amount: number;
   let phone: string;
   let body: string;
+  let processing = false;
   try {
     const appointment = await d.appointment(e.appointment_id);
     if (!appointment) throw new Error("Appointment could not be found; refund text needs manual review");
@@ -44,7 +46,8 @@ export async function processRefundNotice(e: RefundNotice, d: RefundWorkerDepend
       const paymentId = square ? appointment.square_payment_id : appointment.stripe_payment_intent_id;
       if (refundId !== e.payload.refund_id || paymentId !== e.payload.payment_id) throw new Error("Appointment payment references changed; review before notifying the patient");
       const checked = await d.verify(e);
-      if (checked.state === "pending") {
+      processing = checked.state === "pending" && e.payload.processor === "square" && !checked.error && checked.amount != null;
+      if (checked.state === "pending" && !processing) {
         if (checked.error) await d.flag("verification", checked.error);
         await d.save({ status: "pending", next_attempt_at: later(5), last_error: checked.error || null });
         return;
@@ -55,7 +58,7 @@ export async function processRefundNotice(e: RefundNotice, d: RefundWorkerDepend
         return;
       }
       amount = checked.amount!;
-      await d.settle("refunded");
+      if (!processing) await d.settle("refunded");
     }
     phone = refundPhone(e.payload.patient_phone);
     body = refundText(amount);
@@ -67,7 +70,9 @@ export async function processRefundNotice(e: RefundNotice, d: RefundWorkerDepend
   }
 
   // This durable boundary is what prevents duplicate SMS after process termination.
-  if (!(await d.save({ status: "sending", sms_body: body, claimed_at: new Date(d.now()).toISOString() }))) return;
+  if (!(await d.save({ status: "sending", sms_body: body, claimed_at: new Date(d.now()).toISOString(),
+    ...(processing ? { verification_next_at: later(5) } : {}),
+  }))) return;
   let result: SmsSendResult;
   try { result = await d.send(phone, body); }
   catch {

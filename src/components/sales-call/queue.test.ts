@@ -128,12 +128,12 @@ describe("callbacks", () => {
 });
 
 describe("buildQueue order", () => {
-  test("new (newest first) → no answer (fewest attempts) → rest; booked-no-deposit dropped", () => {
+  test("new → newest no answers → rest, regardless of lifetime attempts", () => {
     const leads = [
       lead({ id: "new-old", status: "new", created_at: iso("2026-09-01", "09:00") }),
       lead({ id: "new-fresh", status: "new", created_at: iso(TODAY, "08:00") }),
-      lead({ id: "na-3", status: "no_answer" }),
-      lead({ id: "na-1", status: "no_answer" }),
+      lead({ id: "na-3", status: "no_answer", created_at: iso(TODAY, "07:00") }),
+      lead({ id: "na-1", status: "no_answer", created_at: iso("2026-06-20", "07:00") }),
       lead({ id: "chase", status: "had_convo_chase_up" }),
       lead({ id: "bnd", status: "booked_no_deposit" }),
       lead({ id: "uncategorised-called", status: "new" }), // called but never given an outcome
@@ -144,20 +144,20 @@ describe("buildQueue order", () => {
       "uncategorised-called": hist({ attempts: 2, firstCallAt: iso("2026-09-03", "09:00"), lastAttemptAt: iso("2026-09-04", "09:00") }),
     };
     const q = buildQueue({ leads, history, now: MORNING });
-    expect(q.order).toEqual(["new-fresh", "new-old", "na-1", "uncategorised-called", "na-3", "chase"]);
+    expect(q.order).toEqual(["new-fresh", "new-old", "na-3", "uncategorised-called", "na-1", "chase"]);
     expect(q.group["uncategorised-called"]).toBe("no_answer");
   });
 
-  test("no-answer rotation: in the afternoon, leads last tried in the morning come first at equal attempts", () => {
+  test("recency beats time-of-day rotation and city priority", () => {
     const leads = [
-      lead({ id: "tried-pm", status: "no_answer" }),
-      lead({ id: "tried-am", status: "no_answer" }),
+      lead({ id: "tried-pm", status: "no_answer", created_at: iso("2026-09-05", "08:00") }),
+      lead({ id: "tried-am", status: "no_answer", created_at: iso("2026-06-01", "08:00") }),
     ];
     const history = {
       "tried-pm": hist({ attempts: 2, firstCallAt: iso("2026-09-03", "15:00"), lastAttemptAt: iso("2026-09-05", "15:00") }),
       "tried-am": hist({ attempts: 2, firstCallAt: iso("2026-09-03", "09:00"), lastAttemptAt: iso("2026-09-05", "09:00") }),
     };
-    expect(buildQueue({ leads, history, now: AFTERNOON }).order).toEqual(["tried-am", "tried-pm"]);
+    expect(buildQueue({ leads, history, now: AFTERNOON, isPriority: l => l.id === "tried-am" }).order).toEqual(["tried-pm", "tried-am"]);
     expect(buildQueue({ leads, history, now: MORNING }).order).toEqual(["tried-pm", "tried-am"]);
   });
 
@@ -171,7 +171,7 @@ describe("buildQueue order", () => {
     expect(buildQueue({ leads, history, now: AFTERNOON }).order).toEqual(["young"]);
   });
 
-  test("paused cities are skipped and the priority city floats to the front within group order", () => {
+  test("paused cities are skipped and priority only breaks recency ties within a group", () => {
     const leads = [
       lead({ id: "new-syd", status: "new" }),
       lead({ id: "na-byron", status: "no_answer" }),
@@ -184,7 +184,34 @@ describe("buildQueue order", () => {
       isPaused: (l) => l.id.endsWith("perth"),
       isPriority: (l) => l.id.endsWith("byron"),
     });
-    expect(q.order).toEqual(["new-byron", "na-byron", "new-syd"]);
+    expect(q.order).toEqual(["new-byron", "new-syd", "na-byron"]);
+  });
+
+  test("every first turn precedes afternoon repeats, even an older no-answer or chase-up", () => {
+    const leads = [
+      lead({ id: "repeat", status: "no_answer", created_at: iso(TODAY, "08:00") }),
+      lead({ id: "june", status: "no_answer", created_at: iso("2026-06-01", "08:00") }),
+      lead({ id: "recent", status: "no_answer", created_at: iso("2026-09-05", "08:00") }),
+      lead({ id: "chase", status: "had_convo_chase_up" }),
+      lead({ id: "fresh", status: "new" }),
+    ];
+    const history = { repeat: hist({ attempts: 2, firstCallAt: iso(TODAY, "09:00"), todayAttempts: 2,
+      todayFirstAttemptAt: iso(TODAY, "09:00"), todayLastAttemptAt: iso(TODAY, "09:01") }) };
+    expect(buildQueue({ leads, history, now: AFTERNOON, isPriority: l => l.id === "repeat" }).order)
+      .toEqual(["fresh", "recent", "june", "chase", "repeat"]);
+  });
+
+  test("the four untouched enquiries precede recent no-answers and morning retries", () => {
+    const leads = [
+      lead({ id: "Edson", status: "new", created_at: "2026-10-15T02:25:06Z" }),
+      lead({ id: "George", status: "new", created_at: "2026-10-14T13:48:01Z" }),
+      lead({ id: "Omar", status: "new", created_at: "2026-10-14T07:52:24Z" }),
+      lead({ id: "Costa", status: "new", created_at: "2026-10-14T05:49:28Z" }),
+      lead({ id: "no-answer", status: "no_answer", created_at: "2026-10-15T03:00:00Z" }),
+    ];
+    const history = Object.fromEntries(leads.map(l => [l.id, hist()]));
+    expect(buildQueue({ leads, history, now: at("2026-10-15", "14:00"), requireHistory: true }).order)
+      .toEqual(["Edson", "George", "Omar", "Costa", "no-answer"]);
   });
 });
 

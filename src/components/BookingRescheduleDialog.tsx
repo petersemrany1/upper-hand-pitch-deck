@@ -1,20 +1,25 @@
 import { clinicRescheduleEmail,validClinicEmail } from "@/lib/clinic-reschedule-email";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { getRescheduleDetails,rescheduleBooking } from "@/utils/booking-reschedule.functions";
 import { availableRescheduleSlots,clinicNow,rescheduleText,type RescheduleSnapshot } from "@/lib/booking-reschedule";
 import { toast } from "sonner";
+import { RescheduleAvailability } from "./RescheduleAvailability";
 
-export function BookingRescheduleDialog({appointmentId,onClose,onSaved}:{appointmentId:string;onClose:()=>void;onSaved:()=>void}) {
+export function BookingRescheduleDialog({appointmentId,onClose,onSaved,onCallBack}:{appointmentId:string;onClose:()=>void;onSaved:()=>void;onCallBack?:()=>void}) {
  const [details,setDetails]=useState<{snapshot:RescheduleSnapshot;version:string;clinicEmail:string}|null>(null);
  const [date,setDate]=useState("");const [time,setTime]=useState("");const [reason,setReason]=useState("");
  const [review,setReview]=useState(false);const [saving,setSaving]=useState(false);const [error,setError]=useState("");
  const [emailSubject,setEmailSubject]=useState("");const [emailBody,setEmailBody]=useState("");
  const [requestId,setRequestId]=useState(()=>crypto.randomUUID());
- const load=async()=>{setDetails(null);setError("");setReview(false);setRequestId(crypto.randomUUID());try{const d=await getRescheduleDetails({data:{appointmentId}});setDetails(d);setDate(d.snapshot.appointment.appointment_date);setTime("");}catch(e){setError(e instanceof Error?e.message:"Could not load appointment");}};
- useEffect(()=>{void load();},[appointmentId]);
+ const [checking,setChecking]=useState(false);const loadRequest=useRef(0);
+ const load=async(keepSelection=false)=>{const request=++loadRequest.current;setChecking(true);setError("");if(!keepSelection){setDetails(null);setReview(false);setRequestId(crypto.randomUUID());}try{const d=await getRescheduleDetails({data:{appointmentId}});if(request!==loadRequest.current)return;setDetails(d);if(!keepSelection){setDate(d.snapshot.appointment.appointment_date<clinicNow(d.snapshot.clinic.state).date?clinicNow(d.snapshot.clinic.state).date:d.snapshot.appointment.appointment_date);setTime("");}}catch(e){if(request===loadRequest.current)setError(e instanceof Error?e.message:"Could not load appointment");}finally{if(request===loadRequest.current)setChecking(false);}};
+ useEffect(()=>{void load();return()=>{loadRequest.current++;};},[appointmentId]);
+ useEffect(()=>{if(review||saving)return;const timer=window.setInterval(()=>{if(document.visibilityState==="visible")void load(true);},30000);return()=>window.clearInterval(timer);},[appointmentId,review,saving]);
  const s=details?.snapshot;const slots=s?availableRescheduleSlots(s,date):[];
+ const slotValid=slots.some(slot=>slot.time===time);
+ useEffect(()=>{if(time&&!slotValid)setTime("");},[time,slotValid]);
  const choose=()=>{if(!s)return;const email=clinicRescheduleEmail(s,date,time);setEmailSubject(email.subject);setEmailBody(email.body);setError("");setRequestId(crypto.randomUUID());setReview(true);};
  const save=async()=>{
   if(!details||saving)return;setSaving(true);setError("");
@@ -26,15 +31,15 @@ export function BookingRescheduleDialog({appointmentId,onClose,onSaved}:{appoint
  };
  const label=(d:string,t:string)=>`${new Date(d+"T12:00:00").toLocaleDateString("en-AU",{weekday:"short",day:"numeric",month:"short",year:"numeric"})} at ${t.slice(0,5)}`;
  return <Dialog open onOpenChange={(open)=>{if(!open&&!saving)onClose();}}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>{review?"Confirm this reschedule":"Reschedule appointment"}</DialogTitle><DialogDescription>Check the patient's name, phone and clinic before changing the appointment.</DialogDescription></DialogHeader>
- {error&&<div role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800">{error} <button type="button" disabled={saving} onClick={load} className="underline">Refresh details</button></div>}
+ {error&&<div role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800">{error} <button type="button" disabled={saving||checking} onClick={()=>void load()} className="underline">Refresh details</button></div>}
  {!s&&!error&&<p>Loading appointment…</p>}
  {s&&<>
  <div className="rounded-lg border p-4 space-y-1"><p className="font-semibold">{s.appointment.patient_name}</p><p>{s.appointment.patient_phone||"No phone number"}</p><p>{s.clinic.clinic_name} · {s.appointment.doctor_name?.split(" — ")[0]}</p><p className="text-sm text-muted-foreground">Current: {label(s.appointment.appointment_date,s.appointment.appointment_time)}</p></div>
- {!review?<><label className="grid gap-1 text-sm">New date<input className="rounded border p-2" type="date" min={clinicNow(s.clinic.state).date} value={date} onChange={e=>{setDate(e.target.value);setTime("");}}/></label>
- <label className="grid gap-1 text-sm">Available time<select className="rounded border p-2" value={time} onChange={e=>setTime(e.target.value)}><option value="">Choose a time</option>{slots.map(slot=><option key={slot.time} value={slot.time}>{slot.label}</option>)}</select></label>
- {!slots.length&&<p className="text-sm">No available times on this date. Choose another date.</p>}
+ {!review?<><div className="flex items-center justify-between"><p className="text-sm font-semibold">{s.clinic.clinic_name} availability</p><button type="button" className="text-xs underline" disabled={checking} onClick={()=>void load(true)}>{checking?"Checking…":"Refresh availability"}</button></div>
+ <RescheduleAvailability snapshot={s} date={date} time={time} disabled={checking} onDate={value=>{setDate(value);setTime("");}} onTime={setTime}/>
  <label className="grid gap-1 text-sm">Reason (optional)<textarea maxLength={500} className="rounded border p-2" value={reason} onChange={e=>setReason(e.target.value)}/></label>
- <Button disabled={!time||(date===s.appointment.appointment_date&&time===s.appointment.appointment_time.slice(0,5))||!!s.appointment.outcome||s.reminder?.status!=="confirmed"} onClick={choose}>Review reschedule</Button></>:<>
+ <Button disabled={checking||!!error||!slotValid||(date===s.appointment.appointment_date&&time===s.appointment.appointment_time.slice(0,5))||!!s.appointment.outcome||!!s.appointment.disqualified_at||s.reminder?.status!=="confirmed"} onClick={choose}>Review reschedule</Button>
+ {onCallBack&&<Button variant="outline" onClick={onCallBack}>Can’t choose now? Call back later</Button>}</>:<>
  <p>Move <strong>{s.appointment.patient_name}</strong> at <strong>{s.clinic.clinic_name}</strong> from <strong>{label(s.appointment.appointment_date,s.appointment.appointment_time)}</strong> to <strong>{label(date,time)}</strong>?</p>
  <div className="rounded-lg bg-slate-50 p-3 text-sm"><p className="font-semibold mb-2">Text to the patient</p><p>{rescheduleText(s,date,time)}</p></div>
  <div className="rounded-lg border p-3 space-y-3 text-sm">
