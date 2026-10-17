@@ -102,3 +102,14 @@ Final grading now uses the bounded structured-output transport already used for 
 After all five photos save, the patient sees that their photos are saved and the advisor handles the result. Only the advisor receives an analysis-retry action for technical failures. A review outcome has no retry loop. The approved opening page and protected SalesCallPortal.tsx are unchanged by this repair.
 
 Validation: 85 focused non-UI tests passed, plus two React tests covering automatic connection, no duplicate/repeated join after ending sharing, and navigation during pending discovery. TypeScript and production build passed. Synthetic browser testing verifies connection without an advisor click and the saved-photo review screen; it is not a real-phone usability or clinical-accuracy benchmark.
+
+
+#### Confirmed early-stage consistency bug and repair
+
+A structured estimate can describe preserved crown coverage and retained mid-scalp hair as `bridge: substantial`. The old validator rejected every standard I–III result unless that field was exactly `not_applicable`, even when hairline, crown, fringe and all five view observations were coherent. This was a software false rejection; it was not a darkness, blur, upload or camera problem.
+
+The early-stage check now permits `not_applicable` or `substantial` when the crown is preserved and all other stage-specific evidence passes. This does not infer a crown bald patch from the bridge label. Absent/sparse/unknown bridges, genuinely conflicting stages, unusable/wrong views and advanced-stage bridge/fringe checks remain protected. The prompt explains the same semantics. The distinction follows the early-stage versus front/crown-separation criteria in [Norwood classification review](https://pmc.ncbi.nlm.nih.gov/articles/PMC4812885/), not a patient-specific grading override.
+
+Inconsistent results retain only validated observations and the proposed integer in the existing private assessment JSON; they are not exposed as an AI result or logged. A subsequent authenticated advisor retry can recover only this known early-stage error from those recorded fields, under the repaired validator, with forced low confidence and explicit rep confirmation still required. Recovery checks expiry, revocation, status and analysis-run identity and makes no new model request. No raw photo or patient record is included in source control. The same-version review outcome does not repeatedly retry; a version change may permit a bounded manual recheck.
+
+Final verification: 88 focused non-UI tests passed (562 assertions), with the two automatic-connection UI tests also passing. TypeScript and build checks pass. Real five-image inference diagnosed the validation mismatch; this does not establish clinical accuracy of the model's observations or grade.

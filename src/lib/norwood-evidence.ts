@@ -35,7 +35,10 @@ export function stageSupportedByObservations(stage: number, o: NorwoodObservatio
   if (o.pattern === "vertex") return stage === 3 && ["minimal", "mild_temple", "deep_temple"].includes(o.hairline)
     && o.crown === "distinct_loss" && o.bridge === "substantial" && o.fringe === "broad";
   if (stage <= 3) return o.hairline === ["", "minimal", "mild_temple", "deep_temple"][stage]
-    && o.crown === "preserved" && o.bridge === "not_applicable" && o.fringe === "broad";
+    // With no vertex loss there are not two bald regions to separate. Ordinary
+    // retained mid-scalp hair may be described as substantial or not applicable;
+    // that label must not invalidate an otherwise coherent early-stage pattern.
+    && o.crown === "preserved" && ["not_applicable", "substantial"].includes(o.bridge) && o.fringe === "broad";
   if (o.hairline !== "extensive") return false;
   if (stage === 4 || stage === 5) return o.crown === "distinct_loss" && o.fringe === "broad"
     && o.bridge === (stage === 4 ? "substantial" : "narrow_sparse");

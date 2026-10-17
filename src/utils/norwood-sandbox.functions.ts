@@ -6,7 +6,7 @@ import { getRequest, setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { NORWOOD_VIEWS, NORWOOD_MAX_PHOTO_BYTES } from "@/lib/norwood-assessment";
-import { captureNorwoodFrame, selectNorwoodFrames, analyseNorwood, consentNorwoodCamera, checkNorwoodFrame, assertNorwoodStaff, hashNorwoodToken, latestNorwood, norwoodPhotoLinks, patientAction, patientPreviewUrl, patientSession, repSession, sendNorwoodLink, uploadNorwoodPhoto } from "./norwood-sandbox.server";
+import { recoverRecordedNorwood, captureNorwoodFrame, selectNorwoodFrames, analyseNorwood, consentNorwoodCamera, checkNorwoodFrame, assertNorwoodStaff, hashNorwoodToken, latestNorwood, norwoodPhotoLinks, patientAction, patientPreviewUrl, patientSession, repSession, sendNorwoodLink, uploadNorwoodPhoto } from "./norwood-sandbox.server";
 
 import { assertNorwoodPreviewRequest } from "@/lib/norwood-preview-access";
 import { assertNorwoodSandboxLead } from "@/lib/norwood-sandbox-access";
@@ -49,7 +49,7 @@ export const retryRepNorwoodAssessment = createServerFn({ method: "POST" }).midd
   .inputValidator(leadInput).handler(({ data, context }) => safely(async () => {
     const row = await latestNorwood(context.supabase, data.leadId);
     if (!row) throw new Error("Assessment not found");
-    await analyseNorwood(row.token_hash);
+    if (!await recoverRecordedNorwood(row)) await analyseNorwood(row.token_hash);
     return true;
   }));
 export const openPatientNorwood = createServerFn({ method: "POST" }).inputValidator(tokenInput)

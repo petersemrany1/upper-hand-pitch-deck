@@ -4,7 +4,7 @@ export const NORWOOD_VIEWS = ["front", "top", "crown", "left", "right"] as const
 export type NorwoodView = typeof NORWOOD_VIEWS[number];
 export const NORWOOD_LINK_HOURS = 2;
 export const NORWOOD_MAX_PHOTO_BYTES = 2 * 1024 * 1024;
-export const NORWOOD_PROMPT_VERSION = "2026-10-17.2";
+export const NORWOOD_PROMPT_VERSION = "2026-10-17.3";
 export const NORWOOD_MODEL = "claude-haiku-4-5-20251001"; // Same model as auto-analyse-call.
 export const NORWOOD_IMAGE_PIPELINE = { version: "jpeg-1536-q88-v1", maxDimension: 1536, jpegQuality: .88 } as const;
 export const norwoodResultSchema = z.object({
@@ -84,7 +84,7 @@ views: {front,top,crown,left,right}, each clear|limited|unusable|wrong_view. Che
 pattern: standard|vertex|anterior|atypical|uncertain.
 hairline: minimal|mild_temple|deep_temple|extensive|unknown.
 crown: preserved|distinct_loss|joined_loss|unknown. joined_loss means front and crown loss are continuous, not merely a visible whorl.
-bridge: substantial|narrow_sparse|absent|not_applicable|unknown. substantial/narrow_sparse mean a real cross-scalp band separating front and crown; absent means that separating band is lost, even if scattered hairs remain. Only use absent for merged front/crown loss; not_applicable for isolated frontal or anterior patterns.
+bridge: substantial|narrow_sparse|absent|not_applicable|unknown. substantial/narrow_sparse mean a real cross-scalp band separating front and crown; absent means that separating band is lost, even if scattered hairs remain. When the crown is preserved in a standard I–III pattern, not_applicable is preferred; substantial may describe retained mid-scalp hair and does not itself imply a crown bald patch. Only use absent for merged front/crown loss; not_applicable for isolated frontal or anterior patterns.
 fringe: broad|narrow_low|unknown. narrow_low means only a narrow low horseshoe remains at both sides AND back, necessary for stage 7.
 anterior_extent: not_applicable|well_before_ear|approaching_ear|past_ear_before_crown|reaches_crown|unknown. Use only with anterior pattern; side views must support this observation.
 boundary_uncertain: boolean. True when a supported provisional stage has a debatable adjacent-stage boundary; requires low confidence. Unknown essential anatomy requires null instead.

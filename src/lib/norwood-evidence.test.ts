@@ -66,3 +66,12 @@ test("missing evidence and invented fields cannot bypass the checks", () => {
   expect(() => parse(1, { boundary_uncertain: undefined })).toThrow();
   expect(() => parse(1, {}, { observations: { ...base, diagnosis: "x" } })).toThrow();
 });
+
+test("retained mid-scalp hair does not invalidate early stages when the crown is preserved", () => {
+  for (const [i,hairline] of (["minimal","mild_temple","deep_temple"] as const).entries()) {
+    expect(parse(i+1,{hairline,bridge:"substantial"}).norwood).toBe(i+1);
+    expect(parse(i+1,{hairline,bridge:"not_applicable"}).norwood).toBe(i+1);
+    for(const bridge of ["absent","narrow_sparse","unknown"] as const)expect(()=>parse(i+1,{hairline,bridge})).toThrow(NorwoodAbstentionError);
+    expect(()=>parse(i+1,{hairline,bridge:"substantial",crown:"joined_loss"})).toThrow(NorwoodAbstentionError);
+  }
+});

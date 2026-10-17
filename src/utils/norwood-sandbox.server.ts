@@ -1,3 +1,4 @@
+import { recoverEarlyNorwoodEvidence } from "@/lib/norwood-evidence-recovery";
 import { analysisNeedsReview, analysisFailure } from "@/lib/norwood-analysis-state";
 import { NorwoodAbstentionError } from "@/lib/norwood-evidence";
 import { NorwoodServiceError } from "./norwood-json.server";
@@ -37,7 +38,7 @@ export function patientPreviewUrl(token: string) {
   return url.toString();
 }
 export type AssessmentRow = {
-  id: string; prompt_version?: string | null; created_by?: string; lead_id: string; clinic_id: string; clinic_name: string; token_hash: string;
+  id: string; ai_observations?: unknown; prompt_version?: string | null; created_by?: string; lead_id: string; clinic_id: string; clinic_name: string; token_hash: string;
   status: NorwoodAssessmentStatus; expires_at: string; revoked_at: string | null;
   opened_at: string | null; consented_at: string | null; framing_consented_at?: string | null;
   photos: Partial<Record<NorwoodView, { path: string; sha256: string }>>;
@@ -47,6 +48,7 @@ export type AssessmentRow = {
 };
 export const hashNorwoodToken = (token: string) => createHash("sha256").update(token).digest("hex");
 export function retryAvailable(row: AssessmentRow, now = Date.now()) {
+  if (recoverEarlyNorwoodEvidence(row, now)) return true;
   return (!analysisNeedsReview(row.status, row.photo_problems) || row.prompt_version !== NORWOOD_PROMPT_VERSION) && row.analysis_attempts < 3 && (row.status === "failed" ||
     (row.status === "analysing" && now - Date.parse(row.analysis_started_at ?? "") >= 90_000));
 }
@@ -172,6 +174,22 @@ async function storeCheckedNorwoodPhoto(hash: string, row: AssessmentRow, view: 
     await db().storage.from(BUCKET).remove([path]);
     throw error;
   }
+}
+
+/** Revalidate only the recorded early-stage mismatch after the rule repair.
+ * No image download, model retry, lead status change or rep confirmation occurs.
+ */
+export async function recoverRecordedNorwood(row: AssessmentRow): Promise<boolean> {
+  const result = recoverEarlyNorwoodEvidence(row);
+  if (!result) return false;
+  const { data, error } = await db().from("norwood_preview_assessments").update({
+    status:"ready", ai_norwood:result.norwood, ai_confidence:"low", ai_reason:result.reason,
+    photo_problems:result.photo_problems, ai_observations:result.observations,
+    prompt_version:NORWOOD_PROMPT_VERSION, result_at:new Date().toISOString(),
+  }).eq("id",row.id).eq("status","failed").eq("analysis_run",row.analysis_run)
+    .is("revoked_at",null).gt("expires_at",new Date().toISOString()).select("id").maybeSingle();
+  if(error || !data)throw new Error("The assessment changed. Refresh before checking again.");
+  return true;
 }
 
 export async function analyseNorwood(hash: string): Promise<PatientNorwoodSession> {
