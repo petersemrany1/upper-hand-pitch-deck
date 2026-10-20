@@ -11,9 +11,15 @@ export async function notifyDepositReceived(
       .eq('id', leadId).single();
     if (error || !lead) throw new Error('Could not read paid deposit');
     if (!lead.deposit_paid_at || lead[processor === 'stripe' ? 'stripe_checkout_session_id' : 'square_payment_id'] !== paymentId) return;
-    const { data: appointment } = await supabase.from('clinic_appointments')
-      .select('appointment_date, appointment_time, doctor_name')
+    const { data: appointment, error: appointmentError } = await supabase.from('clinic_appointments')
+      .select('appointment_date, appointment_time, doctor_name, square_payment_id, square_refund_id, refund_status')
       .eq('lead_id', leadId).order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (appointmentError) throw new Error('Could not check appointment refund state');
+    // An older payment webhook can arrive without the latest refund fields.
+    // Only suppress the matching payment, so a previous refund cannot hide a
+    // genuinely new deposit receipt.
+    if (processor === 'square' && appointment?.square_payment_id === paymentId &&
+      (appointment.square_refund_id || appointment.refund_status)) return;
     const response = await fetch(`${origin}/lovable/email/transactional/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },

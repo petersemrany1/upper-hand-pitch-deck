@@ -67,6 +67,8 @@ export type SquarePayment = {
   status: string;
   order_id?: string | null;
   amount_money?: { amount?: number; currency?: string } | null;
+  refunded_money?: { amount?: number; currency?: string } | null;
+  refund_ids?: string[] | null;
   reference_id?: string | null;
   note?: string | null;
 };

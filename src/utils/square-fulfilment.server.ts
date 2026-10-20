@@ -17,6 +17,12 @@ export async function fulfilSquareDeposit(
   payment: SquarePayment,
   origin: string,
 ): Promise<{ ok: boolean; detail: string }> {
+  // Square keeps refunded payments COMPLETED and emits payment.updated for
+  // their refund changes. Those updates must never re-credit a deposit or
+  // backfill a deposit-received email for an older payment.
+  if (payment.refund_ids?.length || (payment.refunded_money?.amount ?? 0) > 0) {
+    return { ok: true, detail: "refund update ignored for deposit fulfilment" };
+  }
   const leadId = payment.reference_id;
   if (!leadId) return { ok: false, detail: "no reference_id on payment" };
   if (!isCompletedSquareDeposit(payment, leadId)) {
