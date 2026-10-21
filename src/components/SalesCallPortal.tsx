@@ -25,7 +25,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { CALLBACK_WINDOW_MS, buildQueue, dueCallbackIds, type HistoryMap } from "./sales-call/queue";
-import { createCallHistoryLoader } from "./sales-call/call-history";
+import { callAttemptsLabel, createCallHistoryLoader } from "./sales-call/call-history";
 import { nextSessionIndexFromActive, reorderSessionQueue } from "./sales-call/session-queue";
 import { isReturningLead, normaliseStatus, requiresManualDial, type StatusKey } from "./sales-call/status";
 import { toast } from "sonner";
@@ -5670,8 +5670,6 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
 /* ─────────────── LEAD CHOOSER (entry point) ─────────────── */
 
-const ATTEMPTS_PER_DAY = (day: number) => (day <= 7 ? 3 : 1);
-
 // Day-in-pipeline derived from created_at (calendar-day diff, 1-indexed).
 // e.g. lead created today = Day 1, created yesterday = Day 2, etc.
 // We use this instead of the static `day_number` column so it ticks over
@@ -6361,7 +6359,6 @@ function LeadChooser({
     const section = opts.section ?? "remaining";
     const u = leadUrgency(l);
     const day = pipelineDay(l, firstCallByLead[l.id]);
-    const attempts = ATTEMPTS_PER_DAY(day);
     const todayCount = attemptCounts[l.id];
     const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
     const cb = l.callback_scheduled_at ? new Date(l.callback_scheduled_at) : null;
@@ -6458,7 +6455,7 @@ function LeadChooser({
             <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 8 }}>
               {renderStatusBadge(l)}
               <span style={{ fontSize: 11, color: "#666" }}>
-                {todayCount === undefined ? "Call attempts unavailable" : `Day ${day} · Attempt ${Math.min(todayCount, attempts)} of ${attempts}`}
+                {callAttemptsLabel(day, todayCount)}
               </span>
             </div>
           </div>
@@ -7722,7 +7719,6 @@ function RightPanel({
   };
 
   const day = pipelineDay(active, firstCallAt);
-  const attempts = ATTEMPTS_PER_DAY(day);
   const fullName = [active.first_name, active.last_name].filter(Boolean).join(" ") || "Unnamed";
   const objectionResp = openObjection
     ? OBJECTIONS.find((o) => o.q === openObjection) ?? null
@@ -7989,7 +7985,7 @@ function RightPanel({
           Created {fmtTime(active.created_at)}
         </div>
         <div style={{ marginTop: 4, fontSize: 12, color: "#111" }}>
-          {attemptCounts[active.id] === undefined ? "Call attempts unavailable" : `Day ${day} · Attempt ${Math.min(attemptCounts[active.id], attempts)} of ${attempts} today`}
+          {callAttemptsLabel(day, attemptCounts[active.id])}
         </div>
         </>
         )}

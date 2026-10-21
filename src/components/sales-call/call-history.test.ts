@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { createCallHistoryLoader } from "./call-history";
+import { callAttemptsLabel, createCallHistoryLoader } from "./call-history";
 import { buildQueue, dueCallbackIds } from "./queue";
 
 const iso = (day: string, time: string) => new Date(`${day}T${time}:00`).toISOString();
@@ -9,6 +9,7 @@ const now = new Date("2026-10-13T11:30:00");
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const call = (n: number, lead = id(1), calledAt = iso("2026-10-13", "09:00"), direction = "outbound") => ({
   id: id(n), lead_id: lead, called_at: calledAt, direction, outcome: "no_answer", status: "completed",
+  rep_id: id(500),
 });
 const lead = (leadId: string, callback: string | null = null) => ({
   id: leadId, status: "no_answer", created_at: iso("2026-10-09", "10:00"), callback_scheduled_at: callback,
@@ -38,6 +39,21 @@ function fixture(initial: ReturnType<typeof call>[]) {
 }
 
 describe("sales call history", () => {
+  test("an older lead shows both Bec's and Nina's calls instead of capping the label at one", async () => {
+    const { db, state } = fixture([
+      call(10, id(1), iso("2026-10-01", "09:00")),
+      { ...call(11), rep_id: id(501), outcome: "had_convo_chase_up" },
+      { ...call(12, id(1), iso("2026-10-13", "10:00")), rep_id: id(502) },
+    ]);
+    const result = await createCallHistoryLoader(db, [id(1)], new AbortController().signal)(now);
+    expect(result.counts[id(1)]).toBe(2);
+    expect(callAttemptsLabel(13, result.counts[id(1)])).toBe("Day 13 · 2 call attempts today · All reps");
+    expect(state.urls.every((u) => !u.searchParams.has("rep_id"))).toBe(true);
+    expect(callAttemptsLabel(1, 4)).toBe("Day 1 · 4 call attempts today · All reps");
+    expect(callAttemptsLabel(1, 0)).toContain("0 call attempts");
+    expect(callAttemptsLabel(1, undefined)).toBe("Call attempts unavailable");
+  });
+
   test("loads calls beyond the first API page and prevents repeat morning queue entries", async () => {
     const { db } = fixture([
       ...Array.from({ length: 1000 }, (_, n) => call(n + 10, id(1), iso("2026-10-12", "10:00"))),
