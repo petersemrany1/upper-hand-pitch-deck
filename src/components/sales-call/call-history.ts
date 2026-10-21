@@ -18,6 +18,12 @@ const HISTORY_TTL_MS = 5 * 60 * 1000;
 
 const dayKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
+/** Actual team dials, never clamped to a suggested daily target. */
+export function callAttemptsLabel(day: number, count: number | undefined) {
+  return count === undefined ? "Call attempts unavailable"
+    : `Day ${day} · ${count} call attempt${count === 1 ? "" : "s"} today · All reps`;
+}
+
 /** Keep URLs bounded and read every page; even three days can exceed the API's row cap. */
 async function fetchCalls(db: Db, leadIds: string[], since: string, recent: boolean, signal: AbortSignal) {
   const rows: CallRow[] = [];
