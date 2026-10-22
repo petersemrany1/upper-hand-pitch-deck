@@ -1,3 +1,8 @@
+import { AppointmentReminderSettings } from "@/components/AppointmentReminderSettings";
+import { AppointmentConfirmationStatus } from "@/components/AppointmentConfirmationStatus";
+import { loadClinicReminderSettings, loadReminderDeliveries, recordConfirmationCall, type ClinicReminderSettings, type ReminderDelivery } from "@/lib/appointment-reminders-api";
+import { clinicDaysUntil, localClock, confirmationDay, shiftDate, type ConfirmationFields } from "../../supabase/functions/_shared/appointment-confirmation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { periodDates } from "@/lib/reporting-period";
 import { sydneyTodayISO } from "@/lib/timezone";
 import { BookingRescheduleDialog } from "@/components/BookingRescheduleDialog";
@@ -5,7 +10,7 @@ import { retryRescheduleSms,retryRescheduleEmail } from "@/utils/booking-resched
 import { useAuth } from "@/hooks/useAuth";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppointmentConfirmationCalls } from "@/components/AppointmentConfirmationCalls";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Phone as PhoneIcon, X, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
@@ -32,7 +37,8 @@ function AppointmentWorkspace() {
   </div>;
 }
 
-type Reminder = {
+type Reminder = ConfirmationFields & {
+  clinic_id?: string;
   id: string;
   appointment_id: string | null;
   schedule_changed_at: string | null;
@@ -52,6 +58,8 @@ type Reminder = {
   status: string;
   created_at: string;
 };
+
+type RawReminder = Reminder & { appointment: { id: string; clinic_id: string; outcome: string | null; disqualified_at: string | null; clinic: { clinic_name: string } | null } | null };
 
 type Lead = { id: string; rep_id: string | null; last_name: string | null; first_name: string | null };
 
@@ -127,10 +135,10 @@ function sendDateAt3pm(d: string, daysBefore: number): Date {
 
 type Filter = "all" | "week" | "month" | "past" | "custom";
 
-const ENABLED_KEY = "booked_appointments_enabled";
 
-function BookedAppointmentsPage() {
-  const { role } = useAuth();
+
+export function BookedAppointmentsPage() {
+  const { role, ready } = useAuth();
   const [rescheduling, setRescheduling] = useState<string | null>(null);
   const [rows, setRows] = useState<Reminder[]>([]);
   const [leads, setLeads] = useState<Record<string, Lead>>({});
@@ -142,16 +150,15 @@ function BookedAppointmentsPage() {
   const [confirmCancel, setConfirmCancel] = useState<Reminder | null>(null);
   const [editHandover, setEditHandover] = useState<Reminder | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [enabled, setEnabled] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true;
-    return window.localStorage.getItem(ENABLED_KEY) !== "false";
-  });
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(ENABLED_KEY, enabled ? "true" : "false");
-    }
-  }, [enabled]);
+  const [clinicSettings, setClinicSettings] = useState<ClinicReminderSettings[]>([]);
+  const [settingsError, setSettingsError] = useState("");
+  const [deliveries, setDeliveries] = useState<ReminderDelivery[]>([]);
+  const [selectedClinic, setSelectedClinic] = useState("all");
+  const [attention, setAttention] = useState("all");
+  const [deliveryError, setDeliveryError] = useState("");
+  const settingsFor = useCallback((r: Reminder) => clinicSettings.find(s => s.clinic_id === r.clinic_id), [clinicSettings]);
+  const localDays = useCallback((r: Reminder) => r.booking_date ? clinicDaysUntil(r.booking_date, new Date(), settingsFor(r)?.timezone || "Australia/Sydney") : -1, [settingsFor]);
+  const needsCall = useCallback((r: Reminder) => r.status === "confirmed" && r.confirmation_state === "needs_call" && localDays(r) >= 0, [localDays]);
 
   // Twilio device for placing calls
   const twilio = useTwilioDevice(true);
@@ -159,22 +166,28 @@ function BookedAppointmentsPage() {
 
   const load = async (background = false) => {
     if (!background) setLoading(true);
-    const { data, error } = await supabase
-      .from("appointment_reminders")
-      .select("*, appointment:clinic_appointments!appointment_reminders_appointment_id_fkey(id,outcome,disqualified_at,clinic:partner_clinics!clinic_appointments_clinic_id_fkey(clinic_name))")
-      .or("patient_first_name.is.null,patient_first_name.not.ilike.%test%")
-      .or("patient_last_name.is.null,patient_last_name.not.ilike.%test%")
-      .order("booking_date", { ascending: true });
-    if (error) {
-      toast.error("Failed to load appointments");
-      setLoading(false);
-      return;
+    const rawRows: RawReminder[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await supabase
+        .from("appointment_reminders")
+        .select("*, appointment:clinic_appointments!appointment_reminders_appointment_id_fkey(id,clinic_id,outcome,disqualified_at,clinic:partner_clinics!clinic_appointments_clinic_id_fkey(clinic_name))")
+        .or("patient_first_name.is.null,patient_first_name.not.ilike.%test%")
+        .or("patient_last_name.is.null,patient_last_name.not.ilike.%test%")
+        .order("booking_date", { ascending: true }).order("id").range(offset, offset + 499);
+      if (error) { toast.error("Failed to load appointments"); setLoading(false); return; }
+      rawRows.push(...(data ?? []) as unknown as RawReminder[]);
+      if (!data || data.length < 500) break;
     }
-    const {data:history} = await (supabase as any).from("appointment_reschedules").select("id,appointment_id,sms_status,sms_error,created_at,actor_name,new_date,new_time,email_status,email_error,email_to").order("created_at",{ascending:false});
-    const list = (data ?? []).map((r:any) => ({...r,
-      status:r.appointment?.disqualified_at ? "cancelled" : r.appointment?.outcome === "noshow" ? "no_show" : ["show","proceeded"].includes(r.appointment?.outcome) ? "showed_up" : r.status,
+    try { setClinicSettings(await loadClinicReminderSettings()); setSettingsError(""); }
+    catch (error) { setSettingsError(error instanceof Error ? error.message : "Could not load reminder settings"); }
+    try { setDeliveries(await loadReminderDeliveries(rawRows.map(r => r.id))); setDeliveryError(""); }
+    catch (error) { setDeliveryError(error instanceof Error ? error.message : "Could not load delivery status"); }
+    const {data:history} = await (supabase as unknown as SupabaseClient).from("appointment_reschedules").select("id,appointment_id,sms_status,sms_error,created_at,actor_name,new_date,new_time,email_status,email_error,email_to").order("created_at",{ascending:false});
+    const list = rawRows.map((r) => ({...r,
+      status:r.appointment?.disqualified_at ? "cancelled" : r.appointment?.outcome === "noshow" ? "no_show" : ["show","proceeded"].includes(r.appointment?.outcome ?? "") ? "showed_up" : r.status,
       clinic_name:r.appointment?.clinic?.clinic_name,
-      reschedule_event:history?.find((event:any)=>event.appointment_id===r.appointment_id),
+      clinic_id:r.appointment?.clinic_id,
+      reschedule_event:history?.find((event: NonNullable<Reminder["reschedule_event"]> & {appointment_id:string})=>event.appointment_id===r.appointment_id),
     })) as Reminder[];
     setRows(list);
     const ids = Array.from(new Set(list.map((r) => r.lead_id).filter(Boolean))) as string[];
@@ -191,12 +204,13 @@ function BookedAppointmentsPage() {
   };
 
   useEffect(() => {
+    if (!ready) return;
     void load();
     const refresh = () => { if (document.visibilityState === "visible") void load(true); };
     const timer = window.setInterval(refresh, 30000);
     window.addEventListener("focus", refresh);
     return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
-  }, []);
+  }, [ready]);
 
   const today = todayInSydney();
 
@@ -218,15 +232,19 @@ function BookedAppointmentsPage() {
       }
     }
     return { thisMonth, thisWeek, showed, noShow };
-  }, [rows]);
+  }, [rows, today]);
 
   const filtered = useMemo(() => {
-    if (filter === "all") return rows;
-    if (filter === "past") return rows.filter(r => r.booking_date && r.booking_date < sydneyTodayISO());
+    let list = rows.filter(r => selectedClinic === "all" || r.clinic_id === selectedClinic);
+    if (attention === "needs_call") list = list.filter(needsCall);
+    if (attention === "awaiting") list = list.filter(r => r.status === "confirmed" && r.confirmation_state === "awaiting_reply" && localDays(r) >= 0);
+    if (attention === "confirmed") list = list.filter(r => r.confirmation_state === "confirmed");
+    if (filter === "all") return list;
+    if (filter === "past") return list.filter(r => localDays(r) < 0);
     const range = periodDates(filter, customStart, customEnd);
-    if(!range)return [];
-    return rows.filter(r => r.booking_date && (!range.start || r.booking_date >= range.start) && (!range.end || r.booking_date <= range.end));
-  }, [rows, filter, customStart, customEnd]);
+    if (!range) return [];
+    return list.filter(r => r.booking_date && (!range.start || r.booking_date >= range.start) && (!range.end || r.booking_date <= range.end));
+  }, [rows, filter, customStart, customEnd, selectedClinic, attention, localDays, needsCall]);
 
   const grouped = useMemo(() => {
     const todayTomorrow: Reminder[] = [];
@@ -234,8 +252,7 @@ function BookedAppointmentsPage() {
     const pastCancelled: Reminder[] = [];
     for (const r of filtered) {
       if (!r.booking_date) { pastCancelled.push(r); continue; }
-      const d = parseBookingDate(r.booking_date);
-      const diff = daysBetween(new Date(today), new Date(d));
+      const diff = localDays(r);
       if (r.status === "cancelled" || r.status === "no_show" || r.status === "showed_up" || diff < 0) {
         pastCancelled.push(r);
       } else if (diff <= 1) {
@@ -245,7 +262,7 @@ function BookedAppointmentsPage() {
       }
     }
     return { todayTomorrow, upcoming, pastCancelled };
-  }, [filtered]);
+  }, [filtered, localDays]);
 
   const onCall = (r: Reminder) => {
     if (!r.patient_phone) { toast.error("No phone number"); return; }
@@ -254,6 +271,26 @@ function BookedAppointmentsPage() {
     if (myRepId) params.repId = myRepId;
     void twilio.call(r.patient_phone, params);
   };
+
+  const recordCall = async (r: Reminder, result: "confirmed" | "no_answer" | "voicemail") => {
+    setBusy(r.id);
+    try {
+      await recordConfirmationCall(r.id, r.confirmation_revision, result);
+      toast.success(result === "confirmed" ? "Attendance confirmed — further chasing stopped" : "Call outcome saved");
+      await load(true);
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not save call result"); }
+    finally { setBusy(null); }
+  };
+  const confirmationProps = (r: Reminder) => ({
+    reminderSettings: settingsFor(r),
+    deliveries: deliveries.filter(d => d.reminder_id === r.id && d.revision === r.confirmation_revision),
+    onRecordCall: (result: "confirmed" | "no_answer" | "voicemail") => void recordCall(r, result),
+  });
+  useEffect(() => {
+    if (loading) return;
+    const appointment = new URLSearchParams(window.location.search).get("appointment");
+    if (appointment && /^[0-9a-f-]{36}$/i.test(appointment)) document.getElementById(`appointment-${appointment}`)?.scrollIntoView({ block: "center" });
+  }, [loading]);
 
   const onCancel = async (r: Reminder) => {
     setBusy(r.id);
@@ -311,33 +348,17 @@ function BookedAppointmentsPage() {
               {role === "admin" ? "All bookings" : "Your bookings only"} · Manage appointments and automated SMS reminders
             </p>
           </div>
-          <button
-            onClick={() => setEnabled((v) => !v)}
-            style={{
-              fontSize: 12, fontWeight: 500,
-              padding: "8px 14px", borderRadius: 999,
-              background: enabled ? COLOR.greenBg : COLOR.greyBg,
-              color: enabled ? COLOR.green : COLOR.grey,
-              border: `0.5px solid ${enabled ? COLOR.green : COLOR.border}`,
-              cursor: "pointer", whiteSpace: "nowrap",
-            }}
-          >
-            {enabled ? "● Enabled — Click to disable" : "○ Disabled — Click to enable"}
-          </button>
         </div>
-
-        {!enabled ? (
-          <div style={{ ...cardStyle, padding: 60, textAlign: "center" }}>
-            <p style={{ fontSize: 10, letterSpacing: "0.08em", color: COLOR.muted, textTransform: "uppercase", marginBottom: 8 }}>
-              Page disabled
-            </p>
-            <p style={{ fontSize: 14, color: COLOR.grey }}>
-              The Booked Appointments page is turned off. Click the button above to re-enable.
-            </p>
-          </div>
-        ) : (
-          <>
-
+        {settingsError && <div role="alert" style={{ ...cardStyle, padding: 16, marginBottom: 16, color: COLOR.red }}>{settingsError}</div>}
+        {deliveryError && !settingsError && <p role="alert" style={{ color: COLOR.red }}>{deliveryError}</p>}
+        {role === "admin" && clinicSettings.length > 0 && <AppointmentReminderSettings settings={clinicSettings} onSaved={saved => { setClinicSettings(current => current.map(s => s.clinic_id === saved.clinic_id ? saved : s)); void load(true); }} />}
+        <div className="appointment-reminder-toolbar">
+          <select aria-label="Filter appointments by clinic" value={selectedClinic} onChange={e => setSelectedClinic(e.target.value)}>
+            <option value="all">All clinics</option>
+            {clinicSettings.map(s => <option key={s.clinic_id} value={s.clinic_id}>{s.clinic_name}</option>)}
+          </select>
+          {[["all", "All confirmations"], ["needs_call", `Needs a call (${rows.filter(r => (selectedClinic === "all" || r.clinic_id === selectedClinic) && needsCall(r)).length})`], ["awaiting", "Awaiting YES"], ["confirmed", "Attendance confirmed"]].map(([value, label]) => <button key={value} aria-pressed={attention === value} onClick={() => { setAttention(value); setFilter("all"); }}>{label}</button>)}
+        </div>
 
         {/* Stats strip */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
@@ -378,18 +399,18 @@ function BookedAppointmentsPage() {
           <label>To <input aria-label="Appointment end date" type="date" value={customEnd} min={customStart} onChange={e=>setCustomEnd(e.target.value)} /></label>
           {!periodDates("custom",customStart,customEnd) && <p role="alert">Choose a valid start and end date.</p>}
         </div>}
-        <p style={{fontSize:12,color:COLOR.muted,marginBottom:20}}>Filtered by appointment date · Sydney time · Both dates included</p>
+        <p style={{fontSize:12,color:COLOR.muted,marginBottom:20}}>Appointment times and reminder schedules use each clinic’s local timezone · Both dates included</p>
 
         {loading ? (
           <div style={{ ...cardStyle, padding: 40, textAlign: "center", color: COLOR.muted }}>Loading...</div>
         ) : (
           <>
             <Section title="Today & Tomorrow" rows={grouped.todayTomorrow} renderCard={(r) => (
-              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} onEditHandover={() => setEditHandover(r)} onReschedule={() => r.appointment_id && setRescheduling(r.appointment_id)} onRetrySms={async () => { if (!r.reschedule_event) return; try { const result = await retryRescheduleSms({data:{eventId:r.reschedule_event.id}}); result.status === "accepted" ? toast.success("Confirmation accepted for sending") : toast.warning(result.error || "Check SMS status"); void load(); } catch(e) { toast.error(e instanceof Error ? e.message : "Could not send"); } }} busy={busy === r.id} />
+              <Card key={r.id} {...confirmationProps(r)} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} onEditHandover={() => setEditHandover(r)} onReschedule={() => r.appointment_id && setRescheduling(r.appointment_id)} onRetrySms={async () => { if (!r.reschedule_event) return; try { const result = await retryRescheduleSms({data:{eventId:r.reschedule_event.id}}); if (result.status === "accepted") toast.success("Confirmation accepted for sending"); else toast.warning(result.error || "Check SMS status"); void load(); } catch(e) { toast.error(e instanceof Error ? e.message : "Could not send"); } }} busy={busy === r.id} />
             )} />
 
             <Section title="Upcoming" rows={grouped.upcoming} renderCard={(r) => (
-              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} onEditHandover={() => setEditHandover(r)} onReschedule={() => r.appointment_id && setRescheduling(r.appointment_id)} onRetrySms={async () => { if (!r.reschedule_event) return; try { const result = await retryRescheduleSms({data:{eventId:r.reschedule_event.id}}); result.status === "accepted" ? toast.success("Confirmation accepted for sending") : toast.warning(result.error || "Check SMS status"); void load(); } catch(e) { toast.error(e instanceof Error ? e.message : "Could not send"); } }} busy={busy === r.id} />
+              <Card key={r.id} {...confirmationProps(r)} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} onEditHandover={() => setEditHandover(r)} onReschedule={() => r.appointment_id && setRescheduling(r.appointment_id)} onRetrySms={async () => { if (!r.reschedule_event) return; try { const result = await retryRescheduleSms({data:{eventId:r.reschedule_event.id}}); if (result.status === "accepted") toast.success("Confirmation accepted for sending"); else toast.warning(result.error || "Check SMS status"); void load(); } catch(e) { toast.error(e instanceof Error ? e.message : "Could not send"); } }} busy={busy === r.id} />
             )} />
 
             {/* Past & Cancelled — collapsible */}
@@ -412,15 +433,14 @@ function BookedAppointmentsPage() {
                   {grouped.pastCancelled.length === 0 ? (
                     <div style={{ ...cardStyle, padding: 20, textAlign: "center", color: COLOR.muted, fontSize: 13 }}>None</div>
                   ) : grouped.pastCancelled.map((r) => (
-                    <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} onEditHandover={() => setEditHandover(r)} onReschedule={() => r.appointment_id && setRescheduling(r.appointment_id)} onRetrySms={async () => { if (!r.reschedule_event) return; try { const result = await retryRescheduleSms({data:{eventId:r.reschedule_event.id}}); result.status === "accepted" ? toast.success("Confirmation accepted for sending") : toast.warning(result.error || "Check SMS status"); void load(); } catch(e) { toast.error(e instanceof Error ? e.message : "Could not send"); } }} busy={busy === r.id} />
+                    <Card key={r.id} {...confirmationProps(r)} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} onEditHandover={() => setEditHandover(r)} onReschedule={() => r.appointment_id && setRescheduling(r.appointment_id)} onRetrySms={async () => { if (!r.reschedule_event) return; try { const result = await retryRescheduleSms({data:{eventId:r.reschedule_event.id}}); if (result.status === "accepted") toast.success("Confirmation accepted for sending"); else toast.warning(result.error || "Check SMS status"); void load(); } catch(e) { toast.error(e instanceof Error ? e.message : "Could not send"); } }} busy={busy === r.id} />
                   ))}
                 </div>
               )}
             </div>
           </>
         )}
-          </>
-        )}
+        {!loading && filtered.length === 0 && <div style={{ ...cardStyle, padding: 32, textAlign: "center", color: COLOR.grey }}>{attention === "needs_call" ? "No appointments need a confirmation call." : "No appointments match these filters."}</div>}
       </div>
 
 
@@ -508,9 +528,12 @@ function Section({ title, rows, renderCard }: { title: string; rows: Reminder[];
 }
 
 function Card({
-  r, today, onCall, onCancel, onNoShow, onShowedUp, onEditHandover, onReschedule, onRetrySms, busy,
+  r, today, onCall, onCancel, onNoShow, onShowedUp, onEditHandover, onReschedule, onRetrySms, busy, reminderSettings, deliveries, onRecordCall,
 }: {
   r: Reminder;
+  reminderSettings?: ClinicReminderSettings;
+  deliveries: ReminderDelivery[];
+  onRecordCall: (result: "confirmed" | "no_answer" | "voicemail") => void;
   today: Date;
   onCall: (r: Reminder) => void;
   onCancel: () => void;
@@ -526,7 +549,7 @@ function Card({
   useEffect(()=>setEmailResult(null),[r.reschedule_event?.id]);
   const emailEvent=r.reschedule_event ? {...r.reschedule_event,...(emailResult?{email_status:emailResult.status,email_error:emailResult.error}:{})} : undefined;
   const d = r.booking_date ? parseBookingDate(r.booking_date) : null;
-  const diff = d ? daysBetween(new Date(today), new Date(d)) : null;
+  const diff = r.booking_date ? clinicDaysUntil(r.booking_date, new Date(), reminderSettings?.timezone || "Australia/Sydney") : null;
 
   let leftBorder = COLOR.green;
   let faded = false;
@@ -548,7 +571,7 @@ function Card({
     if (r.status === "cancelled") return { label: "Cancelled", bg: COLOR.greyBg, fg: COLOR.grey };
     if (r.status === "no_show") return { label: "No Show", bg: COLOR.redBg, fg: COLOR.red };
     if (r.status === "showed_up") return { label: "Showed Up", bg: COLOR.greenBg, fg: COLOR.green };
-    return { label: "Confirmed", bg: COLOR.greenBg, fg: COLOR.green };
+    return { label: "Booked", bg: COLOR.greenBg, fg: COLOR.green };
   })();
 
   const isPastOrToday = diff !== null && diff <= 0;
@@ -558,13 +581,13 @@ function Card({
   const fullName = [r.patient_first_name, r.patient_last_name].filter(Boolean).join(" ") || "Unknown";
 
   return (
-    <div style={{
+    <div id={`appointment-${r.appointment_id}`} style={{
       ...cardStyle,
       borderLeft: `3px solid ${leftBorder}`,
       padding: 16,
       opacity: faded ? 0.65 : 1,
     }}>
-      <div style={{ display: "flex", alignItems: "stretch", gap: 16 }}>
+      <div className="appointment-card-layout" style={{ display: "flex", alignItems: "stretch", gap: 16 }}>
         {/* Date block */}
         <div style={{ minWidth: 72, textAlign: "center", paddingRight: 16, borderRight: `0.5px solid ${COLOR.border}` }}>
           {r.booking_date ? (
@@ -578,6 +601,7 @@ function Card({
               {r.booking_time && (
                 <div style={{ fontSize: 12, fontWeight: 500, color: COLOR.coral, marginTop: 8 }}>
                   {fmtTime(r.booking_time)}
+                  <div style={{ fontSize: 10, color: COLOR.grey, marginTop: 4 }}>{reminderSettings?.timezone.replace("Australia/", "") || "Clinic time"}</div>
                 </div>
               )}
             </>
@@ -597,26 +621,27 @@ function Card({
           </div>
 
           {/* Reminders row */}
-          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-            <ReminderPill
+          {reminderSettings?.mode !== "off" && <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+            <ReminderPill settings={reminderSettings}
               kind="3day"
               status={r.status}
               sent={r.three_day_sms_sent}
               bookingDate={r.booking_date}
               scheduleChangedAt={r.schedule_changed_at}
             />
-            <ReminderPill
+            <ReminderPill settings={reminderSettings}
               kind="24h"
               status={r.status}
               sent={r.twentyfour_hour_sms_sent}
               bookingDate={r.booking_date}
               scheduleChangedAt={r.schedule_changed_at}
             />
-          </div>
+          </div>}
+          {reminderSettings && <AppointmentConfirmationStatus row={r} settings={reminderSettings} deliveries={deliveries} onRecordCall={onRecordCall} busy={busy} active={!isFinalised && diff !== null && diff >= 0} />}
         </div>
 
         {/* Right actions */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+        <div className="appointment-card-actions" style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
           {!isFinalised && (
             <button
               onClick={() => onCall(r)}
@@ -716,15 +741,16 @@ function Card({
 }
 
 function ReminderPill({
-  kind, status, sent, bookingDate, scheduleChangedAt,
+  kind, status, sent, bookingDate, scheduleChangedAt, settings,
 }: {
   kind: "3day" | "24h";
+  settings?: ClinicReminderSettings;
   status: string;
   sent: boolean;
   bookingDate: string | null;
   scheduleChangedAt: string | null;
 }) {
-  const label = kind === "3day" ? "3-day SMS" : "24hr SMS";
+  const label = kind === "3day" ? "3-day SMS" : settings?.mode === "confirmation" ? "Confirmation SMS" : "Day-before SMS";
   if (status === "cancelled" || status === "no_show" || status === "showed_up") {
     return (
       <span style={{ fontSize: 11, color: COLOR.muted, background: COLOR.greyBg, padding: "3px 8px", borderRadius: 6 }}>
@@ -747,23 +773,17 @@ function ReminderPill({
       </span>
     );
   }
-  const sendAt = new Date(bookingDate + "T05:00:00Z");
-  sendAt.setUTCDate(sendAt.getUTCDate() - daysBefore);
-  if (scheduleChangedAt && new Date(scheduleChangedAt) > sendAt) return <span style={{fontSize:11,color:COLOR.muted}}>— {label}: booking changed after this reminder's cutoff</span>;
-  const sendDateStr = fmtSendDate(bookingDate, daysBefore);
-  const now = new Date();
-  if (sendAt.getTime() < now.getTime()) {
-    return (
-      <span style={{ fontSize: 11, color: COLOR.red, background: COLOR.redBg, padding: "3px 8px", borderRadius: 6 }}>
-        ⚠ Missed — should have sent {sendDateStr}
-      </span>
-    );
-  }
-  return (
-    <span style={{ fontSize: 11, color: COLOR.amber, background: COLOR.amberBg, padding: "3px 8px", borderRadius: 6 }}>
-      ⏳ {label} — sends {sendDateStr} {sendAt.toLocaleTimeString("en-AU",{timeZone:"Australia/Sydney",hour:"numeric",minute:"2-digit"})}
-    </span>
-  );
+  const timezone = settings?.timezone || "Australia/Sydney";
+  const dueDate = kind === "24h" && settings?.mode === "confirmation" ? confirmationDay(bookingDate, settings) : shiftDate(bookingDate, -daysBefore);
+  if (kind === "3day" && settings?.mode === "confirmation" && confirmationDay(bookingDate, settings) === dueDate) return <span style={{ fontSize: 11, color: COLOR.grey }}>3-day reminder included in confirmation request</span>;
+  const time = kind === "24h" && settings?.mode === "confirmation" ? "09:00" : settings?.normal_send_time.slice(0, 5) || "13:00";
+  const clock = localClock(new Date(), timezone);
+  const past = `${clock.date}T${String(Math.floor(clock.minute / 60)).padStart(2, "0")}:${String(clock.minute % 60).padStart(2, "0")}` >= `${dueDate}T${time}`;
+  const sendDateStr = new Date(dueDate + "T12:00:00Z").toLocaleDateString("en-AU", { timeZone: "UTC", day: "numeric", month: "short" });
+  return <span style={{ fontSize: 11, color: past ? COLOR.grey : COLOR.amber, background: past ? COLOR.greyBg : COLOR.amberBg, padding: "3px 8px", borderRadius: 6 }}>
+    {past ? `${label} — not sent; check reminder history` : `${label} — ${sendDateStr}, ${fmtTime(time)} local`}
+  </span>;
+
 }
 
 function EditHandoverModal({

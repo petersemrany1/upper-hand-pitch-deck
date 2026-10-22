@@ -1,55 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
-import { createHmac, timingSafeEqual } from "crypto";
+import { verifyTwilioSignature } from "@/lib/twilio-status-signature.server";
 import { recordRefundSmsStatus } from "@/utils/refund-notifications.server";
-
-function safeEqualHexOrBase64(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ab.length === bb.length && timingSafeEqual(ab, bb);
-}
-
-function twilioSignatureFor(url: string, params: URLSearchParams, token: string): string {
-  const entries = Array.from(params.entries()).sort(([a], [b]) => a.localeCompare(b));
-  const payload = entries.reduce((acc, [key, value]) => acc + key + value, url);
-  return createHmac("sha1", token).update(payload).digest("base64");
-}
-
-// The StatusCallback URL we register with Twilio (see src/utils/sms.functions.ts).
-// Twilio signs THIS exact URL, so it must always be in the candidate list —
-// regardless of what host/proto the Worker sees on the incoming request.
-const CANONICAL_CALLBACK_URL =
-  "https://hairtransplantgroup.lovable.app/api/public/hooks/twilio-message-status";
-
-function candidateUrls(request: Request): string[] {
-  const url = new URL(request.url);
-  const candidates = new Set<string>([CANONICAL_CALLBACK_URL, url.toString()]);
-  if (url.search) candidates.add(CANONICAL_CALLBACK_URL + url.search);
-  const xfProto = request.headers.get("x-forwarded-proto");
-  const xfHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
-  if (xfProto || xfHost) {
-    const forwarded = new URL(url.toString());
-    if (xfProto) forwarded.protocol = `${xfProto}:`;
-    if (xfHost) forwarded.host = xfHost;
-    candidates.add(forwarded.toString());
-  }
-  const origin = request.headers.get("origin");
-  if (origin) candidates.add(new URL(url.pathname + url.search, origin).toString());
-  // Also try https variant of the raw request URL (Workers may report http internally).
-  if (url.protocol !== "https:") {
-    const httpsUrl = new URL(url.toString());
-    httpsUrl.protocol = "https:";
-    candidates.add(httpsUrl.toString());
-  }
-  return Array.from(candidates);
-}
-
-function verifyTwilioSignature(request: Request, params: URLSearchParams, token: string): boolean {
-  const signature = request.headers.get("x-twilio-signature") || "";
-  if (!signature) return false;
-  return candidateUrls(request).some((url) => safeEqualHexOrBase64(twilioSignatureFor(url, params, token), signature));
-}
-
 
 export const Route = createFileRoute("/api/public/hooks/twilio-message-status")({
   server: {
@@ -66,7 +18,6 @@ export const Route = createFileRoute("/api/public/hooks/twilio-message-status")(
         if (!verifyTwilioSignature(request, params, authToken)) {
           console.warn("twilio-message-status: invalid signature", {
             receivedSig: request.headers.get("x-twilio-signature"),
-            candidates: candidateUrls(request),
             messageSid: params.get("MessageSid"),
             status: params.get("MessageStatus"),
           });
@@ -102,6 +53,14 @@ export const Route = createFileRoute("/api/public/hooks/twilio-message-status")(
             return new Response("DB update failed", { status: 500 });
           }
           return new Response("OK", { status: 200 });
+        }
+        const deliveryId = new URL(request.url).searchParams.get("reminder_delivery");
+        if (deliveryId && /^[0-9a-f-]{36}$/i.test(deliveryId) && ["delivered", "undelivered", "failed"].includes(status)) {
+          const { error: deliveryError } = await supabase.rpc("record_confirmation_delivery_callback", {
+            p_delivery: deliveryId, p_sid: messageSid, p_status: status === "delivered" ? "delivered" : "undelivered",
+            p_error: status === "delivered" ? null : finalStatus,
+          });
+          if (deliveryError) return new Response("Reminder status update failed", { status: 500 });
         }
         const { error } = await supabase
           .from("sms_messages")

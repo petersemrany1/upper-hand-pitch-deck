@@ -8,7 +8,7 @@ import { sendSms } from "../../supabase/functions/send-appointment-reminders/twi
 import { PATIENT_SMS_FROM } from "@/lib/booking-confirmation-sms";
 import { validateCallback, type ScheduleCallbackInput } from "@/lib/confirmation-callbacks";
 
-const fields = "id,lead_id,patient_name,patient_phone,appointment_date,appointment_time,doctor_name,updated_at,deposit_amount,square_payment_id,stripe_payment_intent_id,outcome,disqualified_at,clinic:partner_clinics!clinic_appointments_clinic_id_fkey(clinic_name,address,city,state),reminders:appointment_reminders!appointment_reminders_appointment_id_fkey(status)";
+const fields = "id,lead_id,patient_name,patient_phone,appointment_date,appointment_time,doctor_name,updated_at,deposit_amount,square_payment_id,stripe_payment_intent_id,outcome,disqualified_at,clinic:partner_clinics!clinic_appointments_clinic_id_fkey(clinic_name,address,city,state),reminders:appointment_reminders!appointment_reminders_appointment_id_fkey(status,confirmation_state)";
 const uuid = (value: string) => { if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) throw new Error("Invalid appointment reference"); return value; };
 const admin = () => supabaseAdmin as any;
 function dateInput(date: string) {

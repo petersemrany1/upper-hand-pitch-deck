@@ -1,10 +1,12 @@
-// Daily at 05:00 UTC. Admin/internal dry_run previews never send or write.
+// Every five minutes; each clinic’s local schedule determines what is due. Dry runs never write.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { requireInternalOrSalesRole } from "../_shared/authorize.ts";
 import { PATIENT_SMS_FROM } from "../_shared/patient-sms.ts";
 import { sendSms } from "./twilio.ts";
-import { processReminders, sydneyDate, type Reminder } from "./reminders.ts";
+import { processConfirmationWorkflow, type ConfirmationBooking } from "./confirmation-workflow.ts";
+import { type ReminderSettings } from "../_shared/appointment-confirmation.ts";
+import { sendConfirmationEmail } from "./email.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-secret",
@@ -72,39 +74,57 @@ serve(async (req) => {
   const sb = createClient(url, key);
   const now = new Date();
   try {
-    const rows: Reminder[] = [];
+    if (!dryRun) {
+      const { error } = await sb.rpc("recover_stale_confirmation_deliveries");
+      if (error) throw error;
+    }
+    const allSettings: ReminderSettings[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await sb.from("clinic_reminder_settings").select("*").order("clinic_id").range(offset, offset + 499);
+      if (error) throw error;
+      allSettings.push(...data);
+      if (data.length < 500) break;
+    }
+    const rows: ConfirmationBooking[] = [];
+    const settings = new Map<string, ReminderSettings>();
     // Stable pagination avoids silently missing bookings beyond the API cap.
     for (let offset = 0; ; offset += 500) {
       const { data, error } = await sb.from("appointment_reminders").select(`
         *, appointment:clinic_appointments!appointment_reminders_appointment_id_fkey(
-          id, appointment_date, appointment_time, doctor_id, outcome, disqualified_at,
+          id, clinic_id, appointment_date, appointment_time, doctor_id, outcome, disqualified_at,
           clinic:partner_clinics!clinic_appointments_clinic_id_fkey(
             clinic_name,address,city,state,phone,
             team:partner_doctors(id,name,is_active,conducts_consultations)
           )
         )
-      `).eq("status", "confirmed").gte("booking_date", sydneyDate(now)).order("id").range(offset, offset + 499);
+      `).eq("status", "confirmed").gte("booking_date", now.toISOString().slice(0,10)).order("id").range(offset, offset + 499);
       if (error) throw error;
-      rows.push(...(data as unknown as Reminder[]));
+      rows.push(...(data as unknown as ConfirmationBooking[]));
+      for (const row of data as any[]) {
+        const config = allSettings.find(s => s.clinic_id === row.appointment?.clinic_id);
+        if (config) settings.set(row.id, config);
+      }
       if (!data || data.length < 500) break;
     }
-    const results = await processReminders(rows, now, dryRun, {
-      async claim(row, kind, token) {
-        const { data, error } = await sb.rpc("claim_appointment_reminder", { p_id: row.id, p_kind: kind, p_claim: token, p_updated_at: row.updated_at });
+    const baseUrl = Deno.env.get("APP_BASE_URL") || "https://hairtransplantgroup.lovable.app";
+    const results = await processConfirmationWorkflow(rows, settings, now, dryRun, {
+      async claim(row, config, kind, message, destination) {
+        const { data, error } = await sb.rpc("claim_confirmation_delivery", {
+          p_reminder: row.id, p_revision: row.confirmation_revision, p_kind: kind,
+          p_settings_version: config.updated_at, p_body: message, p_destination: destination,
+        });
         if (error) throw error;
-        return data === true;
+        return data;
       },
-      send: (to, message) => sendSms(accountSid!, authToken!, to, message),
-      async finish(row, kind, token, result) {
-        const prefix = kind === "3day" ? "three_day_sms" : "twentyfour_hour_sms";
-        const patch = result.ok ? { [prefix + "_sent"]: true, [prefix + "_sent_at"]: new Date().toISOString() } : { [prefix + "_claim"]: null };
-        const { data, error } = await sb.from("appointment_reminders").update(patch).eq("id", row.id).eq(prefix + "_claim", token).select("id");
+      async finish(id, status, provider, errorMessage) {
+        const { error } = await sb.rpc("finish_confirmation_delivery", { p_delivery: id, p_status: status, p_provider: provider ?? null, p_error: errorMessage ?? null });
         if (error) throw error;
-        if (!data?.length) throw new Error("Reminder changed after send; review SMS log before retrying");
       },
+      sms: (to, message, deliveryId) => sendSms(accountSid!, authToken!, to, message, fetch, `${baseUrl}/api/public/hooks/twilio-message-status?reminder_delivery=${encodeURIComponent(deliveryId)}`),
+      email: (to, subject, html, key) => sendConfirmationEmail(to, subject, html, key, { apiKey: Deno.env.get("RESEND_API_KEY"), gatewayKey: Deno.env.get("LOVABLE_API_KEY") }),
       log: (row, to, message, result) => logToInbox(sb, { to, body: message, sid: result.sid, status: result.status, leadId: row.lead_id }),
-    });
-    return json({ ok: !results.some(r => r.error), mode: dryRun ? "dry_run" : "send", sender: PATIENT_SMS_FROM, scanned: rows.length, processed: results.length, results });
+    }, baseUrl);
+    return json({ ok: !results.some(r => r.error), mode: dryRun ? "dry_run" : "send", sender: PATIENT_SMS_FROM, configuration: { sms: Boolean(accountSid && authToken), email: Boolean(Deno.env.get("RESEND_API_KEY")) }, scanned: rows.length, processed: results.length, results });
   } catch (error) {
     console.error("[send-appointment-reminders] failed", error);
     return json({ error: error instanceof Error ? error.message : "Reminder database query failed" }, 500);
