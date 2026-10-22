@@ -33,11 +33,15 @@ export function confirmationEmail(row: ConfirmationBooking, settings: ReminderSe
 export async function processConfirmationWorkflow(rows: ConfirmationBooking[], settings: Map<string, ReminderSettings>, now: Date, dryRun: boolean, deps: WorkflowDependencies, baseUrl: string) {
   const results: Array<Record<string, unknown>> = [];
   for (const row of rows) {
+    if (!row.appointment_id || !row.appointment) {
+      results.push({ id: row.id, skipped: "unlinked_appointment", warning: "Unlinked reminder: no SMS or email will be sent" });
+      continue;
+    }
+    if (row.appointment.outcome || row.appointment.disqualified_at) continue;
     const config = settings.get(row.id);
     if (!config) { results.push({ id: row.id, error: "Clinic reminder settings are missing" }); continue; }
     let delivery: string | null = null;
     try {
-      if (!row.appointment || row.appointment.outcome || row.appointment.disqualified_at) continue;
       const kind = nextReminderAction(row, config, now);
       if (!kind) continue;
       const to = kind === "call_email" ? config.alert_email : formatAUPhone(row.patient_phone);

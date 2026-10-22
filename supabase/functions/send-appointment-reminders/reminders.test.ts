@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
-import { appointmentReminderSms, bookingConfirmationSms, PATIENT_SMS_FROM } from "../_shared/patient-sms";
-import { processReminders, reminderCopy, daysUntilSydney, formatAUPhone, type Reminder, type Dependencies } from "./reminders";
+import { appointmentReminderSms, bookingConfirmationSms, PATIENT_SMS_FROM } from "../_shared/patient-sms.ts";
+import { processReminders, reminderCopy, daysUntilSydney, formatAUPhone, type Reminder, type Dependencies } from "./reminders.ts";
 const now = new Date("2026-10-03T02:00:00Z");
 function fixture(): Reminder {
   return { id: "r1", appointment_id: "a1", status: "confirmed", updated_at: "2026-10-01T00:00:00Z", booking_date: "2026-10-06", booking_time: "10:30:00", patient_first_name: "Peter", patient_phone: "0400 000 000", lead_id: "l1", three_day_sms_sent: false, twentyfour_hour_sms_sent: false, three_day_sms_claim: null, twentyfour_hour_sms_claim: null,
