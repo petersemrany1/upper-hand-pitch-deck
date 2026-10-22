@@ -10,8 +10,14 @@ export function reorderSessionQueue(input: {
   skipped?: ReadonlySet<string>;
 }): string[] {
   const { queue, index, activeId, orderedIds, priorityIds = [], skipped = new Set() } = input;
-  const cut = Math.min(queue.length, Math.max(0, index + (activeId ? 1 : 0)));
+  // A previously saved cursor can drift when an older client removes entries
+  // before/currently at that cursor. Anchor to the actual current lead before
+  // deciding which entries have been completed.
+  const position = sessionQueueIndex(queue, activeId, index);
+  const hasActiveEntry = Boolean(activeId && queue[position] === activeId);
+  const cut = position + (hasActiveEntry ? 1 : 0);
   const prefix = queue.slice(0, cut);
+  if (activeId && !hasActiveEntry) prefix.push(activeId);
   const pending = new Set(queue.slice(cut));
   const known = new Set(queue);
   const tail = [...new Set([...priorityIds, ...orderedIds])].filter(id =>
@@ -21,9 +27,13 @@ export function reorderSessionQueue(input: {
   return next.length === queue.length && next.every((id, i) => id === queue[i]) ? queue : next;
 }
 
-export function nextSessionIndexFromActive(queue: string[], activeLeadId: string | null | undefined, fallbackIndex: number) {
+export function sessionQueueIndex(queue: string[], activeLeadId: string | null | undefined, fallbackIndex: number) {
   // The same lead can have a morning entry and an afternoon entry.
-  if (queue[fallbackIndex] === activeLeadId) return fallbackIndex + 1;
+  if (activeLeadId && queue[fallbackIndex] === activeLeadId) return fallbackIndex;
   const activeIdx = activeLeadId ? queue.indexOf(activeLeadId) : -1;
-  return (activeIdx !== -1 ? activeIdx : fallbackIndex) + 1;
+  return activeIdx !== -1 ? activeIdx : Math.min(queue.length, Math.max(0, fallbackIndex));
+}
+
+export function nextSessionIndexFromActive(queue: string[], activeLeadId: string | null | undefined, fallbackIndex: number) {
+  return sessionQueueIndex(queue, activeLeadId, fallbackIndex) + 1;
 }
