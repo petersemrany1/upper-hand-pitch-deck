@@ -26,7 +26,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { CALLBACK_WINDOW_MS, buildQueue, dueCallbackIds, type HistoryMap } from "./sales-call/queue";
 import { callAttemptsLabel, createCallHistoryLoader } from "./sales-call/call-history";
-import { nextSessionIndexFromActive, reorderSessionQueue } from "./sales-call/session-queue";
+import { nextSessionIndexFromActive, reorderSessionQueue, sessionQueueIndex } from "./sales-call/session-queue";
 import { isReturningLead, normaliseStatus, requiresManualDial, type StatusKey } from "./sales-call/status";
 import { toast } from "sonner";
 import {
@@ -1546,11 +1546,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     [leads, callHistory, isLeadUnavailable, isPriorityLead, clockTick],
   );
 
-  // Mid-session capacity: the moment a city's clinics fill up (e.g. the last
-  // Melbourne show is booked), pull that city's leads out of the live session
-  // queue so the rep never wastes a dial on someone she can't book. A lead
-  // already on a connected call is left alone — the rep finishes that call. If a slot
-  // comes back (no-show marked, new pack), the leads reappear automatically.
+  // Prune unavailable callbacks too. The session waiting list is filtered by
+  // dueQueue/reorderSessionQueue below: never filter its completed prefix or
+  // current entry, which would shift the cursor and silently pass fresh leads.
   useEffect(() => {
     const byId = new Map(leads.map((l) => [l.id, l]));
     const keep = (id: string) => {
@@ -1565,12 +1563,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const next = prev.filter(keep);
       return next.length === prev.length ? prev : next;
     });
-    if (!sessionActive) return;
-    setSessionQueue((prev) => {
-      const next = prev.filter(keep);
-      return next.length === prev.length ? prev : next;
-    });
-  }, [isLeadClinicFull, leads, sessionActive, liveCallLeadId, queueCallStatus]);
+  }, [isLeadClinicFull, leads, liveCallLeadId, queueCallStatus]);
   const dueLeadIds = dueQueue.order;
   const dueSet = useMemo(() => new Set(dueLeadIds), [dueLeadIds]);
   const dueSetRef = useRef(dueSet);
@@ -1600,7 +1593,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   useEffect(() => {
     if (!sessionActive || !callHistoryReady || practiceMode || testLeadIds.length) return;
     setSessionQueue(q => refreshWaitingQueue(q, sessionIndex, activeId));
-  }, [dueLeadIds, missedCallQueue, sessionActive, callHistoryReady, sessionIndex, activeId, refreshWaitingQueue, practiceMode, testLeadIds.length]);
+    setSessionIndex(sessionQueueIndex(sessionQueue, activeId, sessionIndex));
+  }, [dueLeadIds, missedCallQueue, sessionActive, callHistoryReady, sessionQueue, sessionIndex, activeId, refreshWaitingQueue, practiceMode, testLeadIds.length]);
 
   const missingLeadTriedRef = useRef<Set<string>>(new Set());
 
@@ -1921,8 +1915,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       );
     }
     // sessionActive — auto-advance
-    const waitingQueue = refreshWaitingQueue(sessionQueue, sessionIndex, null);
-    const nextId = waitingQueue[sessionIndex];
+    const waitingIndex = sessionQueueIndex(sessionQueue, null, sessionIndex);
+    const waitingQueue = refreshWaitingQueue(sessionQueue, waitingIndex, null);
+    const nextId = waitingQueue[waitingIndex];
     // Whatever happens below, never leave the rep on a blank screen: show a
     // short holding message with a way out while the next lead is worked out.
     const holding = (
@@ -1956,6 +1951,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       if (leadLoaded && activeId !== nextId) {
         queueMicrotask(() => {
           setSessionQueue(waitingQueue);
+          setSessionIndex(waitingIndex);
           setActiveId(nextId);
           setStep("mindset");
           setCompleted((prev) => (prev.size === 0 ? prev : new Set()));
