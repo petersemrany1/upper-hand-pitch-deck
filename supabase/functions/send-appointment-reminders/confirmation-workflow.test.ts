@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { confirmationDay, localClock, nextReminderAction, type ReminderSettings } from "../_shared/appointment-confirmation";
-import { processConfirmationWorkflow, workflowSms, type ConfirmationBooking, type WorkflowDependencies } from "./confirmation-workflow";
-import { sendConfirmationEmail } from "./email";
+import { confirmationDay, localClock, nextReminderAction, type ReminderSettings } from "../_shared/appointment-confirmation.ts";
+import { processConfirmationWorkflow, workflowSms, type ConfirmationBooking, type WorkflowDependencies } from "./confirmation-workflow.ts";
+import { sendConfirmationEmail } from "./email.ts";
 
 const settings: ReminderSettings = { clinic_id: "clinic", mode: "confirmation", timezone: "Australia/Perth", normal_send_time: "13:00", alert_email: "fixture@example.test", call_days: [1,2,3,4,5], closed_dates: [], updated_at: "v1" };
 function booking(patch: Partial<ConfirmationBooking> = {}): ConfirmationBooking {
@@ -105,7 +105,16 @@ test("email transport has a stable idempotency key and distinguishes rejection f
     expect((init.headers as Record<string,string>)["Idempotency-Key"]).toBe("appointment-confirmation/delivery");
     expect(JSON.parse(init.body as string).to).toEqual(["fixture@example.test"]);
     return new Response(JSON.stringify({id:"message"}),{status:200});
-  }) as typeof fetch;
+  }) as unknown as typeof fetch;
   expect((await sendConfirmationEmail("fixture@example.test","subject","html","delivery",{apiKey:"fixture"},transport)).ok).toBe(true);
   expect((await sendConfirmationEmail("fixture@example.test","subject","html","delivery",{})).ok).toBe(false);
+});
+
+test("orphan reminder rows are reported without sending; real missing clinic settings still fail",async()=>{
+  const {deps,calls}=effects();
+  const orphan=booking({appointment_id:null,appointment:null});
+  const results=await processConfirmationWorkflow([orphan],new Map(),at("09:00"),true,deps,"https://example.test");
+  expect(results[0].skipped).toBe("unlinked_appointment");expect(results[0].error).toBeUndefined();expect(calls).toEqual([]);
+  const invalid=await processConfirmationWorkflow([booking()],new Map(),at("09:00"),true,deps,"https://example.test");
+  expect(invalid[0].error).toBe("Clinic reminder settings are missing");
 });

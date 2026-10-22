@@ -637,6 +637,7 @@ function Card({
               scheduleChangedAt={r.schedule_changed_at}
             />
           </div>}
+          {!r.appointment_id && <p style={{ fontSize: 12, color: COLOR.amber }}>Not linked to an appointment — automatic reminders are paused.</p>}
           {reminderSettings && <AppointmentConfirmationStatus row={r} settings={reminderSettings} deliveries={deliveries} onRecordCall={onRecordCall} busy={busy} active={!isFinalised && diff !== null && diff >= 0} />}
         </div>
 
