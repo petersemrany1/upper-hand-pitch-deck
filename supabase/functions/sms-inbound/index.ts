@@ -145,7 +145,19 @@ serve(async (req) => {
       from_number: from,
       to_number: to,
     });
-    if (msgErr) console.error("sms-inbound: message insert failed", msgErr);
+    if (msgErr && msgErr.code !== "23505") {
+      console.error("sms-inbound: message insert failed", msgErr);
+      return new Response("Message storage failed", { status: 500 });
+    }
+    // This RPC is independently idempotent: Twilio retries cannot confirm twice.
+    const { error: replyError } = await sb.rpc("consume_appointment_confirmation_reply", {
+      p_sid: messageSid, p_from: from, p_to: to, p_body: body,
+      p_opt_out: form.get("OptOutType")?.toString() ?? null,
+    });
+    if (replyError) {
+      console.error("sms-inbound: appointment reply processing failed", replyError);
+      return new Response("Reply processing failed", { status: 500 });
+    }
 
     return new Response("<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response/>", {
       status: 200,

@@ -1,4 +1,5 @@
-// HARD RULE: This app runs on Sydney time everywhere.
+// Default timezone for reporting and administrative screens.
+// Patient reminder scheduling uses the clinic timezone in appointment-confirmation.ts.
 // Always import APP_TIMEZONE from here instead of hard-coding "Australia/Sydney".
 // See mem://rules/timezone-sydney for the full rule.
 

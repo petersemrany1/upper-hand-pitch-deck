@@ -15,7 +15,7 @@ export type ConfirmationBooking = {
   updated_at: string; deposit_amount: number | null; square_payment_id: string | null;
   stripe_payment_intent_id: string | null; outcome: string | null; disqualified_at: string | null;
   clinic: { clinic_name: string; address: string | null; city: string | null; state: string | null } | null;
-  reminders: { status: string }[]; events: ConfirmationEvent[];
+  reminders: { status: string; confirmation_state?: string }[]; events: ConfirmationEvent[];
   callback?: ConfirmationCallback | null;
 };
 
@@ -42,6 +42,7 @@ export function currentConfirmationEvents(b: ConfirmationBooking) {
     .sort((a, z) => z.created_at.localeCompare(a.created_at));
 }
 export function confirmationState(b: ConfirmationBooking): ConfirmationOutcome | "pending" {
+  if (b.reminders.some(r => r.confirmation_state === "confirmed")) return "confirmed";
   return (currentConfirmationEvents(b).find(e => e.kind !== "sms")?.kind as ConfirmationOutcome | undefined) ?? "pending";
 }
 export function confirmationAddress(b: ConfirmationBooking) { return clinicSmsAddress(b.clinic); }

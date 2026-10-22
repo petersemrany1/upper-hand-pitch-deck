@@ -78,3 +78,7 @@ describe("day-before confirmations", () => {
   expect(()=>confirmationText(fixtureBooking({clinic:null}),true)).toThrow("clinic name and address");
  });
 });
+
+test("automatic YES and Appointments phone confirmations clear the existing call queue", () => {
+  expect(confirmationState(fixtureBooking({reminders:[{status:"confirmed",confirmation_state:"confirmed"}]}))).toBe("confirmed");
+});

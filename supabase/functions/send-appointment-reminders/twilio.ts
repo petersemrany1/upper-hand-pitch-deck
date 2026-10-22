@@ -6,6 +6,7 @@ export async function sendSms(
   to: string,
   body: string,
   transport: typeof fetch = fetch,
+  statusCallback?: string,
 ): Promise<{ ok: boolean; error?: string; sid?: string; status?: string }> {
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
   const auth = btoa(`${accountSid}:${authToken}`);
@@ -15,7 +16,7 @@ export async function sendSms(
       Authorization: "Basic " + auth,
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams({ To: to, From: PATIENT_SMS_FROM, Body: body }),
+    body: new URLSearchParams({ To: to, From: PATIENT_SMS_FROM, Body: body, ...(statusCallback ? { StatusCallback: statusCallback } : {}) }),
   });
   const data = await res.json();
   if (res.status >= 500) throw new Error("Twilio outcome uncertain; claim retained for review");

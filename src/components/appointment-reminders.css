@@ -1,0 +1,42 @@
+.appointment-reminder-settings{background:#fff;border:1px solid #e8e8e6;border-radius:14px;margin-bottom:20px;padding:16px 18px}
+.appointment-reminder-settings>summary{font-weight:600;font-size:14px;cursor:pointer}
+.appointment-reminder-settings>summary span{display:block;font-size:12px;color:#6b6b6b;font-weight:400;margin-top:4px}
+.appointment-reminder-settings-list{display:grid;gap:12px;margin-top:18px}
+.appointment-reminder-clinic{border:1px solid #e8e8e6;border-radius:10px;padding:14px}
+.appointment-reminder-clinic-main{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.appointment-reminder-clinic-main strong{font-size:14px}
+.appointment-reminder-clinic-main p,.appointment-reminder-description,.appointment-reminder-advanced p{font-size:12px;color:#6b6b6b;margin:5px 0}
+.appointment-reminder-clinic select,.appointment-reminder-clinic input:not([type=checkbox]),.appointment-confirmation-actions select{background:white;color:#17212d;border:1px solid #d8d8d5;border-radius:7px;padding:9px 10px;max-width:100%;font:inherit;font-size:13px}
+.appointment-reminder-clinic button,.appointment-confirmation-actions button{background:#172d39;color:white;border:0;border-radius:7px;padding:9px 12px;cursor:pointer;font-size:12px;font-weight:600}
+.appointment-reminder-clinic button:disabled,.appointment-confirmation-actions button:disabled{opacity:.55;cursor:wait}
+.appointment-reminder-advanced{margin-top:10px;font-size:12px}
+.appointment-reminder-advanced summary,.appointment-confirmation-history summary{cursor:pointer;color:#56636b}
+.appointment-reminder-advanced form{display:grid;gap:12px;padding-top:12px}
+.appointment-reminder-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.appointment-reminder-advanced label{display:grid;gap:5px;font-size:12px}
+.appointment-reminder-advanced fieldset{border:0;padding:0;margin:0}
+.appointment-reminder-advanced legend{margin-bottom:7px}
+.appointment-reminder-days{display:flex;flex-wrap:wrap;gap:12px}
+.appointment-reminder-days label{display:flex;align-items:center;gap:5px}
+.appointment-reminder-advanced form>button{justify-self:start}
+.appointment-confirmation-status{margin-top:12px;font-size:12px;line-height:1.5}
+.appointment-confirmation-badge{display:inline-block;background:#f3f3f3;color:#6b6b6b;padding:4px 8px;border-radius:6px;font-weight:600}
+.appointment-confirmation-badge.confirmed{background:#ecfdf5;color:#047857}
+.appointment-confirmation-badge.awaiting_reply{background:#fffbeb;color:#a16207}
+.appointment-confirmation-badge.needs_call{background:#fff1ee;color:#b83b1f}
+.appointment-confirmation-status small{display:block;color:#6b6b6b;margin-top:4px}
+.appointment-confirmation-status p{margin:7px 0;color:#5c6268;overflow-wrap:anywhere}
+.appointment-confirmation-status .appointment-confirmation-error{color:#b83b1f}
+.appointment-confirmation-reply{padding:8px 10px;background:#f7f7f5;border-radius:6px;max-width:640px}
+.appointment-confirmation-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.appointment-confirmation-history{margin-top:10px}
+.appointment-confirmation-history ul{list-style:none;padding:0;margin:8px 0}
+.appointment-confirmation-history li{margin:7px 0;color:#6b6b6b}
+.appointment-confirmation-history li span{display:block;color:#b83b1f}
+.appointment-reminder-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.appointment-reminder-toolbar select{padding:8px 12px;border:1px solid #e8e8e6;border-radius:8px;background:#fff;font-size:13px;max-width:100%}
+.appointment-reminder-toolbar button{padding:8px 12px;border:1px solid #e8e8e6;border-radius:20px;background:#fff;font-size:12px;cursor:pointer}
+.appointment-reminder-toolbar button[aria-pressed=true]{background:#172d39;color:#fff;border-color:#172d39}
+@media(max-width:640px){.appointment-reminder-clinic-main{align-items:stretch;flex-direction:column}.appointment-reminder-clinic-main select{width:100%}.appointment-confirmation-actions{flex-direction:column;align-items:stretch}.appointment-reminder-settings{padding:14px}}
+
+@media(max-width:700px){.appointment-card-layout{flex-wrap:wrap}.appointment-card-actions{flex-basis:100%;flex-direction:row!important;align-items:center!important;flex-wrap:wrap}}
