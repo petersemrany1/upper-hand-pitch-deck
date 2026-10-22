@@ -271,12 +271,78 @@ export type Database = {
           },
         ]
       }
+      appointment_reminder_deliveries: {
+        Row: {
+          attempts: number
+          body: string
+          created_at: string
+          destination: string
+          error: string | null
+          id: string
+          kind: string
+          provider_id: string | null
+          reminder_id: string
+          revision: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          body: string
+          created_at?: string
+          destination: string
+          error?: string | null
+          id?: string
+          kind: string
+          provider_id?: string | null
+          reminder_id: string
+          revision: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          body?: string
+          created_at?: string
+          destination?: string
+          error?: string | null
+          id?: string
+          kind?: string
+          provider_id?: string | null
+          reminder_id?: string
+          revision?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_reminder_deliveries_reminder_id_fkey"
+            columns: ["reminder_id"]
+            isOneToOne: false
+            referencedRelation: "appointment_reminders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointment_reminders: {
         Row: {
           appointment_id: string | null
           booked_at: string
           booking_date: string | null
           booking_time: string | null
+          confirmation_ack_at: string | null
+          confirmation_call_result: string | null
+          confirmation_confirmed_at: string | null
+          confirmation_email_at: string | null
+          confirmation_followup_at: string | null
+          confirmation_last_call_at: string | null
+          confirmation_last_reply: string | null
+          confirmation_last_reply_at: string | null
+          confirmation_method: string | null
+          confirmation_reason: string | null
+          confirmation_requested_at: string | null
+          confirmation_revision: string
+          confirmation_state: string
           created_at: string
           doctor_name: string | null
           id: string
@@ -299,6 +365,19 @@ export type Database = {
           booked_at?: string
           booking_date?: string | null
           booking_time?: string | null
+          confirmation_ack_at?: string | null
+          confirmation_call_result?: string | null
+          confirmation_confirmed_at?: string | null
+          confirmation_email_at?: string | null
+          confirmation_followup_at?: string | null
+          confirmation_last_call_at?: string | null
+          confirmation_last_reply?: string | null
+          confirmation_last_reply_at?: string | null
+          confirmation_method?: string | null
+          confirmation_reason?: string | null
+          confirmation_requested_at?: string | null
+          confirmation_revision?: string
+          confirmation_state?: string
           created_at?: string
           doctor_name?: string | null
           id?: string
@@ -321,6 +400,19 @@ export type Database = {
           booked_at?: string
           booking_date?: string | null
           booking_time?: string | null
+          confirmation_ack_at?: string | null
+          confirmation_call_result?: string | null
+          confirmation_confirmed_at?: string | null
+          confirmation_email_at?: string | null
+          confirmation_followup_at?: string | null
+          confirmation_last_call_at?: string | null
+          confirmation_last_reply?: string | null
+          confirmation_last_reply_at?: string | null
+          confirmation_method?: string | null
+          confirmation_reason?: string | null
+          confirmation_requested_at?: string | null
+          confirmation_revision?: string
+          confirmation_state?: string
           created_at?: string
           doctor_name?: string | null
           id?: string
@@ -368,6 +460,21 @@ export type Database = {
             referencedColumns: ["appointment_id"]
           },
         ]
+      }
+      appointment_reply_receipts: {
+        Row: {
+          created_at: string
+          provider_id: string
+        }
+        Insert: {
+          created_at?: string
+          provider_id: string
+        }
+        Update: {
+          created_at?: string
+          provider_id?: string
+        }
+        Relationships: []
       }
       appointment_reschedules: {
         Row: {
@@ -1383,6 +1490,54 @@ export type Database = {
             foreignKeyName: "clinic_reclassification_requests_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinic_reminder_settings: {
+        Row: {
+          alert_email: string
+          call_days: number[]
+          clinic_id: string
+          closed_dates: string[]
+          mode: string
+          normal_send_time: string
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          alert_email?: string
+          call_days?: number[]
+          clinic_id: string
+          closed_dates?: string[]
+          mode?: string
+          normal_send_time?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          alert_email?: string
+          call_days?: number[]
+          clinic_id?: string
+          closed_dates?: string[]
+          mode?: string
+          normal_send_time?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_reminder_settings_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: true
+            referencedRelation: "clinic_effective_rate"
+            referencedColumns: ["clinic_id"]
+          },
+          {
+            foreignKeyName: "clinic_reminder_settings_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: true
             referencedRelation: "partner_clinics"
             referencedColumns: ["id"]
           },
@@ -3114,6 +3269,21 @@ export type Database = {
           },
         ]
       }
+      patient_sms_opt_outs: {
+        Row: {
+          created_at: string
+          phone: string
+        }
+        Insert: {
+          created_at?: string
+          phone: string
+        }
+        Update: {
+          created_at?: string
+          phone?: string
+        }
+        Relationships: []
+      }
       phone_numbers: {
         Row: {
           call_count: number
@@ -4357,6 +4527,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      claim_confirmation_delivery: {
+        Args: {
+          p_body: string
+          p_destination: string
+          p_kind: string
+          p_reminder: string
+          p_revision: string
+          p_settings_version: string
+        }
+        Returns: string
+      }
       claim_refund_notification: {
         Args: { p_id: string }
         Returns: {
@@ -4495,6 +4676,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      consume_appointment_confirmation_reply: {
+        Args: {
+          p_body: string
+          p_from: string
+          p_opt_out?: string
+          p_sid: string
+          p_to: string
+        }
+        Returns: Json
+      }
       create_norwood_preview: {
         Args: {
           p_clinic: string
@@ -4579,6 +4770,15 @@ export type Database = {
           p_text: string
         }
         Returns: boolean
+      }
+      finish_confirmation_delivery: {
+        Args: {
+          p_delivery: string
+          p_error?: string
+          p_provider?: string
+          p_status: string
+        }
+        Returns: undefined
       }
       flag_refund_notification: {
         Args: { p_category: string; p_id: string; p_reason: string }
@@ -4762,6 +4962,19 @@ export type Database = {
         }
         Returns: string
       }
+      record_appointment_confirmation_call: {
+        Args: { p_reminder: string; p_result: string; p_revision: string }
+        Returns: undefined
+      }
+      record_confirmation_delivery_callback: {
+        Args: {
+          p_delivery: string
+          p_error: string
+          p_sid: string
+          p_status: string
+        }
+        Returns: undefined
+      }
       record_lead_skip: {
         Args: {
           p_id: string
@@ -4795,6 +5008,8 @@ export type Database = {
         Returns: boolean
       }
       recover_refund_notifications: { Args: never; Returns: undefined }
+      recover_stale_confirmation_deliveries: { Args: never; Returns: undefined }
+      reminder_phone: { Args: { p_phone: string }; Returns: string }
       renew_failed_handover_email: {
         Args: {
           p_message_id: number
@@ -4870,6 +5085,34 @@ export type Database = {
         }[]
       }
       sales_journey_phone: { Args: { p: string }; Returns: string }
+      save_clinic_reminder_settings: {
+        Args: {
+          p_clinic: string
+          p_closed: string[]
+          p_days: number[]
+          p_email: string
+          p_mode: string
+          p_time: string
+          p_timezone: string
+          p_version: string
+        }
+        Returns: {
+          alert_email: string
+          call_days: number[]
+          clinic_id: string
+          closed_dates: string[]
+          mode: string
+          normal_send_time: string
+          timezone: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "clinic_reminder_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       save_clinic_schedule: {
         Args: { p_clinic: string; p_command: Json; p_version: string }
         Returns: Json
