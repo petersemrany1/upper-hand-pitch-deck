@@ -110,6 +110,167 @@ export type Database = {
         }
         Relationships: []
       }
+      appointment_confirmation_callbacks: {
+        Row: {
+          actor_id: string
+          actor_name: string
+          appointment_id: string
+          appointment_updated_at: string
+          callback_date: string
+          callback_time: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          id: string
+          note: string | null
+          replaces_id: string | null
+          status: string
+        }
+        Insert: {
+          actor_id: string
+          actor_name: string
+          appointment_id: string
+          appointment_updated_at: string
+          callback_date: string
+          callback_time?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id: string
+          note?: string | null
+          replaces_id?: string | null
+          status?: string
+        }
+        Update: {
+          actor_id?: string
+          actor_name?: string
+          appointment_id?: string
+          appointment_updated_at?: string
+          callback_date?: string
+          callback_time?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          replaces_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_confirmation_callbacks_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "appointment_confirmation_callbacks_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "booking_rep_attribution"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "appointment_confirmation_callbacks_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_confirmation_callbacks_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "appointment_confirmation_callbacks_replaces_id_fkey"
+            columns: ["replaces_id"]
+            isOneToOne: false
+            referencedRelation: "appointment_confirmation_callbacks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appointment_confirmation_events: {
+        Row: {
+          actor_id: string
+          actor_name: string
+          appointment_id: string
+          appointment_updated_at: string
+          created_at: string
+          id: string
+          kind: string
+          note: string | null
+          sms_body: string | null
+          sms_error: string | null
+          sms_phone: string | null
+          sms_sid: string | null
+          sms_status: string | null
+        }
+        Insert: {
+          actor_id: string
+          actor_name: string
+          appointment_id: string
+          appointment_updated_at: string
+          created_at?: string
+          id: string
+          kind: string
+          note?: string | null
+          sms_body?: string | null
+          sms_error?: string | null
+          sms_phone?: string | null
+          sms_sid?: string | null
+          sms_status?: string | null
+        }
+        Update: {
+          actor_id?: string
+          actor_name?: string
+          appointment_id?: string
+          appointment_updated_at?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          sms_body?: string | null
+          sms_error?: string | null
+          sms_phone?: string | null
+          sms_sid?: string | null
+          sms_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_confirmation_events_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "appointment_confirmation_events_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "booking_rep_attribution"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "appointment_confirmation_events_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_confirmation_events_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["appointment_id"]
+          },
+        ]
+      }
       appointment_reminders: {
         Row: {
           appointment_id: string | null
@@ -198,6 +359,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clinic_appointments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_reminders_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["appointment_id"]
           },
         ]
       }
@@ -301,6 +469,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clinic_appointments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_reschedules_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["appointment_id"]
           },
         ]
       }
@@ -541,6 +716,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "clinic_appointment_notes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["appointment_id"]
+          },
+          {
             foreignKeyName: "clinic_appointment_notes_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
@@ -589,8 +771,8 @@ export type Database = {
           patient_name: string
           patient_phone: string | null
           payment_processor: string | null
-          refund_processed_at: string | null
           refund_error: string | null
+          refund_processed_at: string | null
           refund_status: string | null
           square_payment_id: string | null
           square_refund_id: string | null
@@ -630,8 +812,8 @@ export type Database = {
           patient_name: string
           patient_phone?: string | null
           payment_processor?: string | null
-          refund_processed_at?: string | null
           refund_error?: string | null
+          refund_processed_at?: string | null
           refund_status?: string | null
           square_payment_id?: string | null
           square_refund_id?: string | null
@@ -671,8 +853,8 @@ export type Database = {
           patient_name?: string
           patient_phone?: string | null
           payment_processor?: string | null
-          refund_processed_at?: string | null
           refund_error?: string | null
+          refund_processed_at?: string | null
           refund_status?: string | null
           square_payment_id?: string | null
           square_refund_id?: string | null
@@ -722,6 +904,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "meta_leads"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinic_appointments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["lead_id"]
           },
         ]
       }
@@ -1093,6 +1282,112 @@ export type Database = {
         }
         Relationships: []
       }
+      clinic_reclassification_requests: {
+        Row: {
+          acknowledged_at: string
+          acknowledgement_version: string
+          appointment_date: string
+          appointment_id: string
+          appointment_time: string | null
+          clinic_id: string
+          clinic_name: string
+          created_at: string
+          email_error: string | null
+          email_message_id: string
+          email_state: string
+          id: string
+          outcome_at_request: string | null
+          patient_name: string
+          reason: string
+          requested_by: string
+          requester_email: string
+          status: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          acknowledgement_version?: string
+          appointment_date: string
+          appointment_id: string
+          appointment_time?: string | null
+          clinic_id: string
+          clinic_name: string
+          created_at?: string
+          email_error?: string | null
+          email_message_id?: string
+          email_state?: string
+          id?: string
+          outcome_at_request?: string | null
+          patient_name: string
+          reason: string
+          requested_by: string
+          requester_email: string
+          status?: string
+        }
+        Update: {
+          acknowledged_at?: string
+          acknowledgement_version?: string
+          appointment_date?: string
+          appointment_id?: string
+          appointment_time?: string | null
+          clinic_id?: string
+          clinic_name?: string
+          created_at?: string
+          email_error?: string | null
+          email_message_id?: string
+          email_state?: string
+          id?: string
+          outcome_at_request?: string | null
+          patient_name?: string
+          reason?: string
+          requested_by?: string
+          requester_email?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_reclassification_requests_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "clinic_reclassification_requests_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "booking_rep_attribution"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "clinic_reclassification_requests_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "clinic_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinic_reclassification_requests_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "clinic_reclassification_requests_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_effective_rate"
+            referencedColumns: ["clinic_id"]
+          },
+          {
+            foreignKeyName: "clinic_reclassification_requests_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinic_trading_hours: {
         Row: {
           clinic_id: string
@@ -1241,6 +1536,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clinic_appointments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinicflow_chase_requests_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["appointment_id"]
           },
           {
             foreignKeyName: "clinicflow_chase_requests_clinic_id_fkey"
@@ -1494,6 +1796,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "clinicflow_intakes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["appointment_id"]
+          },
+          {
             foreignKeyName: "clinicflow_intakes_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
@@ -1611,6 +1920,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "clinicflow_pipeline_status_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["appointment_id"]
+          },
+          {
             foreignKeyName: "clinicflow_pipeline_status_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
@@ -1726,6 +2042,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clinic_appointments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinicflow_quotes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["appointment_id"]
           },
           {
             foreignKeyName: "clinicflow_quotes_clinic_id_fkey"
@@ -2055,6 +2378,59 @@ export type Database = {
         }
         Relationships: []
       }
+      handover_alerts: {
+        Row: {
+          appointment_id: string
+          created_at: string
+          last_error: string | null
+          message_id: string
+          status: string
+        }
+        Insert: {
+          appointment_id: string
+          created_at?: string
+          last_error?: string | null
+          message_id?: string
+          status: string
+        }
+        Update: {
+          appointment_id?: string
+          created_at?: string
+          last_error?: string | null
+          message_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handover_alerts_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "handover_alerts_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "booking_rep_attribution"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "handover_alerts_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "clinic_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handover_alerts_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["appointment_id"]
+          },
+        ]
+      }
       internal_cron_config: {
         Row: {
           created_at: string
@@ -2279,6 +2655,284 @@ export type Database = {
             columns: ["previous_lead_id"]
             isOneToOne: false
             referencedRelation: "meta_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_leads_previous_lead_id_fkey"
+            columns: ["previous_lead_id"]
+            isOneToOne: false
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
+      norwood_preview_assessments: {
+        Row: {
+          ai_confidence: string | null
+          ai_norwood: number | null
+          ai_observations: Json | null
+          ai_reason: string | null
+          analysis_attempts: number
+          analysis_run: string | null
+          analysis_started_at: string | null
+          clinic_id: string
+          clinic_name: string
+          consented_at: string | null
+          created_at: string
+          created_by: string
+          expires_at: string
+          final_norwood: number | null
+          framing_attempts: number
+          framing_checked_at: string | null
+          framing_consented_at: string | null
+          id: string
+          lead_id: string
+          model: string | null
+          opened_at: string | null
+          photo_problems: Json
+          photos: Json
+          prompt_version: string | null
+          result_at: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          revoked_at: string | null
+          sms_sid: string | null
+          status: string
+          token_hash: string
+          upload_attempts: number
+        }
+        Insert: {
+          ai_confidence?: string | null
+          ai_norwood?: number | null
+          ai_observations?: Json | null
+          ai_reason?: string | null
+          analysis_attempts?: number
+          analysis_run?: string | null
+          analysis_started_at?: string | null
+          clinic_id: string
+          clinic_name: string
+          consented_at?: string | null
+          created_at?: string
+          created_by: string
+          expires_at?: string
+          final_norwood?: number | null
+          framing_attempts?: number
+          framing_checked_at?: string | null
+          framing_consented_at?: string | null
+          id?: string
+          lead_id: string
+          model?: string | null
+          opened_at?: string | null
+          photo_problems?: Json
+          photos?: Json
+          prompt_version?: string | null
+          result_at?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revoked_at?: string | null
+          sms_sid?: string | null
+          status?: string
+          token_hash: string
+          upload_attempts?: number
+        }
+        Update: {
+          ai_confidence?: string | null
+          ai_norwood?: number | null
+          ai_observations?: Json | null
+          ai_reason?: string | null
+          analysis_attempts?: number
+          analysis_run?: string | null
+          analysis_started_at?: string | null
+          clinic_id?: string
+          clinic_name?: string
+          consented_at?: string | null
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          final_norwood?: number | null
+          framing_attempts?: number
+          framing_checked_at?: string | null
+          framing_consented_at?: string | null
+          id?: string
+          lead_id?: string
+          model?: string | null
+          opened_at?: string | null
+          photo_problems?: Json
+          photos?: Json
+          prompt_version?: string | null
+          result_at?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revoked_at?: string | null
+          sms_sid?: string | null
+          status?: string
+          token_hash?: string
+          upload_attempts?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "norwood_preview_assessments_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_effective_rate"
+            referencedColumns: ["clinic_id"]
+          },
+          {
+            foreignKeyName: "norwood_preview_assessments_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "norwood_preview_assessments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "sales_reps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "norwood_preview_assessments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "norwood_preview_assessments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "meta_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "norwood_preview_assessments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "norwood_preview_assessments_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      norwood_preview_live: {
+        Row: {
+          answer: string | null
+          assessment_id: string
+          consented_at: string
+          ended: boolean
+          expires_at: string
+          offer: string | null
+          patient_client: string
+          patient_seen: string
+          rep_client: string | null
+          rep_id: string | null
+          rep_seen: string | null
+          room_id: string
+          starts: number
+        }
+        Insert: {
+          answer?: string | null
+          assessment_id: string
+          consented_at?: string
+          ended?: boolean
+          expires_at: string
+          offer?: string | null
+          patient_client: string
+          patient_seen?: string
+          rep_client?: string | null
+          rep_id?: string | null
+          rep_seen?: string | null
+          room_id?: string
+          starts?: number
+        }
+        Update: {
+          answer?: string | null
+          assessment_id?: string
+          consented_at?: string
+          ended?: boolean
+          expires_at?: string
+          offer?: string | null
+          patient_client?: string
+          patient_seen?: string
+          rep_client?: string | null
+          rep_id?: string | null
+          rep_seen?: string | null
+          room_id?: string
+          starts?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "norwood_preview_live_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: true
+            referencedRelation: "norwood_preview_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "norwood_preview_live_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: true
+            referencedRelation: "norwood_preview_comparison"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "norwood_preview_live_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      norwood_preview_reviews: {
+        Row: {
+          assessment_id: string
+          created_at: string
+          id: string
+          norwood: number
+          rep_id: string
+        }
+        Insert: {
+          assessment_id: string
+          created_at?: string
+          id?: string
+          norwood: number
+          rep_id: string
+        }
+        Update: {
+          assessment_id?: string
+          created_at?: string
+          id?: string
+          norwood?: number
+          rep_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "norwood_preview_reviews_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "norwood_preview_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "norwood_preview_reviews_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "norwood_preview_comparison"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "norwood_preview_reviews_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "sales_reps"
             referencedColumns: ["id"]
           },
         ]
@@ -2602,6 +3256,95 @@ export type Database = {
           section?: string
         }
         Relationships: []
+      }
+      refund_notifications: {
+        Row: {
+          appointment_id: string | null
+          attempts: number
+          claim_token: string | null
+          claimed_at: string | null
+          created_at: string
+          dedupe_key: string
+          id: string
+          inbox_logged: boolean
+          kind: string
+          last_error: string | null
+          next_attempt_at: string
+          payload: Json
+          sms_body: string | null
+          sms_sid: string | null
+          status: string
+          updated_at: string
+          verification_next_at: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          attempts?: number
+          claim_token?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          dedupe_key: string
+          id?: string
+          inbox_logged?: boolean
+          kind: string
+          last_error?: string | null
+          next_attempt_at?: string
+          payload: Json
+          sms_body?: string | null
+          sms_sid?: string | null
+          status?: string
+          updated_at?: string
+          verification_next_at?: string
+        }
+        Update: {
+          appointment_id?: string | null
+          attempts?: number
+          claim_token?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          dedupe_key?: string
+          id?: string
+          inbox_logged?: boolean
+          kind?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          payload?: Json
+          sms_body?: string | null
+          sms_sid?: string | null
+          status?: string
+          updated_at?: string
+          verification_next_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "refund_notifications_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "refund_notifications_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "booking_rep_attribution"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "refund_notifications_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refund_notifications_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["appointment_id"]
+          },
+        ]
       }
       rep_booking_earnings: {
         Row: {
@@ -3374,6 +4117,13 @@ export type Database = {
             referencedRelation: "meta_leads"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "clinic_appointments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       clinic_effective_rate: {
@@ -3396,6 +4146,111 @@ export type Database = {
           pack_type: string | null
           show_no: number | null
           unpurchased: boolean | null
+        }
+        Relationships: []
+      }
+      norwood_preview_comparison: {
+        Row: {
+          ai_confidence: string | null
+          ai_norwood: number | null
+          clinic_id: string | null
+          created_at: string | null
+          exact_agreement: boolean | null
+          final_norwood: number | null
+          id: string | null
+          lead_id: string | null
+          model: string | null
+          prompt_version: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          stage_difference: number | null
+        }
+        Insert: {
+          ai_confidence?: string | null
+          ai_norwood?: number | null
+          clinic_id?: string | null
+          created_at?: string | null
+          exact_agreement?: never
+          final_norwood?: number | null
+          id?: string | null
+          lead_id?: string | null
+          model?: string | null
+          prompt_version?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          stage_difference?: never
+        }
+        Update: {
+          ai_confidence?: string | null
+          ai_norwood?: number | null
+          clinic_id?: string | null
+          created_at?: string | null
+          exact_agreement?: never
+          final_norwood?: number | null
+          id?: string | null
+          lead_id?: string | null
+          model?: string | null
+          prompt_version?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          stage_difference?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "norwood_preview_assessments_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_effective_rate"
+            referencedColumns: ["clinic_id"]
+          },
+          {
+            foreignKeyName: "norwood_preview_assessments_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "norwood_preview_assessments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "norwood_preview_assessments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "meta_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "norwood_preview_assessments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "pending_clinic_handovers"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "norwood_preview_assessments_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pending_clinic_handovers: {
+        Row: {
+          appointment_date: string | null
+          appointment_id: string | null
+          appointment_time: string | null
+          clinic_name: string | null
+          lead_id: string | null
+          patient_name: string | null
+          pending_since: string | null
+          rep_id: string | null
+          rep_name: string | null
         }
         Relationships: []
       }
@@ -3502,6 +4357,34 @@ export type Database = {
         }
         Returns: boolean
       }
+      claim_refund_notification: {
+        Args: { p_id: string }
+        Returns: {
+          appointment_id: string | null
+          attempts: number
+          claim_token: string | null
+          claimed_at: string | null
+          created_at: string
+          dedupe_key: string
+          id: string
+          inbox_logged: boolean
+          kind: string
+          last_error: string | null
+          next_attempt_at: string
+          payload: Json
+          sms_body: string | null
+          sms_sid: string | null
+          status: string
+          updated_at: string
+          verification_next_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "refund_notifications"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_reschedule_email: { Args: { p_event: string }; Returns: Json }
       clinic_pack_economics: {
         Args: never
@@ -3556,6 +4439,110 @@ export type Database = {
         }
         Returns: string
       }
+      complete_confirmation_callback: {
+        Args: { p_callback: string; p_id: string }
+        Returns: undefined
+      }
+      confirm_norwood_preview: {
+        Args: {
+          p_assessment: string
+          p_expectations?: boolean
+          p_lead: string
+          p_norwood: number
+        }
+        Returns: undefined
+      }
+      consent_norwood_preview_camera: {
+        Args: { p_hash: string }
+        Returns: {
+          ai_confidence: string | null
+          ai_norwood: number | null
+          ai_observations: Json | null
+          ai_reason: string | null
+          analysis_attempts: number
+          analysis_run: string | null
+          analysis_started_at: string | null
+          clinic_id: string
+          clinic_name: string
+          consented_at: string | null
+          created_at: string
+          created_by: string
+          expires_at: string
+          final_norwood: number | null
+          framing_attempts: number
+          framing_checked_at: string | null
+          framing_consented_at: string | null
+          id: string
+          lead_id: string
+          model: string | null
+          opened_at: string | null
+          photo_problems: Json
+          photos: Json
+          prompt_version: string | null
+          result_at: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          revoked_at: string | null
+          sms_sid: string | null
+          status: string
+          token_hash: string
+          upload_attempts: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "norwood_preview_assessments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_norwood_preview: {
+        Args: {
+          p_clinic: string
+          p_hash: string
+          p_lead: string
+          p_rep: string
+        }
+        Returns: {
+          ai_confidence: string | null
+          ai_norwood: number | null
+          ai_observations: Json | null
+          ai_reason: string | null
+          analysis_attempts: number
+          analysis_run: string | null
+          analysis_started_at: string | null
+          clinic_id: string
+          clinic_name: string
+          consented_at: string | null
+          created_at: string
+          created_by: string
+          expires_at: string
+          final_norwood: number | null
+          framing_attempts: number
+          framing_checked_at: string | null
+          framing_consented_at: string | null
+          id: string
+          lead_id: string
+          model: string | null
+          opened_at: string | null
+          photo_problems: Json
+          photos: Json
+          prompt_version: string | null
+          result_at: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          revoked_at: string | null
+          sms_sid: string | null
+          status: string
+          token_hash: string
+          upload_attempts: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "norwood_preview_assessments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_clinic_id: { Args: never; Returns: string }
       current_sales_rep_id: { Args: never; Returns: string }
       current_sales_rep_role: { Args: never; Returns: string }
@@ -3576,9 +4563,26 @@ export type Database = {
         Returns: boolean
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
+      end_session_after_handovers: { Args: { p_rep: string }; Returns: Json }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      enqueue_overdue_handovers: { Args: never; Returns: number }
+      enqueue_reclassification_emails: { Args: never; Returns: number }
+      enqueue_refund_alert: {
+        Args: {
+          p_claim: string
+          p_html: string
+          p_id: string
+          p_subject: string
+          p_text: string
+        }
+        Returns: boolean
+      }
+      flag_refund_notification: {
+        Args: { p_category: string; p_id: string; p_reason: string }
+        Returns: undefined
       }
       get_booking_reschedule: { Args: { p_id: string }; Returns: Json }
       get_clinic_calendar_history: {
@@ -3620,6 +4624,10 @@ export type Database = {
         Args: { _campaign: string; _lead: string; _payload: Json }
         Returns: string
       }
+      log_refund_sms: {
+        Args: { p_from: string; p_id: string }
+        Returns: undefined
+      }
       market_city: { Args: { p_text: string }; Returns: string }
       meta_lead_classify: { Args: { _prior: string }; Returns: string }
       meta_lead_close_siblings: { Args: { _booked: string }; Returns: number }
@@ -3654,6 +4662,86 @@ export type Database = {
         Returns: number
       }
       normalize_phone: { Args: { p: string }; Returns: string }
+      norwood_preview_live_action: {
+        Args: {
+          p_action: string
+          p_assessment: string
+          p_client: string
+          p_rep?: string
+          p_role: string
+          p_room?: string
+          p_sdp?: string
+        }
+        Returns: {
+          answer: string | null
+          assessment_id: string
+          consented_at: string
+          ended: boolean
+          expires_at: string
+          offer: string | null
+          patient_client: string
+          patient_seen: string
+          rep_client: string | null
+          rep_id: string | null
+          rep_seen: string | null
+          room_id: string
+          starts: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "norwood_preview_live"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      norwood_preview_patient_action: {
+        Args: {
+          p_action: string
+          p_hash: string
+          p_photo?: Json
+          p_view?: string
+        }
+        Returns: {
+          ai_confidence: string | null
+          ai_norwood: number | null
+          ai_observations: Json | null
+          ai_reason: string | null
+          analysis_attempts: number
+          analysis_run: string | null
+          analysis_started_at: string | null
+          clinic_id: string
+          clinic_name: string
+          consented_at: string | null
+          created_at: string
+          created_by: string
+          expires_at: string
+          final_norwood: number | null
+          framing_attempts: number
+          framing_checked_at: string | null
+          framing_consented_at: string | null
+          id: string
+          lead_id: string
+          model: string | null
+          opened_at: string | null
+          photo_problems: Json
+          photos: Json
+          prompt_version: string | null
+          result_at: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          revoked_at: string | null
+          sms_sid: string | null
+          status: string
+          token_hash: string
+          upload_attempts: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "norwood_preview_assessments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       peter_rep_id: { Args: never; Returns: string }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
@@ -3662,6 +4750,17 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      record_appointment_confirmation: {
+        Args: {
+          p_body?: string
+          p_id: string
+          p_kind: string
+          p_note?: string
+          p_request: string
+          p_version: string
+        }
+        Returns: string
       }
       record_lead_skip: {
         Args: {
@@ -3685,6 +4784,40 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      record_refund_sms_status: {
+        Args: {
+          p_error?: string
+          p_id: string
+          p_sid: string
+          p_status: string
+        }
+        Returns: boolean
+      }
+      recover_refund_notifications: { Args: never; Returns: undefined }
+      renew_failed_handover_email: {
+        Args: {
+          p_message_id: number
+          p_next_key: string
+          p_previous_key: string
+        }
+        Returns: boolean
+      }
+      renew_failed_reclassification_email: {
+        Args: {
+          p_message_id: number
+          p_next_key: string
+          p_previous_key: string
+        }
+        Returns: boolean
+      }
+      renew_failed_refund_email: {
+        Args: {
+          p_message_id: number
+          p_next_key: string
+          p_previous_key: string
+        }
+        Returns: boolean
       }
       rep_hours_report: {
         Args: { p_from?: string; p_to?: string }
@@ -3722,6 +4855,10 @@ export type Database = {
           hourly_rate: number
         }[]
       }
+      reserve_norwood_preview_frame: {
+        Args: { p_hash: string; p_view: string }
+        Returns: boolean
+      }
       revenue_by_key: {
         Args: { p_from?: string; p_mode?: string; p_to?: string }
         Returns: {
@@ -3744,6 +4881,18 @@ export type Database = {
         }
         Returns: boolean
       }
+      schedule_confirmation_callback: {
+        Args: {
+          p_date: string
+          p_expected: string
+          p_id: string
+          p_note: string
+          p_request: string
+          p_time: string
+          p_version: string
+        }
+        Returns: string
+      }
       schedule_hours: {
         Args: { p_clinic: string; p_day: string }
         Returns: {
@@ -3759,6 +4908,14 @@ export type Database = {
         Returns: string
       }
       start_clinic_paid_pack: { Args: { p_clinic: string }; Returns: undefined }
+      submit_clinic_reclassification: {
+        Args: {
+          p_acknowledged: boolean
+          p_appointment_id: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       submit_rep_invoice: {
         Args: {
           p_claim: Json
