@@ -2,6 +2,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import { CalendarDays, ClipboardList, RotateCcw } from "lucide-react";
 import { DemoClinicStore, DEMO_CLINIC_ID, DEMO_CLINIC_NAME } from "@/lib/demo-clinic";
 import { sydneyTodayISO } from "@/lib/timezone";
+import { clinicShowRate } from "@/lib/clinic-show-rate";
 import { DemoClinicContext } from "./DemoClinicContext";
 import { AppointmentsTab, AppointmentDetailModal, TabBtn } from "./ClinicPortalView";
 import { ClinicAvailabilityCalendar } from "./ClinicAvailabilityCalendar";
@@ -21,6 +22,7 @@ export function DemoClinicPortal({ partnerView = false }: { partnerView?: boolea
       packs: [{ id: "demo-pack", clinic_id: DEMO_CLINIC_ID, pack_size: 20, purchased_at: state.startedAt, status: "active", notes: null, created_at: state.startedAt, pack_name: "Training example", amount_paid_ex_gst: null, date_paid: state.startedAt.slice(0, 10), pack_type: "paid" }] as Pack[],
       showedUp: counted.filter(a => a.outcome === "show" || a.outcome === "proceeded" || !a.outcome && a.appointment_date < today).length,
       upcoming: counted.filter(a => !a.outcome && a.appointment_date >= today).length,
+      attendance: clinicShowRate(state.appointments.map(a => ({ ...a, disqualified_at: a.disqualified_at ?? null }))),
     };
   }, [state.appointments, state.startedAt]);
   const reset = () => { store.reset(); setSelectedId(null); setTab("appointments"); setResetKey(key => key + 1); };

@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { sydneyTodayISO } from "@/lib/timezone";
 import { freeTrialCutoff, isFreeTrialBooking } from "@/lib/clinic-free-trial";
 import { allocatePacks, creditBalance, packOrder } from "@/lib/pack-allocation";
+import { clinicShowRate } from "@/lib/clinic-show-rate";
+import type { Tables } from "@/integrations/supabase/types";
 
 const NAVY = "#1a3a6b";
 const GREEN = "#1a7a4a";
@@ -45,11 +47,31 @@ export type Pack = {
 
 const EMPTY_PACKS: Pack[] = [];
 
+type BalanceAppointment = Pick<Tables<"clinic_appointments">, "appointment_date" | "appointment_time" | "outcome" | "disqualified_at" | "booked_at" | "is_free_trial">;
+
+async function fetchBalanceAppointments(clinicId: string): Promise<BalanceAppointment[]> {
+  const appointments: BalanceAppointment[] = [];
+  // All-time figures must include clinics whose history exceeds the API row limit.
+  const pageSize = 500;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from("clinic_appointments")
+      .select("appointment_date, appointment_time, outcome, disqualified_at, booked_at, is_free_trial")
+      .eq("clinic_id", clinicId)
+      .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%")
+      .order("id")
+      .range(offset, offset + pageSize - 1);
+    if (error) throw new Error(error.message);
+    appointments.push(...(data ?? []));
+    if (!data || data.length < pageSize) return appointments;
+  }
+}
+
 type Props = {
   clinicId: string;
   isAdmin: boolean;
   refreshKey?: number;
-  demoData?: { packs: Pack[]; showedUp: number; upcoming: number };
+  demoData?: { packs: Pack[]; showedUp: number; upcoming: number; attendance: ReturnType<typeof clinicShowRate> };
 };
 
 export function ClinicPackBalanceCard({ clinicId, isAdmin: requestedAdmin, refreshKey = 0, demoData }: Props) {
@@ -61,21 +83,16 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin: requestedAdmin, refre
   const fetchBalance = useCallback(async () => {
     if (demoData) return demoData;
     const todayStr = sydneyTodayISO();
-    const [{ data: packRows, error: packError }, { data: apptRows, error: apptError }] = await Promise.all([
+    const [{ data: packRows, error: packError }, appts] = await Promise.all([
       supabase
         .from("clinic_packs")
         .select("*")
         .eq("clinic_id", clinicId)
         .order("purchased_at", { ascending: true }),
-      supabase
-        .from("clinic_appointments")
-        .select("appointment_date, outcome, disqualified_at, booked_at, is_free_trial")
-        .eq("clinic_id", clinicId)
-        .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%"),
+      fetchBalanceAppointments(clinicId),
     ]);
-    if (packError || apptError) throw new Error((packError || apptError)!.message);
+    if (packError) throw new Error(packError.message);
     const allPacks = (packRows ?? []) as Pack[];
-    const appts = apptRows ?? [];
     const cutoff = freeTrialCutoff(allPacks, todayStr);
 
     let showed = 0;
@@ -99,7 +116,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin: requestedAdmin, refre
         up += 1;
       }
     }
-    return { packs: allPacks, showedUp: showed, upcoming: up };
+    return { packs: allPacks, showedUp: showed, upcoming: up, attendance: clinicShowRate(appts) };
   }, [clinicId, demoData]);
 
   // Follow saved outcomes, realtime appointment changes and portal refreshes.
@@ -124,6 +141,15 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin: requestedAdmin, refre
       ? { background: "#fef9e7", border: "1px solid #f4d97a", color: "#7a5a00" }
       : null;
   const help = isAdmin ? "" : " Please contact your account manager.";
+  const attendance = data?.attendance;
+  const showRateStat = <Stat
+    label="Show rate"
+    value={attendance?.percentage == null ? "—" : `${Math.round(attendance.percentage)}%`}
+    sub={attendance?.past ? "all past appointments" : "no past appointments"}
+    title={attendance?.past
+      ? `${attendance.past - attendance.noShows} of ${attendance.past} past appointments counted as attended. ${attendance.noShows} no-shows. Upcoming and disqualified appointments are excluded; past appointments count as attended unless marked no-show.`
+      : "Show rate will appear once this clinic has past appointments."}
+  />;
 
   return (
     <div className="clinic-pack-card" style={{
@@ -182,12 +208,15 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin: requestedAdmin, refre
       {loading ? (
         <div style={{ marginTop: SPACE_16, height: 96, background: GREY_BG, borderRadius: 8 }} />
       ) : !data ? null : noPacks ? (
-        <div style={{
-          marginTop: SPACE_16, padding: "14px 16px", background: "#fef9e7", borderRadius: 8,
-          border: "1px solid #f4d97a", fontSize: 13, color: "#7a5a00",
-        }}>
-          No pack has been loaded for this clinic yet.{isAdmin ? " Click 'Add pack' to load one." : help}
-          {alloc.overflowBooked > 0 && ` ${alloc.overflowBooked} consult${alloc.overflowBooked === 1 ? " is" : "s are"} already booked.`}
+        <div style={{ marginTop: SPACE_16, display: "flex", alignItems: "center", gap: SPACE_16, flexWrap: "wrap" }}>
+          <div style={{
+            flex: "1 1 240px", padding: "14px 16px", background: "#fef9e7", borderRadius: 8,
+            border: "1px solid #f4d97a", fontSize: 13, color: "#7a5a00",
+          }}>
+            No pack has been loaded for this clinic yet.{isAdmin ? " Click 'Add pack' to load one." : help}
+            {alloc.overflowBooked > 0 && ` ${alloc.overflowBooked} consult${alloc.overflowBooked === 1 ? " is" : "s are"} already booked.`}
+          </div>
+          {showRateStat}
         </div>
       ) : (
         <>
@@ -202,11 +231,11 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin: requestedAdmin, refre
               </div>
             </div>
 
-            {/* Three facts, each with its own label, so none has to be read. */}
-            <div className="clinic-pack-stats" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(120px, 160px))", gap: SPACE_8, flex: "0 1 auto" }}>
+            <div className="clinic-pack-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: SPACE_8, flex: "0 1 664px", minWidth: 0 }}>
               <Stat label="Reserved" value={bal.reserved} sub="booked consults" />
               <Stat label="Used" value={bal.used} sub="delivered" />
               <Stat label="Bought" value={bal.bought} sub="all time" />
+              {showRateStat}
             </div>
           </div>
 
@@ -268,9 +297,9 @@ const CHIP: Record<ReturnType<typeof creditBalance>["key"], { bg: string; fg: st
   none: { bg: GREY_BG, fg: GREY_TEXT_DARK, label: "No credits" },
 };
 
-function Stat({ label, value, sub }: { label: string; value: number; sub: string }) {
+function Stat({ label, value, sub, title }: { label: string; value: number | string; sub: string; title?: string }) {
   return (
-    <div style={{ padding: "10px 12px", background: GREY_BG, borderRadius: 8, border: `1px solid ${GREY_TRACK}` }}>
+    <div title={title} style={{ padding: "10px 12px", background: GREY_BG, borderRadius: 8, border: `1px solid ${GREY_TRACK}` }}>
       <div style={{ fontSize: 10.5, fontWeight: 700, color: GREY_TEXT, letterSpacing: 1, textTransform: "uppercase" }}>{label}</div>
       <div style={{ fontSize: 20, fontWeight: 700, color: NAVY, marginTop: 2, fontVariantNumeric: "tabular-nums", lineHeight: 1.2 }}>{value}</div>
       <div style={{ fontSize: 11.5, color: GREY_TEXT, marginTop: 1 }}>{sub}</div>
