@@ -13,7 +13,11 @@ const percent = (value: number | null | undefined) => value == null ? "—" : `$
 const dateLabel = (date: string, monthOnly = false) => new Date(`${date}T12:00:00Z`).toLocaleDateString("en-AU", monthOnly ? { month: "short", year: "2-digit", timeZone: "UTC" } : { day: "numeric", month: "short", timeZone: "UTC" });
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase();
 
+export type BookingPerformanceTab = "bookings" | "conversion";
+
 type ViewProps = {
+  tab: BookingPerformanceTab;
+  onTab: (tab: BookingPerformanceTab) => void;
   report?: BookingPerformanceReport;
   isAdmin: boolean;
   loading: boolean;
@@ -27,8 +31,7 @@ type ViewProps = {
   onEnd: (end: string) => void;
 };
 
-export function BookingPerformanceView({ report, isAdmin, loading, error, onRetry, period, onPeriod, start, end, onStart, onEnd }: ViewProps) {
-  const [tab, setTab] = useState<"bookings" | "conversion">("bookings");
+export function BookingPerformanceView({ report, isAdmin, loading, error, onRetry, period, onPeriod, start, end, onStart, onEnd, tab, onTab }: ViewProps) {
   const [repId, setRepId] = useState("");
   const [grouping, setGrouping] = useState<BookingGrouping>("day");
   const gradientId = useId().replace(/:/g, "");
@@ -69,11 +72,11 @@ export function BookingPerformanceView({ report, isAdmin, loading, error, onRetr
         <div className="booking-tabs" role="tablist" aria-label="Booking reports">
           {(["bookings", "conversion"] as const).map((key, index) => <button type="button" key={key}
             id={`booking-tab-${key}`} role="tab" aria-selected={tab === key} aria-controls={`booking-panel-${key}`} tabIndex={tab === key ? 0 : -1}
-            onClick={() => setTab(key)} onKeyDown={event => {
+            onClick={() => onTab(key)} onKeyDown={event => {
               if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
               event.preventDefault();
               const next = event.key === "Home" ? "bookings" : event.key === "End" ? "conversion" : index === 0 ? "conversion" : "bookings";
-              setTab(next); document.getElementById(`booking-tab-${next}`)?.focus();
+              onTab(next); document.getElementById(`booking-tab-${next}`)?.focus();
             }}>
             {key === "bookings" ? <TrendingUp size={15} /> : <PhoneOutgoing size={15} />}
             {key === "bookings" ? "Booking overview" : conversionTitle}
