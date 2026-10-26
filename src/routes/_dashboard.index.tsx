@@ -267,6 +267,7 @@ function DashboardHome() {
 
 
 
+  const [bookingsToday, setBookingsToday] = useState(0);
   const [todayBookings, setTodayBookings] = useState<DashboardBooking[] | null>(null);
   const [todayBookingsError, setTodayBookingsError] = useState(false);
   const [bookingsMonth, setBookingsMonth] = useState(0);
@@ -381,6 +382,7 @@ function DashboardHome() {
       setRepsList(((repsRes.data ?? []) as Array<{ id: string; name: string }>) || []);
     }
 
+    setBookingsToday(bookingsTodayRes.count ?? 0);
     setTodayBookings(bookingsTodayRes.data);
     setTodayBookingsError(false);
     setBookingsMonth(bookingsMonthRes.count ?? 0);
@@ -554,6 +556,76 @@ function DashboardHome() {
     return leadLocation(l.id);
   };
 
+
+  // Non-admin reps see a slim dashboard: bookings + bonus + conversion rates.
+  if (authReady && session && role && role !== "admin") {
+    const bonusToday = bookingsToday * 50;
+    const bonusMonth = bookingsMonth * 50;
+    return (
+      <div style={{ background: "#f7f7f5", minHeight: "100%", fontFamily: FONT, padding: 24 }}>
+        <div style={{ maxWidth: 720, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 600, color: "#111", letterSpacing: "-0.02em" }}>
+              {getGreeting()}, {firstName}
+            </div>
+            <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>{formatDate()}</div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <StatCard label="Bookings today" value={bookingsToday} valueColor="#111" sub={`$${bonusToday.toLocaleString()} earned`} />
+            <StatCard label={`Bookings — ${monthYearLabel()}`} value={bookingsMonth} valueColor="#111" sub={`$${bonusMonth.toLocaleString()} earned`} />
+          </div>
+
+          <Card>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ fontSize: 12, color: "#999", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 500 }}>
+                Conversion rates
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <select
+                  value={convCity}
+                  onChange={(e) => setConvCity(e.target.value)}
+                  style={{ fontSize: 12, padding: "6px 10px", border: "0.5px solid #e8e8e6", borderRadius: 8, background: "#fff", fontFamily: FONT, cursor: "pointer" }}
+                >
+                  <option value="">All cities</option>
+                  {cityOptions.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <ReportingPeriodSelect value={convPeriod} onChange={setConvPeriod} start={convStart} end={convEnd} onStart={setConvStart} onEnd={setConvEnd} />
+              </div>
+            </div>
+            {conversionNotice}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0 }}>
+              <div style={{ padding: 20, borderRight: "0.5px solid #f0f0ee" }}>
+                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Leads called → Bookings<InfoTip text={LEADS_CONV_TOOLTIP} /></div>
+                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convLeadsTotal > 0 ? leadsConvColor(leadsPct) : "#111", marginTop: 8, lineHeight: 1 }}>
+                  {convLoading || convError ? "—" : `${leadsPct}%`}
+                </div>
+                <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convLoading ? "Loading…" : convError || `${convLeadsBooked} of ${convLeadsTotal} leads`}</div>
+              </div>
+              <div style={{ padding: 20, borderRight: "0.5px solid #f0f0ee" }}>
+                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Connections → Bookings<InfoTip text={CONNECTS_CONV_TOOLTIP} /></div>
+                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convConnectedUnique > 0 ? connectsConvColor(connectsPct) : "#111", marginTop: 8, lineHeight: 1 }}>
+                  {convLoading || convError ? "—" : `${connectsPct}%`}
+                </div>
+                <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convLoading ? "Loading…" : convError || `${convConnectedBooked} of ${convConnectedUnique} connects`}</div>
+              </div>
+              <div style={{ padding: 20 }}>
+                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Convos → Sales<InfoTip text={CONVOS_CONV_TOOLTIP} /></div>
+                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convConvosUnique > 0 ? convosConvColor(convosPct) : "#111", marginTop: 8, lineHeight: 1 }}>
+                  {convLoading || convError ? "—" : `${convosPct}%`}
+                </div>
+                <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convLoading ? "Loading…" : convError || `${convConvosBooked} of ${convConvosUnique} convos`}</div>
+              </div>
+            </div>
+          </Card>
+          <BookingPerformancePanel compact />
+          <MyBookingResults />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-overview">

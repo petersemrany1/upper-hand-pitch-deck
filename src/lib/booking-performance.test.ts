@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { bookingPerformance, countDialAttempts, groupBookingDays, type PerformanceBooking, type PerformanceCall } from "./booking-performance";
+import { bookingPerformance, connectedBookingConversion, countDialAttempts, groupBookingDays, type PerformanceBooking, type PerformanceCall } from "./booking-performance";
 import { periodDates, periodInstants } from "./reporting-period";
 
 const now = new Date("2026-10-27T05:00:00Z");
@@ -34,13 +34,13 @@ describe("booking performance", () => {
     expect(result.reps.find(rep => rep.id === "old")?.bookings).toBe(1);
     expect(result.reps.find(rep => rep.id === "nina")?.bookings).toBe(0);
   });
-  it("includes zero days and aggregates by rep, Monday week and calendar month", () => {
+  it("aggregates active days by rep, Monday week and calendar month", () => {
     const result = bookingPerformance([booking("a", "2026-09-30T23:00:00Z"), booking("b", "2026-10-04T23:00:00Z"), booking("c", "2026-10-05T23:00:00Z", { booking_rep_id: "other" })], reps, "2026-09-30", "2026-10-06", now);
-    expect(groupBookingDays(result.days, "week")).toEqual([{ date: "2026-09-30", end: "2026-10-04", bookings: 1 }, { date: "2026-10-05", end: "2026-10-06", bookings: 2 }]);
-    expect(groupBookingDays(result.days, "month", "nina")).toEqual([{ date: "2026-09-30", end: "2026-09-30", bookings: 0 }, { date: "2026-10-01", end: "2026-10-06", bookings: 2 }]);
+    expect(groupBookingDays(result.days, "week")).toEqual([{ date: "2026-10-01", end: "2026-10-01", bookings: 1 }, { date: "2026-10-05", end: "2026-10-06", bookings: 2 }]);
+    expect(groupBookingDays(result.days, "month", "nina")).toEqual([{ date: "2026-10-01", end: "2026-10-05", bookings: 2 }]);
   });
   it("returns true zero results and no future chart points", () => {
-    expect(bookingPerformance([], reps, "2026-10-27", "2026-10-31", now).days).toEqual([{ date: "2026-10-27", total: 0, byRep: {} }]);
+    expect(bookingPerformance([], reps, "2026-10-27", "2026-10-31", now).days).toEqual([{ date: "2026-10-27", total: 0, byRep: {}, workedByRep: {} }]);
     expect(bookingPerformance([], reps, "2026-11-01", "2026-11-05", now).days).toEqual([]);
   });
   it("handles yesterday across daylight saving and year boundaries", () => {
@@ -78,5 +78,54 @@ describe("calls to bookings denominator", () => {
   it("uses an exclusive period end and returns zero for no calls", () => {
     expect(countDialAttempts([call("1", to)], from, to).attempts).toBe(0);
     expect(countDialAttempts([], from, to)).toEqual({ attempts: 0, rawDials: 0, doubleDials: 0 });
+  });
+});
+
+
+describe("connected people conversion", () => {
+  const from = "2026-10-01T00:00:00Z", to = "2026-10-10T00:00:00Z", asOf = "2026-10-27T00:00:00Z";
+  const connected = (id: string, lead = id, overrides: Partial<PerformanceCall> = {}) => call(id, "2026-10-05T00:00:00Z", { lead_id: lead, phone: null, status: "completed", duration: 30, ...overrides });
+  it("counts each connected person once and only their linked later bookings", () => {
+    const calls = [connected("a1", "a"), connected("a2", "a", { called_at: "2026-10-05T00:00:40Z" }), connected("a3", "a", { called_at: "2026-10-06T00:00:00Z" }), connected("b"), connected("unanswered", "c", { status: "no-answer", duration: 0 })];
+    const bookings = [booking("a", "2026-10-15T00:00:00Z", { lead_id: "a" }), booking("duplicate", "2026-10-16T00:00:00Z", { lead_id: "a" }), booking("unconnected", "2026-10-07T00:00:00Z", { lead_id: "c" }), booking("other-rep", "2026-10-07T00:00:00Z", { lead_id: "b", booking_rep_id: "other" })];
+    expect(connectedBookingConversion(calls, bookings, "nina", from, to, asOf)).toEqual({ connectedPeople: 2, bookedPeople: 1, connectedCalls: 4, repeatConnections: 2, percentage: 50 });
+  });
+  it("uses the portal connection boundary and manual connection evidence", () => {
+    const calls = [connected("short", "short", { duration: 14 }), connected("boundary", "boundary", { duration: 15 }), connected("legacy", "legacy", { duration: null, duration_seconds: 15 }), connected("manual", "manual", { duration: 0, outcome: "connected" }), connected("failed", "failed", { status: "failed", duration: 120 }), connected("pending", "pending", { status: "in-progress", duration: 120 })];
+    expect(connectedBookingConversion(calls, [], "nina", from, to, asOf).connectedPeople).toBe(3);
+  });
+  it("excludes service calls, test leads, inbound and prospecting calls", () => {
+    const calls = [connected("booked"), connected("paid"), connected("test"), connected("inbound", "inbound", { direction: "inbound" }), connected("prospect", "prospect", { clinic_id: "clinic", lead_id: null }), connected("other", "other", { rep_id: "other" })];
+    const bookings = [booking("booked", "2026-10-04T00:00:00Z", { lead_id: "booked" })];
+    expect(connectedBookingConversion(calls, bookings, "nina", from, to, asOf, new Set(["test"]), new Map([["paid", Date.parse("2026-10-04T00:00:00Z")]]))).toEqual({ connectedPeople: 0, bookedPeople: 0, connectedCalls: 0, repeatConnections: 0, percentage: null });
+  });
+  it("joins phone formats and calls missing lead IDs, while counting duplicate provider rows once", () => {
+    const calls = [connected("a", "lead", { phone: "0412345678" }), connected("a-copy", "lead", { phone: null, twilio_call_sid: "sid-a" }), connected("b", "lead", { phone: "+61 412 345 678", lead_id: null })];
+    const bookings = [booking("a", "2026-10-07T00:00:00Z", { lead_id: "lead", patient_phone: null })];
+    expect(connectedBookingConversion(calls, bookings, "nina", from, to, asOf)).toEqual({ connectedPeople: 1, bookedPeople: 1, connectedCalls: 2, repeatConnections: 1, percentage: 100 });
+  });
+  it("counts a person once when their phone number changes and joins phone-only records", () => {
+    const calls = [connected("old", "lead", { phone: "0411111111" }), connected("new", "lead", { phone: "0422222222" }), connected("phone-only", "lead", { phone: "+61411111111", lead_id: null })];
+    const bookings = [booking("a", "2026-10-07T00:00:00Z", { lead_id: "lead", patient_phone: "0422222222" })];
+    expect(connectedBookingConversion(calls, bookings, "nina", from, to, asOf)).toEqual({ connectedPeople: 1, bookedPeople: 1, connectedCalls: 3, repeatConnections: 2, percentage: 100 });
+  });
+  it("includes a connection inside the range after an unanswered pre-period dial and excludes the end boundary", () => {
+    const calls = [connected("before", "a", { called_at: "2026-09-30T23:59:40Z", status: "no-answer", duration: 0 }), connected("inside", "a", { called_at: from }), connected("end", "b", { called_at: to })];
+    expect(connectedBookingConversion(calls, [], "nina", from, to, asOf).connectedPeople).toBe(1);
+  });
+});
+
+describe("workday booking charts", () => {
+  it("omits days off, keeps zero-booking workdays and filters activity by rep", () => {
+    const calls = [call("worked", "2026-10-09T00:00:00Z"), call("other", "2026-10-10T00:00:00Z", { rep_id: "other" })];
+    const data = bookingPerformance([booking("booked", "2026-10-11T00:00:00Z")], reps, "2026-10-08", "2026-10-12", now, calls);
+    expect(groupBookingDays(data.days, "day", "nina")).toEqual([{ date: "2026-10-09", end: "2026-10-09", bookings: 0 }, { date: "2026-10-11", end: "2026-10-11", bookings: 1 }]);
+    expect(groupBookingDays(data.days, "day").map(day => day.date)).toEqual(["2026-10-09", "2026-10-10", "2026-10-11"]);
+    expect(groupBookingDays(data.days, "week", "nina")).toEqual([{ date: "2026-10-09", end: "2026-10-11", bookings: 1 }]);
+    expect(data.total).toBe(1);
+  });
+  it("uses Sydney activity dates and excludes pending/prospecting calls", () => {
+    const data = bookingPerformance([], reps, "2026-10-08", "2026-10-10", now, [call("active", "2026-10-08T13:00:00Z"), call("queued", "2026-10-10T00:00:00Z", { status: "queued" }), call("prospect", "2026-10-10T00:00:00Z", { clinic_id: "c", lead_id: null })]);
+    expect(groupBookingDays(data.days, "day", "nina")).toEqual([{ date: "2026-10-09", end: "2026-10-09", bookings: 0 }]);
   });
 });
