@@ -27,4 +27,3 @@ export function BookingPerformancePanel() {
   return <BookingPerformanceView report={data} loading={loading} error={error?.message} onRetry={reload}
     isAdmin={role === "admin"} period={period} onPeriod={setPeriod} start={start} end={end} onStart={setStart} onEnd={setEnd} />;
 }
-
