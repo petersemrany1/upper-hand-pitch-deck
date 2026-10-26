@@ -1,15 +1,17 @@
 import { TodayBookingsCard } from "@/components/TodayBookingsCard";
 import { loadDashboardBookingsToday, type DashboardBooking } from "@/lib/dashboard-bookings";
+import "@/components/dashboard-overview.css";
 import { conversionPercent } from "@/lib/leaderboard-metrics";
 import { getDashboardConversion } from "@/utils/sales-call.functions";
 import { MyBookingResults } from "@/components/MyBookingResults";
+import { BookingPerformancePanel } from "@/components/BookingPerformancePanel";
 import { ReportingPeriodSelect } from "@/components/ReportingPeriodSelect";
 import { periodDates, periodInstants, type ReportingPeriod } from "@/lib/reporting-period";
 import { isReturningLead } from "@/components/sales-call/status";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronDown, AlertTriangle, Info } from "lucide-react";
+import { ArrowUpRight, ArrowRight, CalendarDays, Target, Users, Sparkles, Info } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuietRefresh } from "@/hooks/useQuietRefresh";
@@ -110,7 +112,7 @@ function InfoTip({ text }: { text: string }) {
 }
 
 function getGreeting(): string {
-  const h = new Date().getHours();
+  const h = Number(new Date().toLocaleString("en-GB", { timeZone: APP_TIMEZONE, hour: "2-digit", hourCycle: "h23" }));
   if (h < 12) return "Good morning";
   if (h < 18) return "Good afternoon";
   return "Good evening";
@@ -118,6 +120,7 @@ function getGreeting(): string {
 
 function formatDate(): string {
   return new Date().toLocaleDateString("en-AU", {
+    timeZone: APP_TIMEZONE,
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -264,11 +267,9 @@ function DashboardHome() {
 
 
 
-  const [bookingsToday, setBookingsToday] = useState(0);
   const [todayBookings, setTodayBookings] = useState<DashboardBooking[] | null>(null);
   const [todayBookingsError, setTodayBookingsError] = useState(false);
   const [bookingsMonth, setBookingsMonth] = useState(0);
-  const [revenueMonth, setRevenueMonth] = useState(0);
   const [newLeads, setNewLeads] = useState<Lead[]>([]);
   const [newLeadsCount, setNewLeadsCount] = useState(0);
   const [clinicMap, setClinicMap] = useState<Map<string, ClinicInfo>>(new Map());
@@ -313,20 +314,11 @@ function DashboardHome() {
     const scopeId = !isAdmin ? (repId ?? "00000000-0000-0000-0000-000000000000") : null;
 
     const bookingsTodayQ = loadDashboardBookingsToday(supabase, scopeId);
-
-    const bookingsMonthQ = scopeId
-      ? supabase
-          .from("clinic_appointments")
-          .select("id, clinic_id, patient_name, is_free_trial")
-          .gte("booked_at", monthIso)
-          .eq("booking_rep_id", scopeId)
-          .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%")
-      : supabase
-          .from("clinic_appointments")
-          .select("id, clinic_id, patient_name, is_free_trial")
-          .gte("booked_at", monthIso)
-          .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%");
-
+    const bookingsMonthQ = supabase.from("clinic_appointments")
+      .select("id", { count: "exact", head: true })
+      .gte("booked_at", monthIso).lt("booked_at", new Date().toISOString())
+      .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%");
+    if (scopeId) bookingsMonthQ.eq("booking_rep_id", scopeId);
 
     const newLeadsQ = supabase
       .from("meta_leads")
@@ -361,14 +353,13 @@ function DashboardHome() {
           .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%")
       : Promise.resolve({ data: [] as ApptRow[], error: null });
 
-    const [bookingsTodayRes, bookingsMonthRes, newLeadsRes, newLeadsCountRes, clinicsRes, settingsRes, targetRes, repsRes, packsRes, apptsRes] =
+    const [bookingsTodayRes, bookingsMonthRes, newLeadsRes, newLeadsCountRes, clinicsRes, targetRes, repsRes, packsRes, apptsRes] =
       await Promise.all([
         bookingsTodayQ,
         bookingsMonthQ,
         newLeadsQ,
         newLeadsCountQ,
-        supabase.from("partner_clinics").select("id, clinic_name, city, price_per_booking"),
-        supabase.from("app_settings").select("value").eq("key", "default_booking_price").maybeSingle(),
+        supabase.from("partner_clinics").select("id, clinic_name, city"),
         targetQ,
         isAdmin
           ? supabase.from("sales_reps").select("id, name").eq("role", "rep").order("name")
@@ -377,7 +368,7 @@ function DashboardHome() {
         apptsAllQ,
       ]);
 
-    const refreshError = [bookingsTodayRes, bookingsMonthRes, newLeadsRes, newLeadsCountRes, clinicsRes, settingsRes, targetRes, repsRes, packsRes, apptsRes].find((result) => result.error)?.error;
+    const refreshError = [bookingsTodayRes, bookingsMonthRes, newLeadsRes, newLeadsCountRes, clinicsRes, targetRes, repsRes, packsRes, apptsRes].find((result) => result.error)?.error;
     if (refreshError) {
       setTodayBookingsError(true);
       console.warn("Dashboard refresh failed; keeping previous figures", refreshError);
@@ -390,27 +381,16 @@ function DashboardHome() {
       setRepsList(((repsRes.data ?? []) as Array<{ id: string; name: string }>) || []);
     }
 
-    setBookingsToday(bookingsTodayRes.count ?? 0);
     setTodayBookings(bookingsTodayRes.data);
     setTodayBookingsError(false);
+    setBookingsMonth(bookingsMonthRes.count ?? 0);
 
-    const monthBookings = (bookingsMonthRes.data ?? []) as { id: string; clinic_id: string | null; is_free_trial?: boolean }[];
-    setBookingsMonth(monthBookings.length);
-
-    const clinicsList = (clinicsRes.data ?? []) as Array<{ id: string; clinic_name: string | null; city: string | null; price_per_booking: number | null }>;
-    const defaultPrice = Number((settingsRes.data?.value as unknown) ?? 800) || 800;
-    const priceMap = new Map<string, number>();
+    const clinicsList = (clinicsRes.data ?? []) as ClinicInfo[];
     const cMap = new Map<string, ClinicInfo>();
     for (const c of clinicsList) {
-      priceMap.set(c.id, Number(c.price_per_booking) || defaultPrice);
       cMap.set(c.id, { id: c.id, clinic_name: c.clinic_name, city: c.city });
     }
     setClinicMap(cMap);
-    const revenue = monthBookings.reduce(
-      (sum, b) => sum + (b.is_free_trial ? 0 : b.clinic_id ? (priceMap.get(b.clinic_id) ?? defaultPrice) : defaultPrice),
-      0
-    );
-    setRevenueMonth(revenue);
 
     const leadsArr = ((newLeadsRes.data ?? []) as Array<Lead & { clinic_id: string | null }>)
       .filter((l) => !isReturningLead(l.lead_class));
@@ -575,389 +555,52 @@ function DashboardHome() {
   };
 
 
-  // Non-admin reps see a slim dashboard: bookings + bonus + conversion rates.
-  if (authReady && session && role && role !== "admin") {
-    const bonusToday = bookingsToday * 50;
-    const bonusMonth = bookingsMonth * 50;
-    return (
-      <div style={{ background: "#f7f7f5", minHeight: "100%", fontFamily: FONT, padding: 24 }}>
-        <div style={{ maxWidth: 720, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <div style={{ fontSize: 26, fontWeight: 600, color: "#111", letterSpacing: "-0.02em" }}>
-              {getGreeting()}, {firstName}
-            </div>
-            <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>{formatDate()}</div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <StatCard label="Bookings today" value={bookingsToday} valueColor="#111" sub={`$${bonusToday.toLocaleString()} earned`} />
-            <StatCard label={`Bookings — ${monthYearLabel()}`} value={bookingsMonth} valueColor="#111" sub={`$${bonusMonth.toLocaleString()} earned`} />
-          </div>
-
-          <Card>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee", flexWrap: "wrap", gap: 12 }}>
-              <div style={{ fontSize: 12, color: "#999", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 500 }}>
-                Conversion rates
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <select
-                  value={convCity}
-                  onChange={(e) => setConvCity(e.target.value)}
-                  style={{ fontSize: 12, padding: "6px 10px", border: "0.5px solid #e8e8e6", borderRadius: 8, background: "#fff", fontFamily: FONT, cursor: "pointer" }}
-                >
-                  <option value="">All cities</option>
-                  {cityOptions.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-                <ReportingPeriodSelect value={convPeriod} onChange={setConvPeriod} start={convStart} end={convEnd} onStart={setConvStart} onEnd={setConvEnd} />
-              </div>
-            </div>
-            {conversionNotice}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0 }}>
-              <div style={{ padding: 20, borderRight: "0.5px solid #f0f0ee" }}>
-                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Leads called → Bookings<InfoTip text={LEADS_CONV_TOOLTIP} /></div>
-                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convLeadsTotal > 0 ? leadsConvColor(leadsPct) : "#111", marginTop: 8, lineHeight: 1 }}>
-                  {convLoading || convError ? "—" : `${leadsPct}%`}
-                </div>
-                <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convLoading ? "Loading…" : convError || `${convLeadsBooked} of ${convLeadsTotal} leads`}</div>
-              </div>
-              <div style={{ padding: 20, borderRight: "0.5px solid #f0f0ee" }}>
-                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Connections → Bookings<InfoTip text={CONNECTS_CONV_TOOLTIP} /></div>
-                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convConnectedUnique > 0 ? connectsConvColor(connectsPct) : "#111", marginTop: 8, lineHeight: 1 }}>
-                  {convLoading || convError ? "—" : `${connectsPct}%`}
-                </div>
-                <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convLoading ? "Loading…" : convError || `${convConnectedBooked} of ${convConnectedUnique} connects`}</div>
-              </div>
-              <div style={{ padding: 20 }}>
-                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Convos → Sales<InfoTip text={CONVOS_CONV_TOOLTIP} /></div>
-                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convConvosUnique > 0 ? convosConvColor(convosPct) : "#111", marginTop: 8, lineHeight: 1 }}>
-                  {convLoading || convError ? "—" : `${convosPct}%`}
-                </div>
-                <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convLoading ? "Loading…" : convError || `${convConvosBooked} of ${convConvosUnique} convos`}</div>
-              </div>
-            </div>
-          </Card>
-          <MyBookingResults />
-        </div>
-      </div>
-    );
-  }
-
-
-
   return (
-    <div style={{ background: "#f7f7f5", minHeight: "100%", fontFamily: FONT, padding: 24 }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
-        {/* Top bar */}
-        <div>
-          <div style={{ fontSize: 26, fontWeight: 600, color: "#111", letterSpacing: "-0.02em" }}>
-            {getGreeting()}, {firstName}
-          </div>
-          <div style={{ fontSize: 13, color: "#999", marginTop: 4 }}>{formatDate()}</div>
-        </div>
+    <div className="dashboard-overview">
+      <div className={`dashboard-overview-shell ${!isAdmin ? "personal" : ""}`}>
+        <header className="dashboard-overview-heading">
+          <div><div className="dashboard-breadcrumb">Workspace <span>/</span> Overview</div><h1>{isAdmin ? "Performance overview" : "Your performance"}<span>.</span></h1><p>{getGreeting()}, {firstName}. {isAdmin ? "Here’s how your team is tracking." : "Every call is a step towards your next booking."}</p></div>
+          <div className="dashboard-heading-actions"><span><CalendarDays size={14} />{formatDate()}</span><Link to="/booked-appointments" className="dashboard-action-link">View appointments <ArrowUpRight size={15} /></Link></div>
+        </header>
 
-        {/* Stats strip — bookings today + bookings this month */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-          <StatCard
-            label="Bookings Today"
-            value={bookingsToday}
-            valueColor="#f4522d"
-            sub=""
-            borderLeft="3px solid #f4522d"
-          />
-          <StatCard
-            label={`Bookings — ${monthYearLabel()}`}
-            value={bookingsMonth}
-            valueColor="#111"
-            sub=""
-          />
-        </div>
+        <BookingPerformancePanel />
 
-        <TodayBookingsCard bookings={todayBookings} error={todayBookingsError} onRetry={() => { void loadData(); }} />
-
-        {/* Conversion rate — leads→bookings and calls→bookings */}
-        <Card>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee", flexWrap: "wrap", gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Conversion</div>
-              <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>How leads and calls convert into bookings</div>
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <select
-                value={convCity}
-                onChange={(e) => setConvCity(e.target.value)}
-                style={{ fontSize: 12, padding: "6px 10px", border: "0.5px solid #e8e8e6", borderRadius: 8, background: "#fff", fontFamily: FONT, cursor: "pointer" }}
-              >
-                <option value="">All cities</option>
-                {cityOptions.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-              <div style={{ display: "flex", gap: 4, background: "#f4f4f2", padding: 4, borderRadius: 8 }}>
-              {(["day","week","30d","60d","month","year","all"] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setConvPeriod(p)}
-                  style={{
-                    padding: "6px 12px",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    border: 0,
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    background: convPeriod === p ? "#fff" : "transparent",
-                    color: convPeriod === p ? "#111" : "#888",
-                    boxShadow: convPeriod === p ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
-                    fontFamily: FONT,
-                  }}
-                >
-                  {{ day: "Today", week: "7 days", "30d": "30 days", "60d": "60 days", month: "Month", year: "Year", all: "All" }[p]}
-                </button>
-              ))}
-              </div>
-            </div>
+        <section className="dashboard-overview-card dashboard-conversion-card" aria-labelledby="dashboard-conversion-title">
+          <div className="dashboard-card-heading"><div className="dashboard-heading-with-icon"><span className="dashboard-small-icon"><ArrowUpRight size={18} /></span><div><h2 id="dashboard-conversion-title">Lead & conversation conversion</h2><p>Understand each step from first contact to booking.</p></div></div>
+            <div className="dashboard-filters"><select aria-label="Conversion city" value={convCity} onChange={e => setConvCity(e.target.value)}><option value="">All cities</option>{cityOptions.map(city => <option key={city}>{city}</option>)}</select><ReportingPeriodSelect value={convPeriod} onChange={setConvPeriod} start={convStart} end={convEnd} onStart={setConvStart} onEnd={setConvEnd} /></div>
           </div>
           {conversionNotice}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
-            <div style={{ padding: "20px", textAlign: "center", borderRight: "0.5px solid #f0f0ee" }}>
-              <div style={{ fontSize: 32, fontWeight: 600, color: convLeadsTotal > 0 ? leadsConvColor(leadsPct) : "#999", letterSpacing: "-0.03em", lineHeight: 1 }}>
-                {convLeadsTotal > 0 ? `${convLoading || convError ? "—" : `${leadsPct}%`}` : "—"}
-              </div>
-              <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>
-                Leads to Bookings<InfoTip text={LEADS_CONV_TOOLTIP} />
-              </div>
-              <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
-                {convLeadsBooked} / {convLeadsTotal} leads
-              </div>
-            </div>
-            <div style={{ padding: "20px", textAlign: "center", borderRight: "0.5px solid #f0f0ee" }}>
-              <div style={{ fontSize: 32, fontWeight: 600, color: convConnectedUnique > 0 ? connectsConvColor(connectsPct) : "#999", letterSpacing: "-0.03em", lineHeight: 1 }}>
-                {convConnectedUnique > 0 ? `${convLoading || convError ? "—" : `${connectsPct}%`}` : "—"}
-              </div>
-              <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>
-                Connects to Sales<InfoTip text={CONNECTS_CONV_TOOLTIP} />
-              </div>
-              <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
-                {convConnectedBooked} / {convConnectedUnique} connected
-              </div>
-            </div>
-            <div style={{ padding: "20px", textAlign: "center" }}>
-              <div style={{ fontSize: 32, fontWeight: 600, color: convConvosUnique > 0 ? convosConvColor(convosPct) : "#999", letterSpacing: "-0.03em", lineHeight: 1 }}>
-                {convConvosUnique > 0 ? `${convLoading || convError ? "—" : `${convosPct}%`}` : "—"}
-              </div>
-              <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>
-                Convos to Sales<InfoTip text={CONVOS_CONV_TOOLTIP} />
-              </div>
-              <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
-                {convConvosBooked} / {convConvosUnique} convos
-              </div>
-            </div>
+          <div className="dashboard-conversion-grid">
+            {[
+              {label: "Leads called → bookings", count: convLeadsTotal, booked: convLeadsBooked, percentage: leadsPct, detail: "unique leads called", tooltip: LEADS_CONV_TOOLTIP},
+              {label: "Connections → bookings", count: convConnectedUnique, booked: convConnectedBooked, percentage: connectsPct, detail: "connected leads", tooltip: CONNECTS_CONV_TOOLTIP},
+              {label: "Conversations → bookings", count: convConvosUnique, booked: convConvosBooked, percentage: convosPct, detail: "conversations", tooltip: CONVOS_CONV_TOOLTIP},
+            ].map((metric, index) => <div key={metric.label} className="dashboard-conversion-stat"><div className="dashboard-conversion-label"><span className="dashboard-step-number">0{index + 1}</span>{metric.label}<InfoTip text={metric.tooltip} /></div><strong>{convLoading || convError || !metric.count ? "—" : <>{metric.percentage}<span>%</span></>}</strong><p>{convLoading ? "Loading…" : convError || `${metric.booked} bookings from ${metric.count} ${metric.detail}`}</p></div>)}
           </div>
-        </Card>
+        </section>
 
-        {/* Two column row — admins see New leads today + Bookings/target. */}
-        <div style={{ display: "grid", gridTemplateColumns: isAdmin ? "1fr 1fr" : "1fr", gap: 16 }}>
-          {isAdmin && (
-            <Card>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee" }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>New leads today</div>
-                <div style={{ fontSize: 12, color: "#aaa" }}>{newLeadsCount} today</div>
-              </div>
-              <div style={{ maxHeight: 3 * 57, overflowY: "auto" }}>
-                {newLeads.length === 0 ? (
-                  <div style={{ padding: 20, fontSize: 13, color: "#999" }}>No new leads yet.</div>
-                ) : (
-                  newLeads.map((l) => {
-                    const name = `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim() || "Unknown";
-                    const src = leadSource(l);
-                    return (
-                      <Link
-                        key={l.id}
-                        to="/sales-call"
-                        search={{ leadId: l.id } as never}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 12,
-                          padding: "12px 20px",
-                          borderBottom: "0.5px solid #f6f6f4",
-                          textDecoration: "none",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: "50%",
-                            background: "#fff1ee",
-                            color: "#f4522d",
-                            fontSize: 12,
-                            fontWeight: 600,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {initials(name)}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, color: "#111", fontWeight: 500 }}>{name}</div>
-                          {src && (() => {
-                            const key = src.toLowerCase();
-                            const c = key.includes("melbourne")
-                              ? { bg: "#e0f2fe", fg: "#075985" }
-                              : key.includes("sydney")
-                              ? { bg: "#f3e8ff", fg: "#6b21a8" }
-                              : key.includes("perth")
-                              ? { bg: "#fef3c7", fg: "#92400e" }
-                              : { bg: "#dcfce7", fg: "#166534" };
-                            return (
-                              <span style={{
-                                display: "inline-block",
-                                marginTop: 4,
-                                background: c.bg,
-                                color: c.fg,
-                                fontSize: 10,
-                                fontWeight: 600,
-                                letterSpacing: "0.05em",
-                                textTransform: "uppercase",
-                                padding: "2px 6px",
-                                borderRadius: 4,
-                              }}>{src}</span>
-                            );
-                          })()}
-                        </div>
-
-                        <div style={{ fontSize: 11, color: "#ccc", minWidth: 60, textAlign: "right" }}>
-                          {relativeTime(l.created_at)}
-                        </div>
-                      </Link>
-                    );
-                  })
-                )}
-              </div>
-
-            </Card>
-          )}
-
-          <Card>
-            <div style={{ padding: 20 }}>
-              <div style={{ fontSize: 12, color: "#999", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 500 }}>
-                Revenue — {monthYearLabel()}
-              </div>
-              {isAdmin ? (
-                <>
-                  <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em", color: "#111", marginTop: 8, lineHeight: 1 }}>
-                    ${revenueMonth.toLocaleString()}
-                  </div>
-                  <div style={{ fontSize: 13, color: "#999", marginTop: 6 }}>
-                    From {bookingsMonth} booking{bookingsMonth === 1 ? "" : "s"}
-                    {target > 0 ? ` · target ${target}/mo` : ""}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em", color: "#16a34a", marginTop: 8, lineHeight: 1 }}>
-                    ${(bookingsMonth * 50).toLocaleString()}
-                  </div>
-                  <div style={{ fontSize: 13, color: "#999", marginTop: 6 }}>
-                    {bookingsMonth} booking{bookingsMonth === 1 ? "" : "s"} · $50 bonus each
-                    {target > 0 ? ` · target ${target}/mo` : ""}
-                  </div>
-                </>
-              )}
-              {target > 0 ? (
-                <>
-                  <div
-                    style={{
-                      marginTop: 16,
-                      background: "#f0f0ee",
-                      height: 5,
-                      borderRadius: 4,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: `${targetPct}%`,
-                        background: "#f4522d",
-                        height: "100%",
-                        borderRadius: 4,
-                        transition: "width 300ms",
-                      }}
-                    />
-                  </div>
-                  <div style={{ fontSize: 12, color: "#f4522d", fontWeight: 500, marginTop: 8 }}>
-                    {targetPct}% of target
-                  </div>
-                </>
-              ) : isAdmin ? (
-                <button
-                  onClick={() => setShowTargetModal(true)}
-                  style={{ marginTop: 16, fontSize: 13, color: "#f4522d", fontWeight: 500, background: "none", border: 0, cursor: "pointer", padding: 0 }}
-                >
-                  Set target →
-                </button>
-              ) : null}
-            </div>
-          </Card>
-        </div>
-
-        {isAdmin && (
-          <div style={{ display: "grid", gridTemplateColumns: packBreakdown.length > 0 ? "1fr 1fr" : "1fr", gap: 16 }}>
-            {packBreakdown.length > 0 && (
-              <Card>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee" }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>Shows to fill</div>
-                  <div style={{ fontSize: 12, color: "#aaa" }}>
-                    {packBreakdown.filter((p) => p.remaining > 0).reduce((sum, p) => sum + p.remaining, 0)} total
-                  </div>
-                </div>
-                <div>
-                  {packBreakdown
-                    .filter((p) => p.remaining !== 0)
-                    .map((p) => (
-                      <div
-                        key={p.clinicId}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          padding: "12px 20px",
-                          borderBottom: "0.5px solid #f6f6f4",
-                        }}
-                      >
-                        <div style={{ fontSize: 13, color: "#111", fontWeight: 500, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.clinicName}</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ fontSize: 13, color: p.remaining < 0 ? "#b83232" : "#16a34a", fontWeight: 600 }}>
-                            {p.remaining < 0 ? `${p.remaining} · over balance` : `${p.remaining} show${p.remaining !== 1 ? "s" : ""} needed`}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "12px 20px",
-                      background: "#fafaf9",
-                    }}
-                  >
-                    <div style={{ fontSize: 13, color: "#111", fontWeight: 600 }}>Total</div>
-                    <div style={{ fontSize: 13, color: "#111", fontWeight: 700 }}>
-                      {packBreakdown.reduce((sum, p) => sum + Math.max(0, p.remaining), 0)} show{packBreakdown.reduce((sum, p) => sum + Math.max(0, p.remaining), 0) !== 1 ? "s" : ""} needed
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            )}
-            <PickupRateCard />
+        {isAdmin ? <>
+          <div className="dashboard-section-heading"><h2>Today, at a glance</h2><span>Bookings, new leads and your monthly goal</span></div>
+          <TodayBookingsCard bookings={todayBookings} error={todayBookingsError} onRetry={() => { void loadData(); }} />
+          <div className="dashboard-secondary-grid">
+            <section className="dashboard-overview-card">
+              <div className="dashboard-card-heading"><div className="dashboard-heading-with-icon"><span className="dashboard-small-icon"><Users size={17} /></span><div><h2>New leads today</h2><p>The latest opportunities for your team.</p></div></div><span className="dashboard-count-badge">{newLeadsCount}</span></div>
+              <div className="dashboard-lead-list">{newLeads.length === 0 ? <div className="dashboard-empty"><Users size={22} /><p>No new leads yet today.</p><span>They’ll appear here as they come in.</span></div> : newLeads.map(lead => {
+                const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
+                return <Link key={lead.id} to="/sales-call" search={{ leadId: lead.id } as never} className="dashboard-lead-row"><span className="dashboard-lead-avatar">{initials(name)}</span><span className="dashboard-lead-info"><strong>{name}</strong><span>{leadSource(lead) || "New enquiry"}</span></span><time>{relativeTime(lead.created_at)}</time><ArrowUpRight size={13} /></Link>;
+              })}</div>
+              <Link to="/leads" className="dashboard-card-footer">View all leads <ArrowRight size={14} /></Link>
+            </section>
+            <section className="dashboard-overview-card dashboard-goal-card">
+              <div className="dashboard-card-heading"><div className="dashboard-heading-with-icon"><span className="dashboard-small-icon"><Target size={18} /></span><div><h2>Monthly booking goal</h2><p>{monthYearLabel()}</p></div></div><button className="dashboard-text-button" onClick={() => setShowTargetModal(true)}>{target > 0 ? "Edit target" : "Set target"}<ArrowUpRight size={13} /></button></div>
+              <div className="dashboard-goal-body"><div className="dashboard-goal-value"><strong>{bookingsMonth.toLocaleString()}</strong><span>{target > 0 ? `of ${target.toLocaleString()} bookings` : "bookings this month"}</span></div><div className="dashboard-goal-track" role={target > 0 ? "progressbar" : undefined} aria-label="Monthly booking target" aria-valuenow={target > 0 ? bookingsMonth : undefined} aria-valuemin={0} aria-valuemax={target > 0 ? Math.max(target, bookingsMonth) : undefined}><span style={{width: `${targetPct}%`}} /></div><div className="dashboard-goal-caption"><span>{target > 0 ? `${targetPct}% of monthly target` : "Set a target to track your progress"}</span><span>{target > 0 ? `${Math.max(0, target - bookingsMonth)} to go` : ""}</span></div><div className="dashboard-goal-note"><Sparkles size={15} /><span>{target > 0 && bookingsMonth >= target ? "Monthly booking target reached." : "Every booking moves the team forward."}</span></div></div>
+            </section>
           </div>
-        )}
+          <div className="dashboard-secondary-grid dashboard-operations-grid">
+            {packBreakdown.length > 0 && <section className="dashboard-overview-card"><div className="dashboard-card-heading"><div><h2>Clinic capacity</h2><p>Shows remaining across active clinic packs.</p></div><span className="dashboard-count-badge">{packBreakdown.reduce((sum, p) => sum + Math.max(0, p.remaining), 0)} to fill</span></div><div className="dashboard-capacity-list">{packBreakdown.filter(p => p.remaining !== 0).map(pack => <div className="dashboard-capacity-row" key={pack.clinicId}><span>{pack.clinicName}</span><span className={pack.remaining < 0 ? "over" : ""}>{pack.remaining < 0 ? `${Math.abs(pack.remaining)} over balance` : `${pack.remaining} shows remaining`}</span></div>)}</div></section>}
+            <div className="dashboard-pickup"><PickupRateCard /></div>
+          </div>
+        </> : <MyBookingResults />}
       </div>
 
       {/* Pack renewal confirmation (2 steps) */}
