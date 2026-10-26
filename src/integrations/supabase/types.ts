@@ -4448,6 +4448,11 @@ export type Database = {
       }
     }
     Functions: {
+      save_lead_contact: {
+        Args: { p_lead_id: string; p_first_name: string; p_last_name: string; p_phone: string; p_expected_first_name: string | null; p_expected_last_name: string | null; p_expected_phone: string | null }
+        Returns: Json
+      }
+
       ad_cost_per_show_monthly: {
         Args: { p_from?: string; p_to?: string }
         Returns: {

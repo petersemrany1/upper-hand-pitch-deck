@@ -1001,6 +1001,13 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
 
 
 
+    // Identity is saved separately; stale handovers cannot undo corrections.
+    const { data: currentContact, error: contactError } = await supabase.from("meta_leads")
+      .select("first_name,last_name,phone").eq("id", data.leadId).single();
+    if (contactError || !currentContact) return { success: false, error: "Could not load current contact details" };
+    data.firstName = currentContact.first_name ?? "";
+    data.lastName = currentContact.last_name ?? "";
+    data.phone = currentContact.phone;
     const fullName = [data.firstName, data.lastName].filter(Boolean).join(" ");
     const bookingDisplay = (() => {
       try {
@@ -1226,11 +1233,8 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     // If this fails, do not send the email — we never want a clinic email whose
     // patient-card intel wasn't captured.
     try {
-      const patientName = fullName || "Patient";
       const snapshotPayload = {
         lead_id: data.leadId,
-        patient_name: patientName,
-        patient_phone: data.phone ?? null,
         appointment_date: data.bookingDate,
         appointment_time: data.bookingTime,
         intel_notes: rawNotes || null,
@@ -1253,7 +1257,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       } else if (data.clinicId) {
         const { error: insertErr } = await supabase
           .from("clinic_appointments")
-          .insert({ ...snapshotPayload, clinic_id: data.clinicId });
+          .insert({ ...snapshotPayload, clinic_id: data.clinicId, patient_name: fullName || "Patient", patient_phone: data.phone ?? null });
         if (insertErr) throw insertErr;
       } else {
         throw new Error("No clinic appointment exists and no clinicId was provided");
