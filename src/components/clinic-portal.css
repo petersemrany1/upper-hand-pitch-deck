@@ -32,10 +32,11 @@
   .clinic-header-group:last-child { width: 100%; justify-content: space-between; }
   .clinic-header-group:last-child > div { min-width: 0; overflow-wrap: anywhere; flex: 1; }
   .clinic-header-group button { flex-shrink: 0; }
-  .clinic-portal button, .clinic-portal-header button { min-height: 44px; }
+  .clinic-portal button, .clinic-portal-header button, .clinic-modal button { min-height: 44px; }
   /* 16px prevents focus zoom on iOS. */
-  .clinic-portal input, .clinic-portal select, .clinic-portal textarea { font-size: 16px !important; min-width: 0; max-width: 100%; }
-  .clinic-portal input, .clinic-portal select { min-height: 44px; }
+  .clinic-portal input, .clinic-portal select, .clinic-portal textarea,
+  .clinic-modal input, .clinic-modal select, .clinic-modal textarea { font-size: 16px !important; min-width: 0; max-width: 100%; }
+  .clinic-portal input, .clinic-portal select, .clinic-modal input, .clinic-modal select { min-height: 44px; }
   .clinic-portal-content { padding: 12px !important; }
   .clinic-portal-tabs { padding: 0 4px !important; }
   .clinic-portal-tabs > button { padding: 14px 8px !important; gap: 4px !important; font-size: 12px !important; }
@@ -52,5 +53,11 @@
   .clinic-calendar-hint { display: block; font-size: 12px; color: #6b7785; margin: 0 0 10px; }
   .clinic-repeat-options { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   .clinic-slot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-  .clinic-modal { padding: 16px !important; max-height: calc(100dvh - 40px) !important; }
+  /* Patient dialogs are portalled into body, outside .clinic-portal. */
+  .clinic-modal { padding: 16px !important; max-height: calc(100dvh - 40px) !important; overflow-wrap: anywhere; }
+  .clinic-modal button { font-size: 14px !important; }
+  .clinic-date-popover { width: min(336px, calc(100vw - 24px)); max-width: calc(100vw - 24px); max-height: var(--radix-popover-content-available-height); overflow-y: auto; }
+  .clinic-date-popover [data-slot="calendar"] { width: 100%; --cell-size: clamp(36px, calc((100vw - 50px) / 7), 44px); }
+  .clinic-date-popover button { min-height: 44px; aspect-ratio: auto; }
+  .clinic-date-popover td { aspect-ratio: auto; min-width: 0; }
 }
