@@ -159,3 +159,26 @@
 .availability-history-summary { margin:0 0 5px; font-size:14px; font-weight:500; overflow-wrap:anywhere; }
 .availability-history-list time { color:#596b80; font-size:12px; font-variant-numeric:tabular-nums; }
 .availability-history-empty { padding:20px 0; color:#596b80; }
+
+/* Keep touch controls usable even when dialogs render outside the portal. */
+@media (max-width: 600px) {
+  .availability-dialog { overflow-wrap: anywhere; }
+  .availability-dialog button { min-height: 44px; }
+  .availability-dialog input:not([type=checkbox]),
+  .availability-dialog select { min-height: 44px; font-size: 16px; max-width: 100%; }
+  .availability-dialog-title button { min-width: 44px; flex-shrink: 0; }
+  .availability-dialog .availability-actions { flex-wrap: wrap; }
+  .availability-dialog .availability-repeat summary { min-height: 44px; align-content: center; }
+  .availability-dialog .availability-weekdays button { min-width: 44px; }
+  .availability-dialog .availability-checkbox { min-height: 44px; }
+  .availability-settings-dialog .availability-settings-form { grid-template-columns: minmax(0, 1fr); }
+  .availability-settings-dialog .availability-operating-day { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 10px 0; }
+  .availability-settings-dialog .availability-operating-day > label:first-child { grid-column: 1 / -1; min-height: 44px; }
+  .availability-settings-dialog .availability-operating-day > label { min-width: 0; }
+  .availability-settings-dialog .availability-operating-day input[type=time] { height: 44px; font-size: 16px; padding: 8px 6px; }
+  .availability-history-filters > label { width: 100%; min-width: 0; }
+}
+@media (max-width: 600px) and (pointer: coarse) {
+  /* Allow swiping the week from empty and booked time, not just its heading. */
+  .availability-day { touch-action: pan-x pan-y; }
+}
