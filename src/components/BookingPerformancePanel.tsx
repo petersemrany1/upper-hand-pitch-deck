@@ -5,11 +5,16 @@ import { getBookingPerformance } from "@/utils/booking-performance.functions";
 import { sydneyTodayISO } from "@/lib/timezone";
 import type { ReportingPeriod } from "@/lib/reporting-period";
 import { BookingConversionCard } from "./BookingConversionCard";
-import { BookingPerformanceView } from "./BookingPerformanceView";
+import { BookingPerformanceView, type BookingPerformanceTab } from "./BookingPerformanceView";
 
 export function BookingPerformancePanel({ compact = false }: { compact?: boolean }) {
   const { ready, session, role } = useAuth();
-  const [period, setPeriod] = useState<ReportingPeriod>("month");
+  const [tab, setTab] = useState<BookingPerformanceTab>("bookings");
+  const [bookingPeriod, setBookingPeriod] = useState<ReportingPeriod>("month");
+  const [conversionPeriod, setConversionPeriod] = useState<ReportingPeriod>("30d");
+  const isConversion = compact || tab === "conversion";
+  const period = isConversion ? conversionPeriod : bookingPeriod;
+  const setPeriod = isConversion ? setConversionPeriod : setBookingPeriod;
   const [start, setStart] = useState(sydneyTodayISO());
   const [end, setEnd] = useState(sydneyTodayISO());
   const [refresh, setRefresh] = useState(0);
@@ -28,5 +33,5 @@ export function BookingPerformancePanel({ compact = false }: { compact?: boolean
   if (compact) return <BookingConversionCard report={data} loading={loading} error={error?.message} onRetry={reload}
     period={period} onPeriod={setPeriod} start={start} end={end} onStart={setStart} onEnd={setEnd} />;
   return <BookingPerformanceView report={data} loading={loading} error={error?.message} onRetry={reload}
-    isAdmin={role === "admin"} period={period} onPeriod={setPeriod} start={start} end={end} onStart={setStart} onEnd={setEnd} />;
+    isAdmin={role === "admin"} tab={tab} onTab={setTab} period={period} onPeriod={setPeriod} start={start} end={end} onStart={setStart} onEnd={setEnd} />;
 }
