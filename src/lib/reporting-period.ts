@@ -1,11 +1,12 @@
 import { APP_TIMEZONE, sydneyTodayISO } from './timezone';
-export type ReportingPeriod = 'day' | 'week' | '30d' | '60d' | 'month' | 'year' | 'all' | 'custom';
+export type ReportingPeriod = 'day' | 'yesterday' | 'week' | '30d' | '60d' | 'month' | 'year' | 'all' | 'custom';
 export function addDays(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10);
 }
 export function periodDates(period: ReportingPeriod, start = '', end = '', now = new Date()) {
   const today = sydneyTodayISO(now);
   if (period === 'all') return { start: null, end: null };
+  if (period === 'yesterday') return { start: addDays(today, -1), end: addDays(today, -1) };
   if (period === 'custom') {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || start > end || !Number.isFinite(Date.parse(`${start}T00:00:00Z`)) || !Number.isFinite(Date.parse(`${end}T00:00:00Z`)) || addDays(start,0)!==start || addDays(end,0)!==end) return null;
     return { start, end };
