@@ -1,3 +1,4 @@
+import { EditContact } from "./sales-call/EditContact";
 import { CustomerJourneyTimeline } from "./sales-call/CustomerJourneyTimeline";
 import { useCustomerJourney, refreshCustomerJourney } from "./sales-call/useCustomerJourney";
 import { mediaUrls, messageItem } from "./sales-call/customer-journey";
@@ -2053,6 +2054,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             setAudioPrefill={setAudioPrefill}
             onBookedSaved={(leadId, patch) => {
               updateLocalLead(leadId, patch);
+              if ("first_name" in patch || "phone" in patch) return;
               if (leadId === active.id) {
                 outcomePendingRef.current = false;
                 outcomeRequiredRef.current = false;
@@ -3686,6 +3688,11 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const [previewPhone, setPreviewPhone] = useState("");
   const [previewEmail, setPreviewEmail] = useState("");
   const [previewClinicEmail, setPreviewClinicEmail] = useState("");
+  useEffect(() => {
+    setPatientSmsDraft(null);
+    setPreviewPhone(lead.phone ?? "");
+  }, [lead.id, lead.phone, lead.first_name, lead.last_name]);
+
 
   // Live Twilio state — used to hard-block "Send handover" while a call is active.
   const { status: liveCallStatus, activeLeadId: bookingCallLeadId } = useTwilioDevice();
@@ -4711,7 +4718,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       depositSent ||
       statusImpliesDeposit,
     );
-    setPreviewPhone(freshLead?.phone || lead.phone || "");
+    setPreviewPhone((freshLead ? freshLead.phone : lead.phone) ?? "");
     setPreviewEmail(freshLead?.email || lead.email || "");
     // The draft form may be cleared after a booking; resolve the clinic from the
     // lead's saved clinic_id so the handover email goes to the right place.
@@ -5270,9 +5277,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                 {/* Contact */}
                 <div style={{ marginBottom: 8 }}>
                   <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Patient Contact <span style={{ color: COLORS.coral }}>— editable</span></div>
-                  <input value={previewPhone} onChange={(e) => setPreviewPhone(e.target.value)} placeholder="Phone"
-                    className="w-full rounded-[6px] outline-none mb-2"
-                    style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }} />
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span>{previewPhone || "No phone number"}</span>
+                    <EditContact key={lead.id} leadId={lead.id} disabled={sendingHandover} onSaved={(contact) => {
+                      setPreviewPhone(contact.phone ?? "");
+                      onBookedSaved?.(contact.id, contact);
+                      setPatientSmsDraft(null);
+                    }} />
+                  </div>
                   <input value={previewEmail} onChange={(e) => setPreviewEmail(e.target.value)} placeholder="Patient email"
                     className="w-full rounded-[6px] outline-none"
                     style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }} />
@@ -7853,6 +7865,10 @@ function RightPanel({
           </button>
           )}
         </div>
+        {!practiceMode && <div className="mt-2 flex items-center justify-between gap-2">
+          <span className="text-sm text-gray-600">{active.phone || "No phone number"}</span>
+          <EditContact key={active.id} leadId={active.id} onSaved={(contact) => onLocalLeadUpdate?.(contact.id, contact)} />
+        </div>}
         {(() => {
           // Location can arrive from Meta (ad_set_name / campaign_name) or from the
           // website booking form (raw_payload.location, sometimes nested one level).
