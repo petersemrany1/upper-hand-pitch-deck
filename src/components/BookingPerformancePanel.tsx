@@ -4,9 +4,10 @@ import { useQuietRefresh } from "@/hooks/useQuietRefresh";
 import { getBookingPerformance } from "@/utils/booking-performance.functions";
 import { sydneyTodayISO } from "@/lib/timezone";
 import type { ReportingPeriod } from "@/lib/reporting-period";
+import { BookingConversionCard } from "./BookingConversionCard";
 import { BookingPerformanceView } from "./BookingPerformanceView";
 
-export function BookingPerformancePanel() {
+export function BookingPerformancePanel({ compact = false }: { compact?: boolean }) {
   const { ready, session, role } = useAuth();
   const [period, setPeriod] = useState<ReportingPeriod>("month");
   const [start, setStart] = useState(sydneyTodayISO());
@@ -24,6 +25,8 @@ export function BookingPerformancePanel() {
     queryKey: JSON.stringify([session?.user.id, role, period, start, end]),
     load, refreshKey: refresh, enabled: ready && !!session,
   });
+  if (compact) return <BookingConversionCard report={data} loading={loading} error={error?.message} onRetry={reload}
+    period={period} onPeriod={setPeriod} start={start} end={end} onStart={setStart} onEnd={setEnd} />;
   return <BookingPerformanceView report={data} loading={loading} error={error?.message} onRetry={reload}
     isAdmin={role === "admin"} period={period} onPeriod={setPeriod} start={start} end={end} onStart={setStart} onEnd={setEnd} />;
 }

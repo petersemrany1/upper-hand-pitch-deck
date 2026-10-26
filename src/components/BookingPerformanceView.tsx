@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from "react";
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ArrowDownRight, ArrowUpRight, CalendarDays, Check, ChevronRight, Clock3, PhoneOutgoing, TrendingUp, Users } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Check, ChevronRight, Clock3, PhoneOutgoing, TrendingUp, Users } from "lucide-react";
 import type { BookingPerformanceReport } from "@/utils/booking-performance.functions";
 import { groupBookingDays, type BookingGrouping } from "@/lib/booking-performance";
 import { APP_TIMEZONE } from "@/lib/timezone";
@@ -107,8 +107,8 @@ export function BookingPerformanceView({ report, isAdmin, loading, error, onRetr
                     <Line type="linear" dataKey="bookings" name="Bookings" stroke="#e9613e" strokeWidth={2.5} dot={points.length <= 35 ? { r: 3, fill: "#fff", strokeWidth: 2 } : false} activeDot={{ r: 5, strokeWidth: 3, stroke: "#fff" }} isAnimationActive={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
-              </div> : <p className="booking-empty">No elapsed dates in this period.</p>}
-              <div className="booking-chart-caption"><span><i />Bookings per {grouping}</span><span>{selectedBookings === 0 ? "No bookings in this period" : `Current ${grouping} may be incomplete`}</span></div>
+              </div> : <p className="booking-empty">No recorded work activity in this period.</p>}
+              <div className="booking-chart-caption"><span><i />Bookings per {grouping} · active workdays only</span><span>{selectedBookings === 0 ? "No bookings in this period" : `Current ${grouping} may be incomplete`}</span></div>
             </div>
             {isAdmin && <div className="booking-by-rep">
               <div className="booking-rep-heading"><div><span className="booking-eyebrow">TEAM CONTRIBUTION</span><h3>Bookings by rep</h3></div><Users size={17} /></div>
@@ -126,24 +126,24 @@ export function BookingPerformanceView({ report, isAdmin, loading, error, onRetr
           </details>
         </> : conversion ? <div className="booking-conversion">
           <div className="booking-conversion-main">
-            <div className="booking-conversion-hero"><span className="booking-conversion-kicker"><PhoneOutgoing size={16} />CALLS TO BOOKINGS</span><h3>{conversion.repName}</h3><strong className="booking-percentage">{percent(conversion.percentage)}</strong><p>{number(conversion.bookings)} bookings ÷ {number(conversion.attempts)} call attempts × 100</p><div className="booking-conversion-period"><CalendarDays size={14} />{rangeLabel}</div></div>
-            <div className="booking-conversion-breakdown"><div className="booking-conversion-heading"><div><h3>Behind the percentage</h3><p>Every attempt counted consistently.</p></div><span className="booking-badge"><Check size={13} />Double dials count once</span></div>
+            <div className="booking-conversion-hero"><span className="booking-conversion-kicker"><PhoneOutgoing size={16} />CALLS TO BOOKINGS</span><h3>{conversion.repName}</h3><strong className="booking-percentage">{percent(conversion.percentage)}</strong><p>{number(conversion.bookedPeople)} people booked ÷ {number(conversion.connectedPeople)} people connected × 100</p><div className="booking-conversion-period"><CalendarDays size={14} />{rangeLabel}</div></div>
+            <div className="booking-conversion-breakdown"><div className="booking-conversion-heading"><div><h3>Behind the percentage</h3><p>People she connected with, counted once.</p></div><span className="booking-badge"><Check size={13} />Each person counts once</span></div>
               <dl className="booking-conversion-counts">
-                <div><dt><CalendarDays size={15} />Bookings made</dt><dd>{number(conversion.bookings)}</dd><p>By the date booked</p></div>
-                <div><dt><PhoneOutgoing size={15} />Call attempts</dt><dd>{number(conversion.attempts)}</dd><p>After combining double dials</p></div>
-                <div><dt><ArrowUpRight size={15} />Actual dials</dt><dd>{number(conversion.rawDials)}</dd><p>Including unanswered calls</p></div>
-                <div><dt><ArrowDownRight size={15} />Repeat dials combined</dt><dd>{number(conversion.doubleDials)}</dd><p>Within the 60-second window</p></div>
+                <div><dt><Users size={15} />People connected</dt><dd>{number(conversion.connectedPeople)}</dd><p>Excludes unanswered calls</p></div>
+                <div><dt><CalendarDays size={15} />People who booked</dt><dd>{number(conversion.bookedPeople)}</dd><p>From those connected people</p></div>
+                <div><dt><Users size={15} />Not booked yet</dt><dd>{number(conversion.connectedPeople - conversion.bookedPeople)}</dd><p>Connected, without a later booking</p></div>
+                <div><dt><PhoneOutgoing size={15} />Repeat connections excluded</dt><dd>{number(conversion.repeatConnections)}</dd><p>Double dials and repeat conversations</p></div>
               </dl>
-              {conversion.percentage === null && <p className="booking-no-calls">No call attempts in this period, so there is no percentage yet.</p>}
+              {conversion.percentage === null && <p className="booking-no-calls">No connected people in this period, so there is no percentage yet.</p>}
             </div>
           </div>
           <details className="booking-metric-definition"><summary>How this percentage is calculated <ChevronRight size={14} /></summary>
-            <p>Bookings made by {conversion.repName} divided by outbound patient call attempts in the selected period. Unanswered calls count. Repeat dials to the same patient within 60 seconds count as one attempt; later calls count separately. An attempt belongs to the date of its first dial.</p>
-            <p>Test/demo records, inbound calls and clinic prospecting calls are excluded. Bookings and calls use their own dates, so a booking can follow a call from an earlier period. This is a period ratio, not the percentage of individual patients who eventually book. Rescheduling does not add a booking.</p>
+            <p>Of the people {conversion.repName} connected with in the selected period, the percentage who subsequently booked with {conversion.repName}. Each person counts once, including double dials and repeat conversations. A connection follows the portal rule: at least 15 seconds, or manually marked connected. Unanswered, failed and pending calls are excluded.</p>
+            <p>Only bookings linked to those people count. Later bookings are included up to the last update, even if made after the selected period. Calls after a booking or deposit payment, test/demo records, inbound calls and clinic prospecting are excluded.</p>
           </details>
         </div> : <p className="booking-empty">{isAdmin ? "Nina's rep account could not be found." : "Your rep account could not be found."}</p>}
       </div>}
-      <div className="booking-report-footnote"><span><Clock3 size={12} />Sydney time</span><span>By date booked · Reschedules count once · Includes free trials</span></div>
+      <div className="booking-report-footnote"><span><Clock3 size={12} />Sydney time</span><span>Days with call or booking activity · Reschedules count once</span></div>
     </div>
   </section>;
 }

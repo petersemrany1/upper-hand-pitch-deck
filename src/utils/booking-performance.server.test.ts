@@ -3,12 +3,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { loadBookingPerformance } from "./booking-performance.server";
 
-type Row = Record<string, string | boolean | null>;
+type Row = Record<string, string | number | boolean | null>;
 const nina = { id: "nina", name: "Nina Sinclair", first_name: "Nina", role: "rep", is_active: true };
 const other = { id: "other", name: "Other Rep", first_name: "Other", role: "rep", is_active: true };
 const now = new Date("2026-10-27T06:00:00Z");
-const appointment = (id: string, rep = "nina", date = "2026-10-27T01:00:00Z") => ({ id, booking_rep_id: rep, booked_at: date, patient_name: "Actual Patient" });
-const dial = (id: string, rep = "nina", date = "2026-10-27T00:00:00Z") => ({ id, rep_id: rep, lead_id: `lead-${id}`, phone: null, called_at: date, direction: "outbound", status: "no-answer", clinic_id: null, twilio_call_sid: `sid-${id}` });
+const appointment = (id: string, rep = "nina", date = "2026-10-27T01:00:00Z") => ({ id, booking_rep_id: rep, booked_at: date, patient_name: "Actual Patient", lead_id: "lead-1", patient_phone: null });
+const dial = (id: string, rep = "nina", date = "2026-10-27T00:00:00Z") => ({ id, rep_id: rep, lead_id: `lead-${id}`, phone: null, called_at: date, direction: "outbound", status: "completed", duration: 20, duration_seconds: null, outcome: null, clinic_id: null, twilio_call_sid: `sid-${id}` });
 
 function database(actor: { id: string; role: string } | null, overrides: Record<string, Row[]> = {}, failTable = "", failOffset = 0) {
   const tables: Record<string, Row[]> = { sales_reps: [nina, other], clinic_appointments: [appointment("a"), appointment("b", "other")], call_records: [dial("1"), dial("2"), dial("3", "other")], meta_leads: [], ...overrides };
@@ -70,8 +70,8 @@ describe("booking report data access", () => {
     });
     const report = await loadBookingPerformance(test.db, { period: "day" }, now);
     expect(report.total).toBe(1101);
-    expect(report.conversion?.attempts).toBe(1102);
-    expect(test.reads.filter(r => r.table === "clinic_appointments").map(r => r.offset)).toEqual([0, 500, 1000]);
+    expect(report.conversion?.connectedPeople).toBe(1102);
+    expect(test.reads.filter(r => r.table === "clinic_appointments" && !r.filters.some(([key]) => key === "booking_rep_id")).map(r => r.offset)).toEqual([0, 500, 1000]);
     expect(test.reads.filter(r => r.table === "call_records").map(r => r.offset)).toEqual([0, 500, 1000]);
   });
   it("does not turn a failed later page into a plausible partial count", async () => {
@@ -86,13 +86,12 @@ describe("booking report data access", () => {
     expect(report.days).toHaveLength(30);
     expect(report.conversion?.percentage).toBeNull();
   });
-  it("loads the lookback so a double dial crossing Sydney midnight is counted once", async () => {
+  it("counts the connected person inside the selected period once across midnight", async () => {
     const calls = [dial("1", "nina", "2026-10-26T12:59:30Z"), { ...dial("2", "nina", "2026-10-26T13:00:10Z"), lead_id: "lead-1" }];
     const test = database({ id: "admin", role: "admin" }, { call_records: calls });
     const report = await loadBookingPerformance(test.db, { period: "day" }, now);
-    expect(report.conversion?.attempts).toBe(0);
-    expect(report.conversion?.rawDials).toBe(1);
-    expect(report.conversion?.doubleDials).toBe(1);
+    expect(report.conversion?.connectedPeople).toBe(1);
+    expect(report.conversion?.connectedCalls).toBe(1);
   });
   it("excludes test/demo dials from the percentage and includes zero booking reps", async () => {
     const test = database({ id: "admin", role: "admin" }, {
@@ -100,8 +99,8 @@ describe("booking report data access", () => {
       meta_leads: [{ id: "lead-1", first_name: "Peter", last_name: "Test 2" }],
     });
     const report = await loadBookingPerformance(test.db, { period: "month" }, now);
-    expect(report.conversion?.attempts).toBe(1);
-    expect(report.conversion?.percentage).toBe(100);
+    expect(report.conversion?.connectedPeople).toBe(1);
+    expect(report.conversion?.percentage).toBe(0);
     expect(report.reps.find(r => r.id === "other")?.bookings).toBe(0);
   });
   it("shows unavailable rather than zero if Nina is absent and rejects invalid custom ranges", async () => {
@@ -109,4 +108,23 @@ describe("booking report data access", () => {
     expect((await loadBookingPerformance(test.db, { period: "month" }, now)).conversion).toBeNull();
     await expect(loadBookingPerformance(test.db, { period: "custom", start: "2026-10-30", end: "2026-10-01" }, now)).rejects.toThrow("Choose a valid");
   });
+  it("counts a later booking for a historical connection and retains workdays without bookings", async () => {
+    const test = database({ id: "admin", role: "admin" }, {
+      clinic_appointments: [appointment("later", "nina", "2026-10-20T00:00:00Z")],
+      call_records: [dial("1", "nina", "2026-09-15T00:00:00Z"), { ...dial("2", "nina", "2026-09-16T00:00:00Z"), status: "no-answer", duration: 0 }],
+    });
+    const report = await loadBookingPerformance(test.db, { period: "custom", start: "2026-09-01", end: "2026-09-30" }, now);
+    expect(report.total).toBe(0);
+    expect(report.conversion?.connectedPeople).toBe(1);
+    expect(report.conversion?.bookedPeople).toBe(1);
+    expect(report.conversion?.percentage).toBe(100);
+    expect(report.days.filter(day => day.workedByRep.nina).map(day => day.date)).toEqual(["2026-09-15", "2026-09-16"]);
+  });
+  it("starts all-time charts at the first work activity, even before the first booking", async () => {
+    const test = database({ id: "nina", role: "rep" }, { call_records: [dial("1", "nina", "2026-09-15T00:00:00Z")] });
+    const report = await loadBookingPerformance(test.db, { period: "all" }, now);
+    expect(report.start).toBe("2026-09-15");
+    expect(report.days[0].workedByRep).toEqual({ nina: true });
+  });
+
 });

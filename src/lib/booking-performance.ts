@@ -9,6 +9,8 @@ export type PerformanceBooking = {
   booked_at: string;
   booking_rep_id: string | null;
   patient_name: string;
+  lead_id?: string | null;
+  patient_phone?: string | null;
 };
 export type PerformanceRep = { id: string; name: string; role: string; is_active: boolean };
 export type PerformanceCall = {
@@ -21,8 +23,11 @@ export type PerformanceCall = {
   status: string | null;
   clinic_id: string | null;
   twilio_call_sid: string | null;
+  duration?: number | null;
+  duration_seconds?: number | null;
+  outcome?: string | null;
 };
-export type BookingDay = { date: string; total: number; byRep: Record<string, number> };
+export type BookingDay = { date: string; total: number; byRep: Record<string, number>; workedByRep: Record<string, true> };
 export type BookingGrouping = "day" | "week" | "month";
 
 // Keep the dashboard's existing test/demo exclusion consistent in every count.
@@ -73,17 +78,78 @@ export function countDialAttempts(calls: PerformanceCall[], from: string | null,
   return { attempts, rawDials, doubleDials };
 }
 
+/** Use the portal's existing connection rule, never ring time or a failed dial. */
+export function isConnectedCall(call: PerformanceCall) {
+  if (["queued", "initiated", "ringing", "in-progress"].includes(call.status ?? "")) return false;
+  return call.outcome === "connected" || (!["no-answer", "busy", "failed", "canceled"].includes(call.status ?? "")
+    && (call.duration ?? call.duration_seconds ?? 0) >= 15);
+}
+
+/** People connected in the selected period, with later bookings counted through asOf.
+ * Each person counts once. Exclude calls after their booking or deposit payment.
+ * Match by lead ID, with normalized phone numbers joining calls lacking a lead ID.
+ */
+export function connectedBookingConversion(calls: PerformanceCall[], bookings: PerformanceBooking[], repId: string,
+  from: string | null, to: string, asOf: string, excludedLeads = new Set<string>(), depositPaid = new Map<string, number>()) {
+  const start = from ? Date.parse(from) : -Infinity, end = Date.parse(to), now = Date.parse(asOf);
+  // Join known phone aliases to the lead so a changed number cannot count the
+  // same person twice. Phone-only calls can still join that person's booking.
+  const parents = new Map<string, string>();
+  function root(key: string): string {
+    const parent = parents.get(key);
+    if (!parent || parent === key) return key;
+    const result = root(parent); parents.set(key, result); return result;
+  }
+  function link(lead: string | null | undefined, phone: string | null | undefined) {
+    const digits = phoneKey(phone ?? null);
+    if (lead && digits) parents.set(root(`phone:${digits}`), root(`lead:${lead}`));
+  }
+  for (const row of bookings) if (row.booking_rep_id === repId) link(row.lead_id, row.patient_phone);
+  for (const row of calls) if (row.rep_id === repId) link(row.lead_id, row.phone);
+  const personKey = (lead: string | null | undefined, phone: string | null | undefined, fallback: string) => {
+    const digits = phoneKey(phone ?? null);
+    return root(lead ? `lead:${lead}` : digits ? `phone:${digits}` : fallback);
+  };
+  const bookedAt = new Map<string, number>();
+  for (const row of bookings) {
+    const time = Date.parse(row.booked_at);
+    if (row.booking_rep_id !== repId || isExampleBooking(row.patient_name) || !Number.isFinite(time) || time >= now
+      || (row.lead_id && excludedLeads.has(row.lead_id))) continue;
+    const key = personKey(row.lead_id, row.patient_phone, `booking:${row.id}`);
+    bookedAt.set(key, Math.min(bookedAt.get(key) ?? Infinity, time));
+  }
+  const connected = new Map<string, number>(), seen = new Set<string>();
+  let connectedCalls = 0;
+  for (const call of calls) {
+    const time = Date.parse(call.called_at), sid = call.twilio_call_sid || call.id;
+    if (call.rep_id !== repId || call.direction !== "outbound" || (call.clinic_id && !call.lead_id)
+      || (call.lead_id && excludedLeads.has(call.lead_id)) || !isConnectedCall(call)
+      || !Number.isFinite(time) || time < start || time >= end || seen.has(sid)) continue;
+    seen.add(sid);
+    const key = personKey(call.lead_id, call.phone, `call:${call.id}`);
+    const booked = bookedAt.get(key), paid = call.lead_id ? depositPaid.get(call.lead_id) : undefined;
+    if ((booked !== undefined && time > booked) || (paid !== undefined && time > paid)) continue;
+    connectedCalls++;
+    connected.set(key, Math.min(connected.get(key) ?? Infinity, time));
+  }
+  let bookedPeople = 0;
+  for (const [key, time] of connected) if ((bookedAt.get(key) ?? -Infinity) >= time) bookedPeople++;
+  const connectedPeople = connected.size;
+  return { connectedPeople, bookedPeople, connectedCalls, repeatConnections: connectedCalls - connectedPeople,
+    percentage: connectedPeople ? bookedPeople / connectedPeople * 100 : null };
+}
+
 /** Count appointment IDs once, by when booked and the recorded booking rep.
  * Appointment dates, reschedules, reminder rows and revenue never enter this metric.
  */
-export function bookingPerformance(bookings: PerformanceBooking[], reps: PerformanceRep[], start: string, end: string, now = new Date()) {
+export function bookingPerformance(bookings: PerformanceBooking[], reps: PerformanceRep[], start: string, end: string, now = new Date(), calls: PerformanceCall[] = []) {
   const today = sydneyTodayISO(now);
   const monday = addDays(today, -((new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7));
   const yesterday = addDays(today, -1);
   const monthStart = `${today.slice(0, 7)}-01`;
   const days = new Map<string, BookingDay>();
   for (let date = start; date <= end && date <= today; date = addDays(date, 1)) {
-    days.set(date, { date, total: 0, byRep: {} });
+    days.set(date, { date, total: 0, byRep: {}, workedByRep: {} });
   }
   const summary = { today: 0, yesterday: 0, week: 0, month: 0 };
   const counts = new Map<string, number>();
@@ -101,9 +167,18 @@ export function bookingPerformance(bookings: PerformanceBooking[], reps: Perform
     const day = days.get(date);
     if (!day) continue;
     const repId = booking.booking_rep_id || UNASSIGNED_REP;
+    day.workedByRep[repId] = true;
     day.total++;
     day.byRep[repId] = (day.byRep[repId] ?? 0) + 1;
     counts.set(repId, (counts.get(repId) ?? 0) + 1);
+  }
+  // A workday has recorded patient call or booking activity, even if no call connected.
+  for (const call of calls) {
+    const time = new Date(call.called_at);
+    if (!call.rep_id || call.direction !== "outbound" || (call.clinic_id && !call.lead_id)
+      || ["queued", "initiated"].includes(call.status ?? "") || !Number.isFinite(time.getTime()) || time > now) continue;
+    const day = days.get(sydneyTodayISO(time));
+    if (day) day.workedByRep[call.rep_id] = true;
   }
   const rows = reps.filter(rep => (rep.role === "rep" && rep.is_active) || counts.has(rep.id))
     .map(rep => ({ id: rep.id, name: rep.name, bookings: counts.get(rep.id) ?? 0 }));
@@ -118,6 +193,7 @@ export function bookingPerformance(bookings: PerformanceBooking[], reps: Perform
 export function groupBookingDays(days: BookingDay[], grouping: BookingGrouping, repId = "") {
   const buckets = new Map<string, { date: string; end: string; bookings: number }>();
   for (const day of days) {
+    if (repId ? !day.workedByRep[repId] : !Object.keys(day.workedByRep).length) continue;
     const key = grouping === "month" ? `${day.date.slice(0, 7)}-01`
       : grouping === "week" ? addDays(day.date, -((new Date(`${day.date}T12:00:00Z`).getUTCDay() + 6) % 7)) : day.date;
     const bucket = buckets.get(key) ?? { date: day.date, end: day.date, bookings: 0 };
