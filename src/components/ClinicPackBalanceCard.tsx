@@ -234,7 +234,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin: requestedAdmin, refre
             <div className="clinic-pack-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: SPACE_8, flex: "0 1 664px", minWidth: 0 }}>
               <Stat label="Reserved" value={bal.reserved} sub="booked consults" />
               <Stat label="Used" value={bal.used} sub="delivered" />
-              <Stat label="Bought" value={bal.bought} sub="all time" />
+              <Stat label="Purchased" value={bal.bought} sub="all time" />
               {showRateStat}
             </div>
           </div>
@@ -256,7 +256,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin: requestedAdmin, refre
             </button>
             {showHelp && (
               <div style={{ marginTop: SPACE_8, fontSize: 12.5, color: GREY_TEXT_DARK, lineHeight: 1.55, maxWidth: 720 }}>
-                A delivered consult uses one credit. A booking reserves one until the consult happens. A no-show gives the credit back. Buying a pack adds credits.
+                A delivered consult uses one credit. A booking reserves one until the consult happens. A no-show gives the credit back. Purchasing a pack adds credits.
                 {alloc.totals.free > 0 && ` ${alloc.totals.free} of your credits were given free.`}
                 {alloc.totals.trial > 0 && ` Your ${alloc.totals.trial}-consult free trial sits outside this balance.`}
               </div>
