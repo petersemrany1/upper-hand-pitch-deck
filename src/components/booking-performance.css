@@ -79,6 +79,15 @@
 .booking-details th:last-child,.booking-details td:last-child { text-align:right; }
 .booking-details caption { text-align:left; padding:8px 0; color:#858a96; font-size:11px; }
 .booking-table-scroll { max-height:260px; overflow:auto; }
+.booking-monthly-totals { margin-top:20px; border-top:1px solid #eeeff2; }
+.booking-monthly-totals table { width:100%; border-collapse:collapse; text-align:left; font-size:12px; }
+.booking-monthly-totals caption { text-align:left; padding:16px 0 12px; color:#626772; font-weight:600; }
+.booking-monthly-totals th,.booking-monthly-totals td { padding:10px 8px; border-bottom:1px solid #eeeff2; }
+.booking-monthly-totals thead th { position:sticky; top:0; background:#fff; color:#858a96; font-size:11px; font-weight:500; }
+.booking-monthly-totals tbody th { font-weight:500; color:#626772; }
+.booking-monthly-totals tbody th span { display:block; margin-top:4px; color:#9296a0; font-size:11px; font-weight:400; }
+.booking-monthly-totals th:last-child,.booking-monthly-totals td { text-align:right; font-variant-numeric:tabular-nums; }
+.booking-monthly-totals td { font-weight:600; color:var(--bp-ink); }
 .booking-conversion { padding:28px; }
 .booking-conversion-main { display:grid; grid-template-columns:minmax(220px,.85fr) minmax(0,1.4fr); gap:30px; align-items:stretch; }
 .booking-conversion-hero { background:#272c36; border-radius:14px; padding:28px; color:#fff; display:flex; flex-direction:column; align-items:flex-start; }
