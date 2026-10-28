@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { groupBookingDays } from "@/lib/booking-performance";
 import { loadBookingPerformance } from "./booking-performance.server";
 
 type Row = Record<string, string | number | boolean | null>;
@@ -85,6 +86,24 @@ describe("booking report data access", () => {
     expect(report.summary.today).toBe(1);
     expect(report.days).toHaveLength(30);
     expect(report.conversion?.percentage).toBeNull();
+  });
+  it("loads every month since the first booking, including empty months and previous years", async () => {
+    const test = database({ id: "admin", role: "admin" }, { clinic_appointments: [
+      appointment("first", "other", "2025-12-31T12:59:59Z"),
+      appointment("new-year", "nina", "2025-12-31T13:00:00Z"),
+      appointment("last-month", "nina", "2026-09-30T13:59:59Z"),
+      appointment("this-month", "nina", "2026-09-30T14:00:00Z"),
+      appointment("today"),
+    ] });
+    const report = await loadBookingPerformance(test.db, { period: "all" }, now);
+    const months = groupBookingDays(report.days, "month");
+    expect(report.start).toBe("2025-12-31");
+    expect(report.end).toBe("2026-10-27");
+    expect(months).toHaveLength(11);
+    expect(months.map(month => month.bookings)).toEqual([1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 2]);
+    expect(months.reduce((total, month) => total + month.bookings, 0)).toBe(report.total);
+    expect(report.summary.month).toBe(2);
+    expect(groupBookingDays(report.days, "month", "other").map(month => month.bookings)).toEqual([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   });
   it("counts the connected person inside the selected period once across midnight", async () => {
     const calls = [dial("1", "nina", "2026-10-26T12:59:30Z"), { ...dial("2", "nina", "2026-10-26T13:00:10Z"), lead_id: "lead-1" }];

@@ -10,7 +10,7 @@ import { BookingPerformanceView, type BookingPerformanceTab } from "./BookingPer
 export function BookingPerformancePanel({ compact = false }: { compact?: boolean }) {
   const { ready, session, role } = useAuth();
   const [tab, setTab] = useState<BookingPerformanceTab>("bookings");
-  const [bookingPeriod, setBookingPeriod] = useState<ReportingPeriod>("month");
+  const [bookingPeriod, setBookingPeriod] = useState<ReportingPeriod>("all");
   const [conversionPeriod, setConversionPeriod] = useState<ReportingPeriod>("30d");
   const isConversion = compact || tab === "conversion";
   const period = isConversion ? conversionPeriod : bookingPeriod;

@@ -3,14 +3,15 @@ import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip,
 import { ArrowUpRight, CalendarDays, Check, ChevronRight, Clock3, PhoneOutgoing, TrendingUp, Users } from "lucide-react";
 import type { BookingPerformanceReport } from "@/utils/booking-performance.functions";
 import { groupBookingDays, type BookingGrouping } from "@/lib/booking-performance";
-import { APP_TIMEZONE } from "@/lib/timezone";
-import type { ReportingPeriod } from "@/lib/reporting-period";
+import { APP_TIMEZONE, sydneyTodayISO } from "@/lib/timezone";
+import { addDays, type ReportingPeriod } from "@/lib/reporting-period";
 import { ReportingPeriodSelect } from "./ReportingPeriodSelect";
 import "./booking-performance.css";
 
 const number = (value: number) => value.toLocaleString("en-AU");
 const percent = (value: number | null | undefined) => value == null ? "—" : `${value.toLocaleString("en-AU", { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%`;
 const dateLabel = (date: string, monthOnly = false) => new Date(`${date}T12:00:00Z`).toLocaleDateString("en-AU", monthOnly ? { month: "short", year: "2-digit", timeZone: "UTC" } : { day: "numeric", month: "short", timeZone: "UTC" });
+const monthLabel = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString("en-AU", { month: "long", year: "numeric", timeZone: "UTC" });
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase();
 
 export type BookingPerformanceTab = "bookings" | "conversion";
@@ -33,7 +34,16 @@ type ViewProps = {
 
 export function BookingPerformanceView({ report, isAdmin, loading, error, onRetry, period, onPeriod, start, end, onStart, onEnd, tab, onTab }: ViewProps) {
   const [repId, setRepId] = useState("");
-  const [grouping, setGrouping] = useState<BookingGrouping>("day");
+  const [grouping, setGrouping] = useState<BookingGrouping>(period === "all" || period === "year" ? "month" : "day");
+  const changePeriod = (next: ReportingPeriod) => {
+    onPeriod(next);
+    if (tab === "bookings" && next !== "custom") setGrouping(next === "all" || next === "year" ? "month" : "day");
+  };
+  const changeGrouping = (next: BookingGrouping) => {
+    setGrouping(next);
+    // Monthly is the complete booking history, even after viewing a short period.
+    if (next === "month") onPeriod("all");
+  };
   const gradientId = useId().replace(/:/g, "");
   const selectedRep = report?.reps.find(rep => rep.id === repId);
   const points = useMemo(() => groupBookingDays(report?.days ?? [], grouping, selectedRep?.id), [report?.days, grouping, selectedRep?.id]);
@@ -53,10 +63,12 @@ export function BookingPerformanceView({ report, isAdmin, loading, error, onRetr
   const selectedBookings = selectedRep?.bookings ?? report?.total ?? 0;
   const maxRepBookings = Math.max(1, ...(report?.reps.map(rep => rep.bookings) ?? []));
   const totalLabel = `${number(selectedBookings)} booking${selectedBookings === 1 ? "" : "s"}`;
+  const currentMonth = report ? sydneyTodayISO(new Date(report.asOf)).slice(0, 7) : "";
+  const lastMonth = currentMonth ? addDays(`${currentMonth}-01`, -1).slice(0, 7) : "";
 
   return <section className="booking-performance" aria-label="Booking performance">
     <div className="booking-summary">
-      {summaryCards.map(({ Icon, ...card }) => <button key={card.key} type="button" className={`booking-stat ${period === card.period ? "selected" : ""}`} onClick={() => onPeriod(card.period)} aria-label={`Bookings ${card.label.toLowerCase()}`} aria-pressed={period === card.period}>
+      {summaryCards.map(({ Icon, ...card }) => <button key={card.key} type="button" className={`booking-stat ${period === card.period ? "selected" : ""}`} onClick={() => changePeriod(card.period)} aria-label={`Bookings ${card.label.toLowerCase()}`} aria-pressed={period === card.period}>
         <span className="booking-stat-top"><span>{card.label}</span><span className="booking-stat-icon"><Icon size={16} strokeWidth={1.6} /></span></span>
         <span className="booking-stat-value"><strong>{report ? number(report.summary[card.key]) : <span className="booking-skeleton-number" />}</strong><span>bookings</span></span>
         <span className="booking-stat-bottom"><span>{!isAdmin && report ? `$${number(report.summary[card.key] * 50)} booking bonus` : card.note}</span><ArrowUpRight size={14} /></span>
@@ -66,7 +78,7 @@ export function BookingPerformanceView({ report, isAdmin, loading, error, onRetr
     <div className="booking-report">
       <div className="booking-report-header">
         <div className="booking-report-intro"><span className="booking-section-icon"><TrendingUp size={18} /></span><div><h2>Booking performance</h2><p>A clear view of the work turning into bookings.</p></div></div>
-        <div className="booking-period-control"><CalendarDays size={15} /><ReportingPeriodSelect value={period} onChange={onPeriod} start={start} end={end} onStart={onStart} onEnd={onEnd} /></div>
+        <div className="booking-period-control"><CalendarDays size={15} /><ReportingPeriodSelect value={period} onChange={changePeriod} start={start} end={end} onStart={onStart} onEnd={onEnd} /></div>
       </div>
       <div className="booking-tab-bar">
         <div className="booking-tabs" role="tablist" aria-label="Booking reports">
@@ -93,7 +105,7 @@ export function BookingPerformanceView({ report, isAdmin, loading, error, onRetr
             <div className="booking-trend">
               <div className="booking-chart-header">
                 <div><span className="booking-eyebrow">{selectedRep ? selectedRep.name : isAdmin ? "All reps" : "Your performance"}</span><h3>{selectedRep ? `${selectedRep.name.split(/\s+/)[0]}'s booking trend` : isAdmin ? "Team booking trend" : "Your booking trend"}</h3></div>
-                <div className="booking-interval" role="group" aria-label="Chart interval">{(["day", "week", "month"] as const).map(interval => <button key={interval} aria-pressed={grouping === interval} onClick={() => setGrouping(interval)}>{interval === "day" ? "Daily" : interval === "week" ? "Weekly" : "Monthly"}</button>)}</div>
+                <div className="booking-interval" role="group" aria-label="Chart interval">{(["day", "week", "month"] as const).map(interval => <button type="button" key={interval} aria-pressed={grouping === interval} onClick={() => changeGrouping(interval)}>{interval === "day" ? "Daily" : interval === "week" ? "Weekly" : "Monthly"}</button>)}</div>
               </div>
               <div className="booking-chart-metrics"><div className="booking-chart-total"><strong>{number(selectedBookings)}</strong><span>booking{selectedBookings === 1 ? "" : "s"}<small>{rangeLabel}</small></span></div>
                 {isAdmin && <select aria-label="Booking trend rep" value={selectedRep?.id ?? ""} onChange={e => setRepId(e.target.value)}><option value="">All reps</option>{report.reps.map(rep => <option key={rep.id} value={rep.id}>{rep.name}</option>)}</select>}
@@ -105,13 +117,24 @@ export function BookingPerformanceView({ report, isAdmin, loading, error, onRetr
                     <CartesianGrid vertical={false} stroke="#ecedf0" strokeDasharray="3 5" />
                     <XAxis dataKey="date" tickFormatter={value => dateLabel(value, grouping === "month")} tick={{ fontSize: 11, fill: "#858994" }} axisLine={false} tickLine={false} minTickGap={34} dy={8} />
                     <YAxis allowDecimals={false} domain={[0, (max: number) => Math.max(1, max)]} tick={{ fontSize: 11, fill: "#858994" }} axisLine={false} tickLine={false} />
-                    <Tooltip labelFormatter={(_, payload) => { const point = payload[0]?.payload; return point ? point.date === point.end ? dateLabel(point.date) : `${dateLabel(point.date)} – ${dateLabel(point.end)}` : ""; }} formatter={value => [value, "Bookings"]} contentStyle={{ borderRadius: 12, padding: "10px 14px", fontSize: 12, border: "1px solid #e9eaee", boxShadow: "0 8px 24px #1d243014" }} />
+                    <Tooltip labelFormatter={(_, payload) => { const point = payload[0]?.payload; return point ? grouping === "month" ? monthLabel(point.date) : point.date === point.end ? dateLabel(point.date) : `${dateLabel(point.date)} – ${dateLabel(point.end)}` : ""; }} formatter={value => [value, "Bookings"]} contentStyle={{ borderRadius: 12, padding: "10px 14px", fontSize: 12, border: "1px solid #e9eaee", boxShadow: "0 8px 24px #1d243014" }} />
                     <Area type="linear" dataKey="bookings" fill={`url(#${gradientId})`} stroke="none" tooltipType="none" isAnimationActive={false} />
                     <Line type="linear" dataKey="bookings" name="Bookings" stroke="#e9613e" strokeWidth={2.5} dot={points.length <= 35 ? { r: 3, fill: "#fff", strokeWidth: 2 } : false} activeDot={{ r: 5, strokeWidth: 3, stroke: "#fff" }} isAnimationActive={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div> : <p className="booking-empty">No recorded work activity in this period.</p>}
-              <div className="booking-chart-caption"><span><i />Bookings per {grouping} · active workdays only</span><span>{selectedBookings === 0 ? "No bookings in this period" : `Current ${grouping} may be incomplete`}</span></div>
+              <div className="booking-chart-caption"><span><i />Bookings per {grouping}{grouping === "month" ? " · all months" : " · active workdays only"}</span><span>{selectedBookings === 0 ? "No bookings in this period" : `Current ${grouping} may be incomplete`}</span></div>
+              {grouping === "month" && points.length > 0 && <div className="booking-monthly-totals">
+                <div className="booking-table-scroll" tabIndex={0} role="region" aria-label="Monthly booking totals">
+                  <table><caption>Monthly booking totals{period === "all" ? " · since tracking began" : ""}</caption>
+                    <thead><tr><th scope="col">Month</th><th scope="col">Bookings</th></tr></thead>
+                    <tbody>{[...points].reverse().map(point => <tr key={point.date}>
+                      <th scope="row">{monthLabel(point.date)}{point.date.slice(0, 7) === currentMonth ? <span>This month · to date</span> : point.date.slice(0, 7) === lastMonth ? <span>Last month</span> : null}</th>
+                      <td>{number(point.bookings)}</td>
+                    </tr>)}</tbody>
+                  </table>
+                </div>
+              </div>}
             </div>
             {isAdmin && <div className="booking-by-rep">
               <div className="booking-rep-heading"><div><span className="booking-eyebrow">TEAM CONTRIBUTION</span><h3>Bookings by rep</h3></div><Users size={17} /></div>
@@ -123,10 +146,10 @@ export function BookingPerformanceView({ report, isAdmin, loading, error, onRetr
               <div className="booking-rep-footer"><span>Choose a rep to explore their trend</span><ArrowUpRight size={14} /></div>
             </div>}
           </div>
-          <details className="booking-details"><summary>View booking counts <ChevronRight size={14} /></summary>
+          {(isAdmin || grouping !== "month") && <details className="booking-details"><summary>{grouping === "month" ? "View counts by rep" : "View booking counts"} <ChevronRight size={14} /></summary>
             {isAdmin && <table><caption>Bookings by rep · {rangeLabel}</caption><thead><tr><th>Rep</th><th>Bookings</th></tr></thead><tbody>{report.reps.map(rep => <tr key={rep.id}><td>{rep.name}</td><td>{number(rep.bookings)}</td></tr>)}</tbody></table>}
-            <div className="booking-table-scroll"><table><caption>{selectedRep?.name ?? (isAdmin ? "All reps" : "Your bookings")} · per {grouping}</caption><thead><tr><th>Date</th><th>Bookings</th></tr></thead><tbody>{points.map(point => <tr key={point.date}><td>{point.date}{point.end !== point.date ? ` – ${point.end}` : ""}</td><td>{number(point.bookings)}</td></tr>)}</tbody></table></div>
-          </details>
+            {grouping !== "month" && <div className="booking-table-scroll"><table><caption>{selectedRep?.name ?? (isAdmin ? "All reps" : "Your bookings")} · per {grouping}</caption><thead><tr><th>Date</th><th>Bookings</th></tr></thead><tbody>{points.map(point => <tr key={point.date}><td>{point.date}{point.end !== point.date ? ` – ${point.end}` : ""}</td><td>{number(point.bookings)}</td></tr>)}</tbody></table></div>}
+          </details>}
         </> : conversion ? <div className="booking-conversion">
           <div className="booking-conversion-main">
             <div className="booking-conversion-hero"><span className="booking-conversion-kicker"><PhoneOutgoing size={16} />CALLS TO BOOKINGS</span><h3>{conversion.repName}</h3><strong className="booking-percentage">{percent(conversion.percentage)}</strong><p>{number(conversion.bookedPeople)} people booked ÷ {number(conversion.connectedPeople)} people connected × 100</p><div className="booking-conversion-period"><CalendarDays size={14} />{rangeLabel}</div></div>
@@ -146,7 +169,7 @@ export function BookingPerformanceView({ report, isAdmin, loading, error, onRetr
           </details>
         </div> : <p className="booking-empty">{isAdmin ? "Nina's rep account could not be found." : "Your rep account could not be found."}</p>}
       </div>}
-      <div className="booking-report-footnote"><span><Clock3 size={12} />Sydney time</span><span>Days with call or booking activity · Reschedules count once</span></div>
+      <div className="booking-report-footnote"><span><Clock3 size={12} />Sydney time</span><span>By date booked · Reschedules count once</span></div>
     </div>
   </section>;
 }

@@ -34,10 +34,10 @@ describe("booking performance", () => {
     expect(result.reps.find(rep => rep.id === "old")?.bookings).toBe(1);
     expect(result.reps.find(rep => rep.id === "nina")?.bookings).toBe(0);
   });
-  it("aggregates active days by rep, Monday week and calendar month", () => {
+  it("aggregates workdays weekly and includes every calendar month by rep", () => {
     const result = bookingPerformance([booking("a", "2026-09-30T23:00:00Z"), booking("b", "2026-10-04T23:00:00Z"), booking("c", "2026-10-05T23:00:00Z", { booking_rep_id: "other" })], reps, "2026-09-30", "2026-10-06", now);
     expect(groupBookingDays(result.days, "week")).toEqual([{ date: "2026-10-01", end: "2026-10-01", bookings: 1 }, { date: "2026-10-05", end: "2026-10-06", bookings: 2 }]);
-    expect(groupBookingDays(result.days, "month", "nina")).toEqual([{ date: "2026-10-01", end: "2026-10-05", bookings: 2 }]);
+    expect(groupBookingDays(result.days, "month", "nina")).toEqual([{ date: "2026-09-30", end: "2026-09-30", bookings: 0 }, { date: "2026-10-01", end: "2026-10-06", bookings: 2 }]);
   });
   it("returns true zero results and no future chart points", () => {
     expect(bookingPerformance([], reps, "2026-10-27", "2026-10-31", now).days).toEqual([{ date: "2026-10-27", total: 0, byRep: {}, workedByRep: {} }]);

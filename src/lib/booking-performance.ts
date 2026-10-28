@@ -193,7 +193,8 @@ export function bookingPerformance(bookings: PerformanceBooking[], reps: Perform
 export function groupBookingDays(days: BookingDay[], grouping: BookingGrouping, repId = "") {
   const buckets = new Map<string, { date: string; end: string; bookings: number }>();
   for (const day of days) {
-    if (repId ? !day.workedByRep[repId] : !Object.keys(day.workedByRep).length) continue;
+    // Monthly history includes quiet months; daily/weekly trends retain workday filtering.
+    if (grouping !== "month" && (repId ? !day.workedByRep[repId] : !Object.keys(day.workedByRep).length)) continue;
     const key = grouping === "month" ? `${day.date.slice(0, 7)}-01`
       : grouping === "week" ? addDays(day.date, -((new Date(`${day.date}T12:00:00Z`).getUTCDay() + 6) % 7)) : day.date;
     const bucket = buckets.get(key) ?? { date: day.date, end: day.date, bookings: 0 };
