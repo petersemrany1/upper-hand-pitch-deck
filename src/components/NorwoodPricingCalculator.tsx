@@ -23,7 +23,33 @@ const ROWS: Row[] = [
   { label: "Norwood 7", min: 6000, max: 8000, note: "Set patient expectations" },
 ];
 
-const NITAI_PRICES: Record<string, { min: number; max: number }> = {
+type TreatmentPrice = {
+  min: number;
+  max: number;
+  weekly?: { min: number; max: number };
+};
+
+type ProcedurePrice = TreatmentPrice & { secondTreatment?: TreatmentPrice };
+
+// Nitai's quoted weekly repayments come directly from Shailendra's pricing email.
+const NITAI_PRICES: Record<string, ProcedurePrice> = {
+  "Norwood 2": { min: 8000, max: 10000 },
+  "Norwood 3": { min: 10000, max: 13000 },
+  "Norwood 3 Vertex": { min: 10000, max: 15000 },
+  "Norwood 4": { min: 12000, max: 15000 },
+  "Norwood 5": { min: 15000, max: 20000, weekly: { min: 77, max: 103 } },
+  "Norwood 6": {
+    min: 18000, max: 20000, weekly: { min: 93, max: 103 },
+    secondTreatment: { min: 10000, max: 15000, weekly: { min: 52, max: 77 } },
+  },
+  "Norwood 7": {
+    min: 20000, max: 25000, weekly: { min: 103, max: 129 },
+    secondTreatment: { min: 10000, max: 15000, weekly: { min: 52, max: 77 } },
+  },
+};
+
+// Keep Boss Clinic's existing prices independent of Nitai's updated quotes.
+const BOSS_PRICES: Record<string, TreatmentPrice> = {
   "Norwood 2": { min: 8000, max: 10000 },
   "Norwood 3": { min: 10000, max: 13000 },
   "Norwood 3 Vertex": { min: 10000, max: 15000 },
@@ -32,9 +58,6 @@ const NITAI_PRICES: Record<string, { min: number; max: number }> = {
   "Norwood 6": { min: 15000, max: 18000 },
   "Norwood 7": { min: 20000, max: 24000 },
 };
-
-// Boss Clinic (Perth) uses the same pricing as Nitai
-const BOSS_PRICES: Record<string, { min: number; max: number }> = { ...NITAI_PRICES };
 
 const BIJAN_PRICES: Record<string, { min: number; max: number }> = {
   "Norwood 2": { min: 6000, max: 8500 },
@@ -57,6 +80,7 @@ const BYRON_PRICES: Record<string, { min: number; max: number }> = {
 };
 
 const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
+const fmtPrice = ({ min, max }: TreatmentPrice) => min === max ? fmt(min) : `${fmt(min)} – ${fmt(max)}`;
 const fmtGrafts = (min: number, max: number) =>
   min === max ? `${min.toLocaleString()} grafts` : `${min.toLocaleString()}–${max.toLocaleString()} grafts`;
 
@@ -92,6 +116,11 @@ function financeWeeklyText(lo: number, hi: number): string | null {
   }
   const w = (wLo ?? wHi) as number;
   return `≈ $${w}/week on 5-yr finance (partial range)`;
+}
+
+function treatmentWeeklyText(price: TreatmentPrice): string {
+  if (price.weekly) return `≈ $${price.weekly.min} – $${price.weekly.max}/week on 5-yr finance`;
+  return financeWeeklyText(price.min, price.max) ?? "Outside standard finance range ($8k–$30k)";
 }
 
 type PricingClinic = "nitai" | "byron" | "bijan" | "boss" | "gro";
@@ -230,28 +259,16 @@ export default function NorwoodPricingCalculator({ defaultClinic = "nitai" }: { 
             <>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {ROWS.map((r) => {
-                let lo: number;
-                let hi: number;
+                let price: ProcedurePrice;
                 if (clinic === "nitai" || clinic === "boss") {
-                  const np = clinic === "boss" ? BOSS_PRICES[r.label] : NITAI_PRICES[r.label];
-                  lo = np.min;
-                  hi = np.max;
+                  price = clinic === "boss" ? BOSS_PRICES[r.label] : NITAI_PRICES[r.label];
                 } else if (clinic === "bijan") {
-                  const bp = BIJAN_PRICES[r.label];
-                  lo = bp.min;
-                  hi = bp.max;
+                  price = BIJAN_PRICES[r.label];
                 } else if (clinic === "byron") {
-                  const byp = BYRON_PRICES[r.label];
-                  lo = byp.min;
-                  hi = byp.max;
+                  price = BYRON_PRICES[r.label];
                 } else {
-                  lo = r.min * pricePerGraft;
-                  hi = r.max * pricePerGraft;
+                  price = { min: r.min * pricePerGraft, max: r.max * pricePerGraft };
                 }
-                const priceText = lo === hi ? fmt(lo) : `${fmt(lo)} – ${fmt(hi)}`;
-                const weeklyText =
-                  financeWeeklyText(lo, hi) ??
-                  "Outside standard finance range ($8k–$30k)";
                 return (
                   <div
                     key={r.label}
@@ -267,12 +284,29 @@ export default function NorwoodPricingCalculator({ defaultClinic = "nitai" }: { 
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
                       <div style={{ fontSize: 12, fontWeight: 600, color: "#111" }}>{r.label}</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.coral, whiteSpace: "nowrap" }}>
-                        {priceText}
-                      </div>
+                      {!price.secondTreatment && (
+                        <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.coral, whiteSpace: "nowrap" }}>
+                          {fmtPrice(price)}
+                        </div>
+                      )}
                     </div>
                     <div style={{ fontSize: 11, color: COLORS.muted }}>{fmtGrafts(r.min, r.max)}</div>
-                    <div style={{ fontSize: 11, color: COLORS.coral, fontWeight: 500 }}>{weeklyText}</div>
+                    {price.secondTreatment ? (
+                      <>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: "#111", marginTop: 4 }}>2 treatments required</div>
+                        {[price, price.secondTreatment].map((treatment, index) => (
+                          <div key={index} style={{ borderTop: `0.5px solid ${COLORS.line}`, paddingTop: 6, marginTop: 4 }}>
+                            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "baseline", gap: 4 }}>
+                              <div style={{ fontSize: 11, fontWeight: 600, color: "#111" }}>{index === 0 ? "1st treatment" : "2nd treatment"}</div>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.coral, whiteSpace: "nowrap" }}>{fmtPrice(treatment)}</div>
+                            </div>
+                            <div style={{ fontSize: 11, color: COLORS.coral, fontWeight: 500, marginTop: 2 }}>{treatmentWeeklyText(treatment)}</div>
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 11, color: COLORS.coral, fontWeight: 500 }}>{treatmentWeeklyText(price)}</div>
+                    )}
                     {r.note && (
                       <div style={{ fontSize: 10, color: "#9a6b00", fontStyle: "italic", marginTop: 2 }}>
                         ⚠ {r.note}
