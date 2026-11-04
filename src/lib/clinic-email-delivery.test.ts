@@ -2,7 +2,7 @@ import {test,expect} from "bun:test";
 import {deliverClinicEmailOnce,deliverRescheduleNotifications,type EmailSendResult} from "./clinic-email-delivery";
 function fixture(send:()=>Promise<EmailSendResult>=async()=>({status:"accepted",receipt:"test"})) {
  let status="pending",sends=0;
- const deps={claim:async()=>{if(!["pending","failed"].includes(status))return null;status="sending";return {id:"event",email_to:"clinic@example.invalid",email_subject:"Edited subject",email_body:"Edited body"};},existing:async()=>({status,error:null}),send:async()=>{sends++;return send();},finish:async(r:EmailSendResult)=>{status=r.status;}};
+ const deps={claim:async()=>{if(!["pending","failed"].includes(status))return null;status="sending";return {id:"event",appointment_id:"appointment",email_to:"clinic@example.invalid",email_subject:"Edited subject",email_body:"Edited body"};},existing:async()=>({status,error:null}),send:async()=>{sends++;return send();},finish:async(r:EmailSendResult)=>{status=r.status;}};
  return {deps,read:()=>({status,sends})};
 }
 test("double click, concurrent requests and repeated confirmations send one email",async()=>{const f=fixture();await Promise.all([deliverClinicEmailOnce(f.deps),deliverClinicEmailOnce(f.deps)]);await deliverClinicEmailOnce(f.deps);expect(f.read()).toEqual({status:"accepted",sends:1});});

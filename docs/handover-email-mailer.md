@@ -30,4 +30,5 @@ Booking handover emails to clinics are sent through a **Google Apps Script web a
 - Limit: about 1,500 recipients a day (Google Workspace Apps Script quota).
 - The script converts emojis Gmail can't handle (e.g. 📞) automatically. Keep emojis out of subject lines.
 - Other app emails sent only to internal Bold addresses may stay on Resend. Any email going to external clinics should use this mailer.
+- Reschedule emails also use this mailer, with the saved main recipient and the appointment clinic's current `handover_cc` list. The review screen shows CC recipients. Failed recipient lookups stop the send instead of silently dropping CCs. Existing reschedule claims prevent duplicate sends; ambiguous mailer responses require delivery review. Publishing this fix does not resend historical notifications or require a database migration.
 - The script lives at script.google.com ("Booking handover mailer", admin@bold-patients.com). After editing it, redeploy via Deploy → Manage deployments → New version. The URL stays the same.

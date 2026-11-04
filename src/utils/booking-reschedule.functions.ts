@@ -1,4 +1,4 @@
-import { validateClinicEmailDraft, validClinicEmail } from "@/lib/clinic-reschedule-email";
+import { clinicRescheduleCc, validateClinicEmailDraft, validClinicEmail } from "@/lib/clinic-reschedule-email";
 import { deliverRescheduleNotifications } from "@/lib/clinic-email-delivery";
 import { deliverClinicRescheduleEmail } from "./clinic-reschedule-email.server";
 import { deliverRescheduleOnce } from "@/lib/reschedule-delivery";
@@ -18,9 +18,10 @@ export const getRescheduleDetails=createServerFn({method:"POST"}).middleware([re
  .handler(async({data,context})=>{
    const {data:details,error}=await (context.supabase as any).rpc("get_booking_reschedule",{p_id:data.appointmentId});
    if(error)throw new Error(error.message);
-   const {data:clinic,error:clinicError}=await admin().from("partner_clinics").select("email").eq("id",details.snapshot.appointment.clinic_id).single();
+   const {data:clinic,error:clinicError}=await admin().from("partner_clinics").select("email, handover_cc").eq("id",details.snapshot.appointment.clinic_id).single();
    if(clinicError)throw new Error("Could not load the clinic email address");
-   return {...details,clinicEmail:clinic.email?.trim()||""} as {snapshot:RescheduleSnapshot;version:string;clinicEmail:string};
+   const clinicEmail=clinic.email?.trim()||"";
+   return {...details,clinicEmail,clinicEmailCc:clinicRescheduleCc(clinic.handover_cc,clinicEmail)} as {snapshot:RescheduleSnapshot;version:string;clinicEmail:string;clinicEmailCc:string[]};
  });
 
 // Claim once. Timeouts retain the claim and require review rather than blindly

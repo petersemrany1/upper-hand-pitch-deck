@@ -1,4 +1,4 @@
-export type ClinicEmailEvent = { id: string; email_to: string; email_subject: string; email_body: string };
+export type ClinicEmailEvent = { id: string; appointment_id: string | null; email_to: string; email_subject: string; email_body: string };
 export type EmailDeliveryStatus = { status: string; error: string | null };
 export type EmailSendResult = { status: "accepted" | "failed" | "uncertain"; receipt?: string; error?: string };
 export async function deliverClinicEmailOnce(deps: {
