@@ -31,3 +31,15 @@ export function validateClinicEmailDraft(draft: ClinicEmailDraft): ClinicEmailDr
 export function validClinicEmail(value: string | null | undefined): boolean {
   return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
+
+// Use the clinic's saved handover list for reschedules too. Never duplicate the
+// main recipient or send several copies when an address appears more than once.
+export function clinicRescheduleCc(value: string | null | undefined, to: string): string[] {
+  const seen = new Set([to.trim().toLowerCase()]);
+  return (value ?? "").split(/[,;\s]+/).filter(email => {
+    const normalized = email.toLowerCase();
+    if (!validClinicEmail(email) || seen.has(normalized)) return false;
+    seen.add(normalized);
+    return true;
+  });
+}

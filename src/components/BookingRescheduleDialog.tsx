@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { RescheduleAvailability } from "./RescheduleAvailability";
 
 export function BookingRescheduleDialog({appointmentId,onClose,onSaved,onCallBack}:{appointmentId:string;onClose:()=>void;onSaved:()=>void;onCallBack?:()=>void}) {
- const [details,setDetails]=useState<{snapshot:RescheduleSnapshot;version:string;clinicEmail:string}|null>(null);
+ const [details,setDetails]=useState<{snapshot:RescheduleSnapshot;version:string;clinicEmail:string;clinicEmailCc:string[]}|null>(null);
  const [date,setDate]=useState("");const [time,setTime]=useState("");const [reason,setReason]=useState("");
  const [review,setReview]=useState(false);const [saving,setSaving]=useState(false);const [error,setError]=useState("");
  const [emailSubject,setEmailSubject]=useState("");const [emailBody,setEmailBody]=useState("");
@@ -43,7 +43,7 @@ export function BookingRescheduleDialog({appointmentId,onClose,onSaved,onCallBac
  <p>Move <strong>{s.appointment.patient_name}</strong> at <strong>{s.clinic.clinic_name}</strong> from <strong>{label(s.appointment.appointment_date,s.appointment.appointment_time)}</strong> to <strong>{label(date,time)}</strong>?</p>
  <div className="rounded-lg bg-slate-50 p-3 text-sm"><p className="font-semibold mb-2">Text to the patient</p><p>{rescheduleText(s,date,time)}</p></div>
  <div className="rounded-lg border p-3 space-y-3 text-sm">
- <div><p className="font-semibold">Email to the clinic</p><p className="text-muted-foreground">To: {details?.clinicEmail||"No email address saved"}</p></div>
+ <div><p className="font-semibold">Email to the clinic</p><p className="text-muted-foreground">To: {details?.clinicEmail||"No email address saved"}</p>{!!details?.clinicEmailCc?.length&&<p className="text-muted-foreground break-words">CC: {details.clinicEmailCc.join(", ")}</p>}</div>
  {!validClinicEmail(details?.clinicEmail)&&<p role="alert" className="text-red-700">Add a valid email address in the clinic settings, then refresh these details.</p>}
  <label className="grid gap-1">Subject<input disabled={saving} maxLength={200} className="rounded border p-2" value={emailSubject} onChange={e=>setEmailSubject(e.target.value)}/></label>
  <label className="grid gap-1">Message<textarea disabled={saving} rows={10} maxLength={5000} className="rounded border p-2 leading-relaxed" value={emailBody} onChange={e=>setEmailBody(e.target.value)}/></label>
