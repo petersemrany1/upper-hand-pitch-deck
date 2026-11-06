@@ -14,35 +14,35 @@ const SYSTEM_PROMPT = `You are writing PATIENT INTEL BULLETS for a hair-transpla
 
 Return ONLY a bullet list. Each bullet starts with "- " on its own line. NO paragraphs. NO headings. NO preamble. NO closing sentence. If you write a paragraph you have failed the task.
 
-Use these labelled bullets in this order (omit a bullet only if the calls have literally nothing on that topic):
+Use these labelled bullets in this order (omit a bullet if the calls have no permitted information on that topic):
 
 - Goal: <what they want done — procedure, area, Norwood stage, graft count if mentioned>
 - History: <previous transplants, meds like finasteride/minoxidil/TRT, family history, health notes>
 - Question for doctor: <the specific thing they want answered on the consult>
-- Price discussed: <EVERY dollar figure that came up — competitor quotes, per-graft prices, per-week/per-month payment plan numbers, what our team quoted them, objections about cost. ALWAYS write dollar amounts in full numeric form with a $ sign: "$12,000" NOT "12 grand", "$8,000–$13,000" NOT "8k to 13k", "$750/month" NOT "750 a month". Convert any spoken shorthand ("12 grand", "8k", "twelve thousand") into "$12,000" style. Refer to our side as "we" or "our team" — NEVER name the rep (no "Peter", no "Jason", no rep first names).>
+- Price discussed: <only treatment prices, per-graft prices and payment-plan amounts quoted by our team. ALWAYS write dollar amounts in full numeric form with a $ sign: "$12,000" NOT "12 grand", "$8,000–$13,000" NOT "8k to 13k", "$750/month" NOT "750 a month". Convert any spoken shorthand ("12 grand", "8k", "twelve thousand") into "$12,000" style. Refer to our side as "we" or "our team" — NEVER name the rep (no "Peter", no "Jason", no rep first names).>
 - Personal: <work, travel, motivation, deadline, self-consciousness, why now>
-- Objections / risks: <any hesitation, shopping around, timing concerns — only if raised>
 
 ## HARD RULES
 
 1. NAME: Use PATIENT_FIRST_NAME exactly as supplied in the input. The transcript may have misspelled it (e.g. Marc → Mark, Aleks → Alex). ALWAYS use the CRM spelling. Never re-spell from audio.
 2. DO NOT repeat booking date, appointment time, doctor name, clinic name, deposit status, funding tag, or finance eligibility. Those are already displayed to the clinic in a separate Key Facts table below your bullets — repeating them is duplicated noise. NEVER mention that we have held / taken / collected a deposit, the deposit amount ($75 or any other figure), the deposit percentage (75%, or "usually X%"), how the deposit was paid, Stripe, payment links, or anything about our internal deposit-handling process. The handover email already shows deposit status — do not restate it in the intel under any circumstance.
-3. PRICE IS MANDATORY when any dollar figure appears in the transcripts. Scan for: "$", "k" after a number, "grand", "per week", "per month", "per graft", "quote", "quoted", "package", "$X/week", "$X/month". If Peter quoted a range (e.g. "$8k–$13k" or "$30–$60 per week"), include it exactly. Missing price info is the #1 failure — treat it as critical.
+3. Include exact treatment prices and payment-plan amounts quoted by our team (e.g. "$8,000–$13,000" or "$30–$60/week"). Do not include other clinics' quotes, the patient's budget, or their reaction to pricing. If our team did not quote a permitted price, omit the Price discussed bullet without comment.
 4. NEVER invent facts. Use only what's in the call summaries.
 5. Third person. One sentence per bullet, max. Tight and specific. No filler ("keen to finalise a path forward", "ready for his consultation", "excited to proceed" — all banned).
 6. IGNORE voicemail/no-answer/hangup calls entirely.
 7. NEVER mention our marketing or how the patient found us: no ads of any kind ("saw our ad", "your Facebook ad", "the advert"), no campaign or ad-set names, no Facebook/Instagram/TikTok/Google, no landing pages, no lead forms, no "how they found us". If a call summary mentions any of it, drop it entirely — our marketing must never be known to the clinics.
+8. Exclude commercial objections and sales concerns throughout: price sensitivity, affordability concerns, comments that treatment is expensive, competitor quotes or comparisons, shopping around or researching other clinics/overseas options, reluctance to proceed, partner objections, and payment-plan dealbreakers. Do not rephrase or hint at these under another bullet. Keep relevant clinical history, medication, treatment questions and practical recovery needs.
+9. Output only the patient details. Never include an Objections / risks or Red flags bullet, or any note, placeholder, disclaimer or explanation about information being excluded, filtered or omitted. Do not replace excluded details with invented positive claims.
 
 ## EXAMPLE (illustrative — use the ACTUAL facts from the input calls, not these)
 
 - Goal: Norwood 2, wants to address receding hairline at temples plus some crown thinning
 - History: On TRT since age 27; dad started receding at 35, now bald at 62
 - Question for doctor: Will TRT affect graft survival or accelerate further loss?
-- Price discussed: Has a competing quote of $10,000 for ~3,500 grafts from a South Yarra clinic; we quoted $8,000–$13,000 depending on density, plus a payment plan around $30–$60/week interest-free; balked at other clinic's $750/month for 12 months
+- Price discussed: We quoted $8,000–$13,000 depending on density, plus a payment plan around $30–$60/week interest-free
 - Personal: Self-conscious about scalp visibility due to curly hair; wants to act early because of family history
-- Objections: Shopping around, price-sensitive — asked about using super
 
-Final quality check before you answer: the last bullet MUST be a complete sentence/thought. Never stop mid-phrase like "shopping around for a".
+Final quality check before you answer: the last bullet MUST be a complete sentence/thought. Never stop mid-phrase like "wants to restore the".
 
 Remember: BULLETS ONLY. No paragraph. Use the CRM name spelling. Never name our rep — say "we" or "our team".`;
 
@@ -185,7 +185,7 @@ serve(async (req) => {
     if (/length|max_tokens|max_output_tokens/i.test(finishReason) || looksTruncated(condensed)) {
       console.warn("condense-notes: retrying incomplete AI output", { finishReason, length: condensed.length, tail: condensed.slice(-120) });
       aiJson = await generateIntel([
-        { role: "system", content: `${SYSTEM_PROMPT}\n\nREPAIR MODE: The previous draft was incomplete. Return the full bullet list again from scratch. Do not continue mid-sentence. Make every bullet complete, especially Objections / risks.` },
+        { role: "system", content: `${SYSTEM_PROMPT}\n\nREPAIR MODE: The previous draft was incomplete. Return the full bullet list again from scratch, following all content rules above. Do not continue mid-sentence. Make every bullet complete.` },
         { role: "user", content: `${sourceText}\n\nINCOMPLETE_DRAFT_TO_REPAIR:\n${condensed}` },
       ]);
       condensed = extractAiText(aiJson);
