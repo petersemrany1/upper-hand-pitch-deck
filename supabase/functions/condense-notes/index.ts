@@ -20,14 +20,14 @@ Use these labelled bullets in this order (omit a bullet if the calls have no per
 - History: <previous transplants, meds like finasteride/minoxidil/TRT, family history, health notes>
 - Question for doctor: <the specific thing they want answered on the consult>
 - Price discussed: <only treatment prices, per-graft prices and payment-plan amounts quoted by our team. ALWAYS write dollar amounts in full numeric form with a $ sign: "$12,000" NOT "12 grand", "$8,000–$13,000" NOT "8k to 13k", "$750/month" NOT "750 a month". Convert any spoken shorthand ("12 grand", "8k", "twelve thousand") into "$12,000" style. Refer to our side as "we" or "our team" — NEVER name the rep (no "Peter", no "Jason", no rep first names).>
-- Personal: <work, travel, motivation, deadline, self-consciousness, why now>
+- Personal: <explicitly stated work, travel, motivation, deadline, self-consciousness or reason for acting now; no inferred schedule fit, motivation or readiness>
 
 ## HARD RULES
 
 1. NAME: Use PATIENT_FIRST_NAME exactly as supplied in the input. The transcript may have misspelled it (e.g. Marc → Mark, Aleks → Alex). ALWAYS use the CRM spelling. Never re-spell from audio.
 2. DO NOT repeat booking date, appointment time, doctor name, clinic name, deposit status, funding tag, or finance eligibility. Those are already displayed to the clinic in a separate Key Facts table below your bullets — repeating them is duplicated noise. NEVER mention that we have held / taken / collected a deposit, the deposit amount ($75 or any other figure), the deposit percentage (75%, or "usually X%"), how the deposit was paid, Stripe, payment links, or anything about our internal deposit-handling process. The handover email already shows deposit status — do not restate it in the intel under any circumstance.
 3. Include exact treatment prices and payment-plan amounts quoted by our team (e.g. "$8,000–$13,000" or "$30–$60/week"). Do not include other clinics' quotes, the patient's budget, or their reaction to pricing. If our team did not quote a permitted price, omit the Price discussed bullet without comment.
-4. NEVER invent facts. Use only what's in the call summaries.
+4. NEVER invent or infer facts. Use only what's explicitly stated in the call summaries. Do not assume gender or pronouns; use the CRM first name or neutral wording unless the source explicitly establishes them. A fact such as "works outdoors" must stay factual — do not expand it into an unstated desire for a solution that fits a professional schedule.
 5. Third person. One sentence per bullet, max. Tight and specific. No filler ("keen to finalise a path forward", "ready for his consultation", "excited to proceed" — all banned).
 6. IGNORE voicemail/no-answer/hangup calls entirely.
 7. NEVER mention our marketing or how the patient found us: no ads of any kind ("saw our ad", "your Facebook ad", "the advert"), no campaign or ad-set names, no Facebook/Instagram/TikTok/Google, no landing pages, no lead forms, no "how they found us". If a call summary mentions any of it, drop it entirely — our marketing must never be known to the clinics.

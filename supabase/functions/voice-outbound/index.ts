@@ -52,7 +52,7 @@ function stableIndex(value: string, size: number): number {
   return (hash >>> 0) % size;
 }
 
-async function pickCallerId(sb: ReturnType<typeof createClient<any>>, destination: string): Promise<string> {
+async function pickCallerId(sb: ReturnType<typeof createClient>, destination: string): Promise<string> {
   let numbers =
     cachedCallerIds && Date.now() - cachedCallerIds.at < CALLER_ID_TTL_MS
       ? cachedCallerIds.numbers
