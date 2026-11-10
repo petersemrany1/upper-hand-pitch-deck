@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent } from "react";
 import { ChevronLeft, ChevronRight, GripVertical, RotateCcw, Settings2, X } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
@@ -13,7 +13,10 @@ import { calendarVisibleHours } from "@/lib/calendar-visible-hours";
 import { sydneyTodayISO } from "@/lib/timezone";
 import { CalendarHistory } from "./CalendarHistory";
 import type { CalendarHistoryLoader } from "@/lib/calendar-history";
+import { ClinicAvailabilityMobile } from "./ClinicAvailabilityMobile";
+import { ClinicUpcomingAppointments } from "./ClinicUpcomingAppointments";
 import "./clinic-availability-calendar.css";
+import "./clinic-availability-mobile.css";
 
 type Props = {
   schedule: ClinicSchedule;
@@ -32,11 +35,20 @@ const weekDays = [{ n: 1, label: "Mon" }, { n: 2, label: "Tue" }, { n: 3, label:
 const calendarTimeLabel = (minute: number) => timeLabel(minute).replace(/^(\d+)(am|pm)$/, "$1:00$2");
 const calendarRangeLabel = (from: number, until: number) => `${calendarTimeLabel(from)}–${calendarTimeLabel(until)}`;
 
+function revealPhoneField(target: Element | null) {
+  if (target instanceof HTMLElement && /^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName) && target.closest(".availability-dialog")) target.scrollIntoView({ block: "center" });
+}
+
 export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, preview = false, initialDate, loadHistory }: Props) {
   const root = useRef<HTMLElement>(null);
   const savedViewport = useRef<{ y: number; top: number; visible: boolean; left: number; minute: number; container: HTMLElement | null } | null>(null);
   const mondayOf = (date: string) => addDays(date, -((asDate(date).getDay() + 6) % 7));
   const [base, setBase] = useState(() => mondayOf(initialDate ?? sydneyTodayISO()));
+  const [phoneDate, setPhoneDate] = useState(() => initialDate ?? sydneyTodayISO());
+  const [phone, setPhone] = useState(false);
+  const [phoneView, setPhoneView] = useState<"availability" | "upcoming">("availability");
+  const [dialogViewport, setDialogViewport] = useState<CSSProperties>({});
+  const [historyOpen, setHistoryOpen] = useState(false);
   const columns = 7;
   const [compact, setCompact] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -71,6 +83,40 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     ]);
     return { date, layout };
   });
+  useEffect(() => {
+    // Keep the existing desktop/tablet grid, including on narrow desktop panels.
+    const queries = [window.matchMedia("(max-width: 600px)"), window.matchMedia("(pointer: coarse) and (max-width: 960px) and (max-height: 600px)")];
+    const update = () => setPhone(queries.some(query => query.matches));
+    update();
+    queries.forEach(query => query.addEventListener("change", update));
+    return () => queries.forEach(query => query.removeEventListener("change", update));
+  }, []);
+  const phoneDialogOpen = phone && !!(editor || settings || reviewOpen || historyOpen);
+  useEffect(() => {
+    if (!phoneDialogOpen || !window.visualViewport) return;
+    const viewport = window.visualViewport;
+    const update = () => setDialogViewport({ "--availability-viewport-height": `${viewport.height}px`, "--availability-viewport-top": `${viewport.offsetTop}px` } as CSSProperties);
+    update();
+    viewport.addEventListener("resize", update);
+    viewport.addEventListener("scroll", update);
+    return () => { viewport.removeEventListener("resize", update); viewport.removeEventListener("scroll", update); };
+  }, [phoneDialogOpen]);
+  useLayoutEffect(() => {
+    if (phoneDialogOpen) revealPhoneField(document.activeElement);
+  }, [dialogViewport, phoneDialogOpen]);
+  useEffect(() => {
+    if (!phoneDialogOpen || !error) return;
+    document.querySelector<HTMLElement>('.availability-dialog [role="alert"]')?.scrollIntoView({ block: "center" });
+  }, [phoneDialogOpen, error]);
+  const phoneDialogProps = phone ? {
+    style: dialogViewport,
+    onFocusCapture: (event: FocusEvent<HTMLDivElement>) => revealPhoneField(event.target),
+    onOpenAutoFocus: (event: Event) => {
+      // Opening an editor should not immediately summon the on-screen keyboard.
+      event.preventDefault();
+      document.querySelector<HTMLElement>(".availability-dialog")?.focus({ preventScroll: true });
+    },
+  } : {};
   useLayoutEffect(() => {
     const previous = savedViewport.current;
     if (!previous || busy || settings) return;
@@ -94,7 +140,7 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
   const position = (from: number, to: number): CSSProperties => ({ top: (Math.max(from, firstMinute) - firstMinute) * scale, height: Math.max(0, Math.min(to, lastMinute) - Math.max(from, firstMinute)) * scale });
 
   function open(kind: Editor["kind"], date: string, start: string, end: string, extra: Partial<Editor> = {}) {
-    editorTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (!phone) editorTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setError("");
     setEditor({ kind, date, start, end, version: schedule.version, ...extra });
   }
@@ -114,6 +160,9 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
       const previous = configurationOf(schedule);
       const updated = await onSave(command, version);
       setUndo(isUndo || command.action === "settings" && command.apply_to_existing ? null : { configuration: previous, version: updated.version });
+      if (phone && command.action === "block" && command.dates.length === 1) {
+        setPhoneDate(command.dates[0]); setBase(mondayOf(command.dates[0]));
+      }
       setEditor(null); setSettings(null); setPendingSettings(null); setMessage(success);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Could not save. Please try again.");
@@ -259,21 +308,38 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     return () => { window.removeEventListener("keydown", escape); window.removeEventListener("blur", blur); stopBlockAutoScroll(); if (clickResetTimer.current !== null) window.clearTimeout(clickResetTimer.current); };
   }, [cancelBlockDrag, stopBlockAutoScroll]);
 
-  return <section className="availability-calendar" ref={root} aria-label="Clinic availability">
+  return <section className="availability-calendar" ref={root} aria-label="Clinic availability" onClickCapture={phone ? event => {
+    // Safari touch clicks need an explicit return target; they do not focus buttons.
+    const trigger = (event.target as HTMLElement).closest<HTMLElement>("button");
+    if (trigger && root.current?.contains(trigger)) editorTrigger.current = trigger;
+  } : undefined}>
     {preview && <div className="availability-preview-notice"><span className="availability-preview">Approval preview · changes stay in this preview</span></div>}
-      <Dialog.Root open={!!settings} onOpenChange={isOpen => { if (!isOpen && !busy) { setSettings(null); setPendingSettings(null); setError(""); } }}><Dialog.Portal><Dialog.Overlay className="availability-dialog-backdrop" /><Dialog.Content className="availability-dialog availability-settings-dialog" onCloseAutoFocus={event => { event.preventDefault(); root.current?.querySelector<HTMLButtonElement>(".availability-settings-trigger")?.focus({ preventScroll: true }); }} onEscapeKeyDown={e => { if (busy) e.preventDefault(); }} onPointerDownOutside={e => { if (busy) e.preventDefault(); }}>
+    {phone && <><div className="availability-heading"><h2>Clinic calendar</h2><p>{schedule.clinic_name}</p></div>
+    <nav className="availability-mobile-tabs" aria-label="Calendar views">
+      <button aria-pressed={phoneView === "availability"} onClick={() => setPhoneView("availability")}>Availability</button>
+      <button aria-pressed={phoneView === "upcoming"} onClick={() => setPhoneView("upcoming")}>Upcoming appointments</button>
+    </nav>
+    <div className="availability-settings" hidden={phoneView === "upcoming"}>
+      <button className="availability-settings-summary" aria-haspopup="dialog" aria-expanded={!!settings} onClick={() => { setError(""); setSettings(settings ? null : { duration: String(schedule.consultation_minutes), buffer: String(schedule.buffer_minutes), version: schedule.version, trading: Array.from({ length: 7 }, (_, day_of_week) => ({ day_of_week, open_time: "09:00", close_time: "17:00", is_closed: day_of_week > 4, consult_duration_mins: 30, ...schedule.trading.find(h => h.day_of_week === day_of_week) })) }); }} disabled={busy}>
+        <span>{schedule.consultation_minutes}-minute consultations · {schedule.buffer_minutes ? `${schedule.buffer_minutes}-minute buffer between patients` : "No buffer between patients"}</span>
+        <span className="availability-link">Settings</span>
+      </button>
+    </div>
+    {!preview && loadHistory && <CalendarHistory key={schedule.clinic_id} load={loadHistory} clinicName={schedule.clinic_name} dialogProps={phoneDialogProps} onOpenChange={setHistoryOpen} />}
+    </>}
+      <Dialog.Root open={!!settings} onOpenChange={isOpen => { if (!isOpen && !busy) { setSettings(null); setPendingSettings(null); setError(""); } }}><Dialog.Portal><Dialog.Overlay className="availability-dialog-backdrop" /><Dialog.Content className="availability-dialog availability-settings-dialog" {...phoneDialogProps} onCloseAutoFocus={event => { event.preventDefault(); root.current?.querySelector<HTMLButtonElement>(phone ? ".availability-settings-summary" : ".availability-settings-trigger")?.focus({ preventScroll: true }); }} onEscapeKeyDown={e => { if (busy) e.preventDefault(); }} onPointerDownOutside={e => { if (busy || phone) e.preventDefault(); }}>
         <div className="availability-dialog-title"><Dialog.Title>Calendar settings</Dialog.Title><Dialog.Close aria-label="Close settings" disabled={busy}><X size={18} /></Dialog.Close></div>
         <Dialog.Description>Appointment length, buffer and weekly hours.</Dialog.Description>
       {settings && pendingSettings ? <div><p><strong>Apply {pendingSettings.consultation_minutes}-minute consultations to all existing patients?</strong></p><p><strong>Warning:</strong> Existing appointments will use this length. Start times stay unchanged. You may need to contact patients and reschedule any conflicts.</p><p>Appointments that need attention will appear in the calendar’s review list.</p>{error && <div role="alert" className="availability-error">{error}</div>}<div className="availability-actions"><button disabled={busy} onClick={() => { setPendingSettings(null); setError(""); }}>Back</button><button className="availability-primary" disabled={busy} onClick={() => void commit({ ...pendingSettings, apply_to_existing: true }, settings.version, "Consultation lengths updated. Review any conflicts below.")}>{busy ? "Saving…" : "Yes, update all appointments"}</button></div></div> : settings && <form className="availability-settings-form" onSubmit={event => { event.preventDefault(); const command = { action: "settings" as const, consultation_minutes: Number(settings.duration), buffer_minutes: Number(settings.buffer), trading: settings.trading }; if (command.consultation_minutes !== schedule.consultation_minutes || schedule.appointments.some(a => appointmentDuration(a) !== command.consultation_minutes) || settings.trading.some(h => { const old = schedule.trading.find(row => row.day_of_week === h.day_of_week); return !old || old.is_closed !== h.is_closed || hhmmToMin(old.open_time) !== hhmmToMin(h.open_time) || hhmmToMin(old.close_time) !== hhmmToMin(h.close_time); })) { try { applyScheduleCommand(schedule, { ...command, apply_to_existing: true }); setError(""); setPendingSettings(command); } catch (e) { setError(e instanceof Error ? e.message : "Check settings."); } } else void commit(command, settings.version, "Settings saved."); }}>
-        <label>Consultation length <span className="availability-input-unit"><input aria-label="Consultation length in minutes" type="number" required min={5} max={240} step={1} value={settings.duration} onChange={e => setSettings({ ...settings, duration: e.target.value })} disabled={busy} /><span>minutes</span></span><small>Time with each patient.</small></label>
-        <label>Buffer between patients <span className="availability-input-unit"><input aria-label="Buffer between patients in minutes" type="number" required min={0} max={180} step={1} value={settings.buffer} onChange={e => setSettings({ ...settings, buffer: e.target.value })} disabled={busy} /><span>minutes</span></span><small>Added automatically. Use 0 for no buffer.</small></label>
+        <label>Consultation length <span className="availability-input-unit"><input aria-label="Consultation length in minutes" type="number" inputMode={phone ? "numeric" : undefined} required min={5} max={240} step={1} value={settings.duration} onChange={e => setSettings({ ...settings, duration: e.target.value })} disabled={busy} /><span>minutes</span></span><small>Time with each patient.</small></label>
+        <label>Buffer between patients <span className="availability-input-unit"><input aria-label="Buffer between patients in minutes" type="number" inputMode={phone ? "numeric" : undefined} required min={0} max={180} step={1} value={settings.buffer} onChange={e => setSettings({ ...settings, buffer: e.target.value })} disabled={busy} /><span>minutes</span></span><small>Added automatically. Use 0 for no buffer.</small></label>
         <fieldset className="availability-operating-hours"><legend>Weekly operating hours</legend><p>Repeats weekly. Uncheck a day to close.</p>{settings.trading.map((h, day) => <div className="availability-operating-day" key={day}><label><input type="checkbox" checked={!h.is_closed} disabled={busy} onChange={e => setSettings({ ...settings, trading: settings.trading.map((row, i) => i === day ? { ...row, is_closed: !e.target.checked } : row) })} />{["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][day]}</label>{h.is_closed ? <span>Closed</span> : <><label><span className="availability-sr-only">{["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][day]} from</span><input type="time" required value={h.open_time.slice(0, 5)} disabled={busy} onChange={e => setSettings({ ...settings, trading: settings.trading.map((row, i) => i === day ? { ...row, open_time: e.target.value } : row) })} /></label><label><span className="availability-sr-only">{["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][day]} until</span><input type="time" required value={h.close_time.slice(0, 5)} disabled={busy} onChange={e => setSettings({ ...settings, trading: settings.trading.map((row, i) => i === day ? { ...row, close_time: e.target.value } : row) })} /></label></>}</div>)}</fieldset>
         <p>Changing consultation length requires confirmation before existing appointments are updated.</p>
         <div className="availability-actions"><button type="button" onClick={() => { setSettings(null); setPendingSettings(null); }} disabled={busy}>Cancel</button><button className="availability-primary" disabled={busy}>{busy ? "Saving…" : "Save settings"}</button></div>
         {error && <div className="availability-error" role="alert">{error}</div>}
       </form>}
       </Dialog.Content></Dialog.Portal></Dialog.Root>
-    <div className="availability-toolbar">
+    {!phone && <><div className="availability-toolbar">
       <div className="availability-date-navigation"><button aria-label="Previous week" onClick={() => setBase(addDays(base, -columns))}><ChevronLeft size={18} /></button><button className="availability-text-button" onClick={() => setBase(mondayOf(today))}>This week</button><button aria-label="Next week" onClick={() => setBase(addDays(base, columns))}><ChevronRight size={18} /></button></div>
       <label className="availability-date-jump">Go to date<input type="date" aria-label="Go to date" value={base} onChange={e => { if (validDate(e.target.value)) setBase(mondayOf(e.target.value)); }} /></label>
       <div className="availability-toolbar-actions">
@@ -283,11 +349,21 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
     </div>
     <p className="availability-hint">{compact ? "Swipe across to see all seven days. Tap a time or block to edit it." : "Click or drag empty time to block it. Drag a block to move it; drag its edges to resize."}</p>
     <div className="availability-key" aria-label="Calendar key"><span><i className="availability-key-booked" />Booked</span><span><i className="availability-key-blocked" />Blocked</span><span><i className="availability-key-buffer" />Buffer between patients</span></div>
+    </>}
     {message && <div className="availability-message" role="status"><span>{message}</span><button aria-label="Dismiss message" onClick={() => setMessage("")}><X size={14} /></button></div>}
     {error && !editor && !settings && <div className="availability-error" role="alert">{error}{onRefresh && <button onClick={refreshCalendar}>Refresh calendar</button>}</div>}
     {warnings.length > 0 && <div className="availability-warning"><strong>{warnings.length} appointment{warnings.length === 1 ? " needs" : "s need"} attention</strong><button onClick={() => setReviewOpen(true)}>Review patients</button></div>}
-    <Dialog.Root open={reviewOpen} onOpenChange={setReviewOpen}><Dialog.Portal><Dialog.Overlay className="availability-dialog-backdrop" /><Dialog.Content className="availability-dialog availability-review-dialog" onCloseAutoFocus={event => { event.preventDefault(); root.current?.querySelector<HTMLButtonElement>(".availability-warning button")?.focus({ preventScroll: true }); }}><div className="availability-dialog-title"><Dialog.Title>Patients to review</Dialog.Title><Dialog.Close aria-label="Close patient review"><X size={18} /></Dialog.Close></div><Dialog.Description>Contact these patients to arrange new times where needed. Appointment start times have not changed.</Dialog.Description><ul>{warnings.map(w => <li key={w.id}>{w.text}</li>)}</ul><div className="availability-actions"><Dialog.Close className="availability-primary">Done</Dialog.Close></div></Dialog.Content></Dialog.Portal></Dialog.Root>
-    <div className="availability-week-scroll" role="region" aria-label="Weekly availability calendar" tabIndex={0}><div className="availability-week" style={{ "--availability-day-columns": `repeat(${columns},minmax(0,1fr))` } as CSSProperties}>
+    <Dialog.Root open={reviewOpen} onOpenChange={setReviewOpen}><Dialog.Portal><Dialog.Overlay className="availability-dialog-backdrop" /><Dialog.Content className="availability-dialog availability-review-dialog" {...phoneDialogProps} onCloseAutoFocus={event => { event.preventDefault(); root.current?.querySelector<HTMLButtonElement>(".availability-warning button")?.focus({ preventScroll: true }); }}><div className="availability-dialog-title"><Dialog.Title>Patients to review</Dialog.Title><Dialog.Close aria-label="Close patient review"><X size={18} /></Dialog.Close></div><Dialog.Description>Contact these patients to arrange new times where needed. Appointment start times have not changed.</Dialog.Description><ul>{warnings.map(w => <li key={w.id}>{w.text}</li>)}</ul><div className="availability-actions"><Dialog.Close className="availability-primary">Done</Dialog.Close></div></Dialog.Content></Dialog.Portal></Dialog.Root>
+    {phone ? phoneView === "upcoming" ? <ClinicUpcomingAppointments schedule={schedule} busy={busy}
+      onAppointment={appointment => { const start = hhmmToMin(appointment.appointment_time), minutes = appointmentDuration(appointment); open("appointment", appointment.appointment_date, minToHHMM(start), minToHHMM(start + minutes), { patient: appointment.patient_name ?? undefined, minutes }); }}
+      onDate={date => { setPhoneDate(date); setBase(mondayOf(date)); setPhoneView("availability"); root.current?.querySelector<HTMLButtonElement>(".availability-mobile-tabs button")?.focus({ preventScroll: true }); }}
+    /> : <ClinicAvailabilityMobile schedule={schedule} date={phoneDate} today={today} busy={busy} canUndo={!!undo && undo.version === schedule.version}
+      onDate={date => { setPhoneDate(date); setBase(mondayOf(date)); }} onHours={hoursEditor}
+      onBlock={(date, start, end, extra) => open("block", date, start, end, extra)}
+      onAppointment={(date, start, end, patient, minutes) => open("appointment", date, start, end, { patient, minutes })}
+      onBuffer={(date, start, end) => open("buffer", date, start, end)}
+      onUndo={() => undo && void commit({ action: "restore", configuration: undo.configuration }, undo.version, "Last change undone.", true)}
+    /> : <div className="availability-week-scroll" role="region" aria-label="Weekly availability calendar" tabIndex={0}><div className="availability-week" style={{ "--availability-day-columns": `repeat(${columns},minmax(0,1fr))` } as CSSProperties}>
       <div className="availability-day-heads"><div className="availability-axis-corner" />{dates.map(date => {
         const h = effectiveHoursFor(asDate(date), schedule.trading, schedule.overrides, schedule.state);
         return <button key={date} aria-label={`Edit working hours for ${formatDay(date)}`} disabled={date < today || busy} onClick={() => hoursEditor(date)}><strong>{asDate(date).toLocaleDateString("en-AU", { weekday: "short", day: "numeric" })}</strong><span>{h && !h.is_closed ? rangeLabel(hhmmToMin(h.open_time), hhmmToMin(h.close_time)) : "Blocked"} · Edit hours</span></button>;
@@ -339,14 +415,14 @@ export function ClinicAvailabilityCalendar({ schedule, onSave, onRefresh, previe
       </div>
     </div>
     {blockPreview && <div className={`availability-drag-feedback${blockPreview.error ? " availability-invalid-drop" : ""}`} role="status">{blockPreview.error || `${formatDay(blockPreview.date)} · ${calendarRangeLabel(blockPreview.from, blockPreview.until)}${busy ? " · Saving…" : " · Release to save"}`}</div>}
-    </div>
+    </div>}
     <Dialog.Root open={!!editor} onOpenChange={isOpen => { if (!isOpen && !busy) { setEditor(null); setError(""); } }}>
-      <Dialog.Portal><Dialog.Overlay className="availability-dialog-backdrop" /><Dialog.Content className="availability-dialog" onCloseAutoFocus={event => {
+      <Dialog.Portal><Dialog.Overlay className="availability-dialog-backdrop" /><Dialog.Content className="availability-dialog" {...phoneDialogProps} onCloseAutoFocus={event => {
         event.preventDefault();
         if (document.querySelector('.availability-settings-dialog')) return;
-        const target = editorTrigger.current?.isConnected ? editorTrigger.current : root.current?.querySelector<HTMLElement>('.availability-week-scroll');
+        const target = editorTrigger.current?.isConnected ? editorTrigger.current : root.current?.querySelector<HTMLElement>(phone ? '.availability-mobile-hours' : '.availability-week-scroll');
         target?.focus({ preventScroll: true });
-      }} onEscapeKeyDown={e => { if (busy) e.preventDefault(); }} onPointerDownOutside={e => { if (busy) e.preventDefault(); }}>
+      }} onEscapeKeyDown={e => { if (busy) e.preventDefault(); }} onPointerDownOutside={e => { if (busy || phone) e.preventDefault(); }}>
         {editor && <>
           <div className="availability-dialog-title"><Dialog.Title>{editor.kind === "hours" ? "Working hours" : editor.kind === "buffer" ? "Buffer between patients" : editor.kind === "appointment" ? "Booked consultation" : editor.id ? "Blocked" : "Block time"}</Dialog.Title><Dialog.Close disabled={busy} aria-label="Close editor"><X size={18} /></Dialog.Close></div>
           <Dialog.Description>{formatDay(editor.date)}</Dialog.Description>
