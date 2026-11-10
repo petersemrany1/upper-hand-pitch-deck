@@ -26,6 +26,151 @@ afterEach(async () => {
   // Radix restores focus on the next task; keep this DOM alive until it finishes.
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 5)); });
   host.remove();
+  browser.happyDOM.setWindowSize({ width: 1024, height: 768 });
+});
+test("calendar history stays accessible on phones and desktop and retries a failed load", async () => {
+  for (const width of [390, 1280]) {
+    browser.happyDOM.setWindowSize({ width, height: 844 });
+    const schedule = calendarPreviewFixture();
+    let requests = 0;
+    await act(async () => root.render(h(ClinicAvailabilityCalendar, { key: width, schedule, onSave: async () => schedule,
+      loadHistory: async () => { if (++requests === 1) throw new Error("Offline"); return { started_at: "2026-11-10T00:00:00Z", entries: [] }; },
+    })));
+    const trigger = host.querySelector<HTMLButtonElement>('.availability-history-trigger')!;
+    expect(trigger).not.toBeNull();
+    if (width === 1280) expect(trigger.closest('.availability-toolbar-actions')).not.toBeNull();
+    await click(trigger);
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('Could not load calendar history');
+    await click(button('Retry'));
+    expect(requests).toBe(2);
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('No recorded changes yet');
+    await click(document.querySelector<HTMLButtonElement>('[aria-label="Close calendar history"]')!);
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+  }
+});
+
+test("phone layout selects the requested day and keeps all seven days reachable", async () => {
+  browser.happyDOM.setWindowSize({ width: 390, height: 844 });
+  const schedule = calendarPreviewFixture();
+  await act(async () => root.render(h(ClinicAvailabilityCalendar, { schedule, onSave: async () => schedule, initialDate: "2099-10-14" })));
+  expect(!!host.querySelector('.availability-week-scroll')).toBe(false);
+  expect(host.querySelectorAll('.availability-mobile-week button')).toHaveLength(7);
+  expect(host.querySelector('.availability-mobile-week [aria-pressed=true]')?.getAttribute('aria-label')).toContain('Wed, 14 Oct');
+  await click(host.querySelector<HTMLButtonElement>('[aria-label="Next week"]')!);
+  expect(host.querySelector('.availability-mobile-week [aria-pressed=true]')?.getAttribute('aria-label')).toContain('Wed, 21 Oct');
+  await click(host.querySelector<HTMLButtonElement>('[aria-label="Previous week"]')!);
+  await click(host.querySelectorAll<HTMLButtonElement>('.availability-mobile-week button')[6]);
+  expect(host.querySelector('.availability-mobile-day-heading')?.textContent).toContain('Sunday');
+  expect(host.querySelector('.availability-mobile-hours')?.textContent).toContain('Closed for consultations');
+});
+
+test("phone block edits, unblocking and undo use the existing schedule commands", async () => {
+  browser.happyDOM.setWindowSize({ width: 390, height: 844 });
+  const schedule = calendarPreviewFixture(); schedule.blocks[0].slot_date = '2099-10-12';
+  const commands: ScheduleCommand[] = [];
+  function Harness() {
+    const [current, setCurrent] = useState(schedule);
+    return h(ClinicAvailabilityCalendar, { schedule: current, initialDate: '2099-10-12', onSave: async command => { commands.push(command); const next = applyScheduleCommand(current, command); setCurrent(next); return next; } });
+  }
+  await act(async () => root.render(h(Harness)));
+  const card = host.querySelector<HTMLButtonElement>('.availability-mobile-entry-blocked')!;
+  // A vertical touch gesture is scrolling, never an implicit move/save.
+  await dragEvent(card, 'pointerdown', 150, 200);
+  await dragEvent(card, 'pointermove', 150, 80);
+  await dragEvent(card, 'pointerup', 150, 80);
+  expect(commands).toHaveLength(0);
+  await click(card);
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Unblock this time');
+  await click(button('Unblock this time'));
+  expect(commands[0]).toEqual({ action: 'unblock', id: schedule.blocks[0].id, date: '2099-10-12', scope: 'date' });
+  expect(host.querySelector('.availability-mobile-entry-blocked')).toBeNull();
+  await click(host.querySelector<HTMLButtonElement>('[aria-label="Undo last change"]')!);
+  expect(commands[1].action).toBe('restore');
+  expect(host.querySelector('.availability-mobile-entry-blocked')).not.toBeNull();
+});
+
+test("phone errors retain the draft and booked-patient protection prevents a request", async () => {
+  browser.happyDOM.setWindowSize({ width: 390, height: 844 });
+  const schedule = calendarPreviewFixture(); const date = '2099-10-12';
+  schedule.blocks[0].slot_date = date;
+  schedule.appointments[0].appointment_date = date;
+  let requests = 0;
+  await render(schedule, async () => { requests++; throw new Error('Connection interrupted'); });
+  await click(host.querySelector<HTMLButtonElement>('.availability-mobile-hours')!);
+  await click(document.querySelector<HTMLInputElement>('[role="dialog"] input[type=checkbox]')!);
+  expect(button('Save working hours').disabled).toBe(true);
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain('patient');
+  expect(requests).toBe(0);
+  await click(button('Cancel'));
+  await click(host.querySelector<HTMLButtonElement>('.availability-mobile-entry-blocked')!);
+  await click(button('Save changes'));
+  expect(requests).toBe(1);
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain('Connection interrupted');
+  expect(document.querySelector<HTMLInputElement>('[role="dialog"] input[type=time]')?.value).toBe('10:30');
+});
+
+test("phone cards expose five-minute consultations and buffers without hiding names", async () => {
+  browser.happyDOM.setWindowSize({ width: 320, height: 568 });
+  const schedule = calendarPreviewFixture(); const date = '2099-10-12';
+  schedule.blocks[0].slot_date = date;
+  schedule.buffer_minutes = 5;
+  schedule.appointments = [{ ...schedule.appointments[0], appointment_date: date, patient_name: 'Alexandra Jane Smith', consultation_duration_minutes: 5 }];
+  await render(schedule, async () => schedule);
+  const patient = host.querySelector<HTMLButtonElement>('.availability-mobile-entry-booked')!;
+  expect(patient.textContent).toContain('Alexandra Jane Smith');
+  expect(patient.textContent).toContain('5 minutes');
+  await click(patient);
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Alexandra Jane Smith');
+  await click(button('Close'));
+  await click(host.querySelector<HTMLButtonElement>('.availability-mobile-entry-buffer')!);
+  await click(button('Change buffer length'));
+  expect(document.querySelector('.availability-settings-dialog')).not.toBeNull();
+  expect(document.querySelector<HTMLInputElement>('[aria-label="Buffer between patients in minutes"]')?.value).toBe('5');
+});
+
+test("phone recurring blocks expose single-date and whole-series scope", async () => {
+  browser.happyDOM.setWindowSize({ width: 390, height: 844 });
+  const schedule = calendarPreviewFixture();
+  schedule.blocks = [{ ...schedule.blocks[0], is_recurring: true, recur_day_of_week: 0, slot_date: null }];
+  const commands: ScheduleCommand[] = [];
+  await act(async () => root.render(h(ClinicAvailabilityCalendar, { schedule, initialDate: '2099-10-12', onSave: async command => { commands.push(command); return applyScheduleCommand(schedule, command); } })));
+  await click(host.querySelector<HTMLButtonElement>('.availability-mobile-entry-blocked')!);
+  const scope = document.querySelector<HTMLSelectElement>('[role="dialog"] select')!;
+  expect([...scope.options].map(option => option.value)).toEqual(['date', 'series']);
+  await act(async () => { scope.value = 'series'; scope.dispatchEvent(new window.Event('change', { bubbles: true })); });
+  await click(button('Unblock all repeats'));
+  expect(commands).toEqual([{ action: 'unblock', id: schedule.blocks[0].id, date: '2099-10-12', scope: 'series' }]);
+});
+
+test("upcoming phone appointments span dates, open details and jump to the selected calendar day", async () => {
+  browser.happyDOM.setWindowSize({ width: 390, height: 844 });
+  const schedule = calendarPreviewFixture();
+  schedule.appointments = [
+    { ...schedule.appointments[0], appointment_date: '2099-10-14', patient_name: 'Alex Patient' },
+    { ...schedule.appointments[1], appointment_date: '2099-10-13', patient_name: 'Jamie Patient' },
+  ];
+  await render(schedule, async () => schedule);
+  await click(button('Upcoming appointments'));
+  expect([...host.querySelectorAll('.availability-upcoming-card strong')].map(el => el.textContent)).toEqual(['Jamie Patient', 'Alex Patient']);
+  expect(host.querySelector<HTMLElement>('.availability-settings')?.hidden).toBe(true);
+  await click(host.querySelector<HTMLButtonElement>('.availability-upcoming-card .availability-mobile-entry')!);
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Jamie Patient');
+  await click(button('Close'));
+  await click(host.querySelector<HTMLButtonElement>('.availability-upcoming-view-day')!);
+  expect(host.querySelector<HTMLInputElement>('[aria-label="Go to date"]')?.value).toBe('2099-10-13');
+  expect(host.querySelector('.availability-mobile-entry-booked')?.textContent).toContain('Jamie Patient');
+});
+
+test("upcoming phone appointments show an empty state instead of past patients", async () => {
+  browser.happyDOM.setWindowSize({ width: 390, height: 844 });
+  const schedule = calendarPreviewFixture();
+  schedule.appointments = schedule.appointments.map(a => ({ ...a, appointment_date: '2020-01-01' }));
+  await render(schedule, async () => schedule);
+  await click(button('Upcoming appointments'));
+  expect(host.querySelector('.availability-upcoming')?.textContent).toContain('No upcoming appointments');
+  expect(host.querySelectorAll('.availability-upcoming-card')).toHaveLength(0);
+  await click(button('Availability'));
+  expect(!!host.querySelector('.availability-mobile')).toBe(true);
 });
 afterAll(() => {
   browser.happyDOM.abort();

@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentPropsWithoutRef } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { History, X } from "lucide-react";
 import { HISTORY_PAGE_SIZE, historySummary, historyTimestamp, type CalendarHistoryEntry, type CalendarHistoryLoader } from "@/lib/calendar-history";
 
-export function CalendarHistory({ load, clinicName }: { load: CalendarHistoryLoader; clinicName: string }) {
+export function CalendarHistory({ load, clinicName, dialogProps, onOpenChange }: { load: CalendarHistoryLoader; clinicName: string; dialogProps?: ComponentPropsWithoutRef<typeof Dialog.Content>; onOpenChange?: (open: boolean) => void }) {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState("");
   const [refresh, setRefresh] = useState(0);
@@ -36,9 +36,9 @@ export function CalendarHistory({ load, clinicName }: { load: CalendarHistoryLoa
     finally { if (generation.current === current) setLoading(false); }
   }
   const changes = entries.filter(entry => entry.operation !== "baseline");
-  return <Dialog.Root open={open} onOpenChange={setOpen}>
+  return <Dialog.Root open={open} onOpenChange={value => { setOpen(value); onOpenChange?.(value); }}>
     <Dialog.Trigger asChild><button className="availability-history-trigger"><History size={14} />Calendar history</button></Dialog.Trigger>
-    <Dialog.Portal><Dialog.Overlay className="availability-dialog-backdrop" /><Dialog.Content className="availability-dialog availability-history-dialog">
+    <Dialog.Portal><Dialog.Overlay className="availability-dialog-backdrop" /><Dialog.Content className="availability-dialog availability-history-dialog" {...dialogProps}>
       <div className="availability-dialog-title"><Dialog.Title>Calendar history</Dialog.Title><Dialog.Close aria-label="Close calendar history"><X size={18} /></Dialog.Close></div>
       <Dialog.Description>{clinicName} · Sydney time</Dialog.Description>
       <div className="availability-history-filters"><label>Calendar date<input type="date" value={date} onChange={event => setDate(event.target.value)} /></label>{date && <button onClick={() => setDate("")}>All dates</button>}<button disabled={loading} onClick={() => setRefresh(value => value + 1)}>Refresh history</button></div>
