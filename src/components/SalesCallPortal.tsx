@@ -1,3 +1,5 @@
+import { useClinicCapacity } from "./sales-call/use-clinic-capacity";
+import { ClinicCapacityNotice } from "./sales-call/ClinicCapacityNotice";
 import { EditContact } from "./sales-call/EditContact";
 import { CustomerJourneyTimeline } from "./sales-call/CustomerJourneyTimeline";
 import { useCustomerJourney, refreshCustomerJourney } from "./sales-call/useCustomerJourney";
@@ -420,63 +422,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const a = leadLocationText(l);
     return pausedLocations.some((loc) => a.includes(loc));
   }, [pausedLocations]);
-  // Clinic capacity, live. When every active clinic serving a city runs out of
-  // paid shows, that city's leads drop out of the pipeline, the session queue
-  // and due callbacks until a slot comes back (no-show / disqualification /
-  // new pack). Recomputed on booking saves (via the "clinic-capacity-changed"
-  // event) and on any realtime appointment/pack change, so another rep's
-  // booking updates this screen too.
-  const [clinicCapacity, setClinicCapacity] = useState<{ all: string[]; available: string[] }>({ all: [], available: [] });
-  useEffect(() => {
-    let initial = true;
-    const refreshes = createRefreshQueue(async (isCurrent) => {
-      const fresh = !initial;
-      initial = false;
-      try {
-        const [{ data, error }, remaining] = await Promise.all([
-          supabase.from("partner_clinics").select("id, location, city").eq("is_active", true),
-          fetchClinicRemainingSlots({ fresh }),
-        ]);
-        if (error) throw error;
-        if (!isCurrent()) return;
-        const all: string[] = [];
-        const available: string[] = [];
-        for (const c of (data ?? []) as { id: string; location: string | null; city: string | null }[]) {
-          const keys = clinicLocationKeywords(c);
-          if (keys.length === 0) continue;
-          all.push(...keys);
-          if ((remaining[c.id] ?? 0) > 0) available.push(...keys);
-        }
-        setClinicCapacity({ all, available });
-      } catch (err) {
-        // A failed capacity read must never hide leads — keep the last known state.
-        console.warn("clinic capacity refresh failed", err);
-      }
-    });
-    refreshes.refresh();
-    // Keep the existing refresh cadence and realtime updates without overlapping
-    // database reads during a slowdown. A queued refresh bypasses the cache.
-    const onChanged = () => refreshes.refresh();
-    window.addEventListener("clinic-capacity-changed", onChanged);
-    window.addEventListener("focus", onChanged);
-    const poll = window.setInterval(onChanged, 15_000);
-    const ch = supabase.channel("clinic-capacity-queue")
-      .on("postgres_changes", { event: "*", schema: "public", table: "clinic_appointments" }, onChanged)
-      .on("postgres_changes", { event: "*", schema: "public", table: "clinic_packs" }, onChanged)
-      // Reps share leads but cannot read other reps' appointment rows. The
-      // shared lead's booking update also wakes the aggregate balance refresh.
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "meta_leads" }, (payload) => {
-        if (payload.new.booking_date || payload.old.booking_date) onChanged();
-      })
-      .subscribe();
-    return () => {
-      refreshes.stop();
-      window.removeEventListener("clinic-capacity-changed", onChanged);
-      window.removeEventListener("focus", onChanged);
-      window.clearInterval(poll);
-      void supabase.removeChannel(ch);
-    };
-  }, []);
+  const { capacity: clinicCapacity, status: capacityStatus, readyRef: capacityReadyRef, retry: retryCapacity } = useClinicCapacity(supabase, fetchClinicRemainingSlots);
+  const capacityReady = practiceMode || capacityStatus === "ready";
   const isLeadClinicFull = useCallback((l: Lead) => {
     if (clinicCapacity.all.length === 0) return false;
     const a = leadLocationText(l);
@@ -1023,7 +970,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         });
       }
       // Unknown history must not re-surface an already actioned callback.
-      if (!callHistoryReadyRef.current) return;
+      if (!callHistoryReadyRef.current || !capacityReadyRef.current) return;
       const knownRows = rows.filter((l) => callHistoryRef.current[l.id] !== undefined);
       const live = new Set(dueCallbackIds(knownRows, callHistoryRef.current, now, isLeadUnavailableRef.current));
       const surfaced = callbackSurfacedRef.current;
@@ -1502,11 +1449,12 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     setDiscoveryNotes("");
   }, [activeId]);
 
-  const callbackBanner = !practiceMode && !callHistoryReady ? (
-    <div role="status" style={{ padding: "10px 16px", background: "#fff7ed", color: "#9a3412", fontSize: 13 }}>
+  const callbackBanner = !practiceMode ? <>
+    <ClinicCapacityNotice status={capacityStatus} retry={retryCapacity} />
+    {!callHistoryReady && <div role="status" style={{ padding: "10px 16px", background: "#fff7ed", color: "#9a3412", fontSize: 13 }}>
       {historyError ? "Call history could not refresh. Automatic calling is paused while we retry." : "Checking call history before automatic calling…"}
-    </div>
-  ) : null;
+    </div>}
+  </> : null;
 
   // Today's callbacks (overdue + scheduled-for-today) for the at-a-glance panel
   const todaysCallbacks = useMemo(() => {
@@ -1597,12 +1545,22 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     setSessionIndex(sessionQueueIndex(sessionQueue, activeId, sessionIndex));
   }, [dueLeadIds, missedCallQueue, sessionActive, callHistoryReady, sessionQueue, sessionIndex, activeId, refreshWaitingQueue, practiceMode, testLeadIds.length]);
 
+  useEffect(() => {
+    if (!sessionActive || manualMode || practiceMode || !capacityReady || !active || !isLeadClinicFull(active)) return;
+    if (queueCallStatus === "connecting" || queueCallStatus === "in-call" || queueCallStatus === "ringing-incoming") return;
+    if (leadHasBookedSale(active) || active.id === handoverReviewLeadId || pendingOutcomeLeadId === active.id
+      || outcomePendingRef.current || outcomeRequiredRef.current) return;
+    setSessionIndex(nextSessionIndexFromActive(sessionQueue, active.id, sessionIndex));
+    setActiveId(null);
+  }, [sessionActive, manualMode, practiceMode, capacityReady, active, isLeadClinicFull, queueCallStatus,
+    handoverReviewLeadId, pendingOutcomeLeadId, sessionQueue, sessionIndex]);
+
   const missingLeadTriedRef = useRef<Set<string>>(new Set());
 
   // All automatic exits converge here. The database check is authoritative;
   // failed reads retain the session, and cleanup cancels stale async results.
   const queueExhausted = sessionActive && !active && !sessionQueue[sessionIndex];
-  const { error: completionError, retry: retryCompletion } = useSessionCompletion<Lead>(queueExhausted && !sessionPaused && !practiceMode && callHistoryReady, {
+  const { error: completionError, retry: retryCompletion } = useSessionCompletion<Lead>(queueExhausted && !sessionPaused && !practiceMode && callHistoryReady && capacityReady, {
     load: async () => {
       // Older browser caches may predate sessionId. Resolve the real session.
       const currentSession = sessionId || (await getCurrentRepSession({ data: undefined as never }))?.id;
@@ -1610,7 +1568,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const fresh = testLeadIds.length ? [] : await fetchUntouchedLeads<Lead>(currentSession!, SALES_CALL_LEAD_SELECT);
       return fresh.filter(l => !sessionSkipsRef.current.has(l.id));
     },
-    stillCurrent: () => callHistoryReadyRef.current && mayFinishReview({ cancelled: sessionEndRequestedRef.current, active: sessionActiveRef.current,
+    stillCurrent: () => capacityReadyRef.current && callHistoryReadyRef.current && mayFinishReview({ cancelled: sessionEndRequestedRef.current, active: sessionActiveRef.current,
       leadId: activeIdRef.current, queuedAhead: Boolean(sessionQueueRef.current[sessionIndexRef.current]) }),
     restore: fresh => {
       const byId = new Map(fresh.map(l => [l.id,l]));
@@ -1744,7 +1702,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     if (!sessionActive && !manualMode) {
       // Wait for leads, location settings AND complete call history before
       // taking a queue snapshot, or people already called can be served again.
-      if (!leadsLoaded || !settingsLoaded || !callHistoryReady) {
+      if (!leadsLoaded || !settingsLoaded || !callHistoryReady || !capacityReady) {
         return (
           <>
             {callbackBanner}
@@ -1759,7 +1717,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const queueCount = buildSessionQueue().length;
 
       const beginSession = async () => {
-        if (!callHistoryReadyRef.current) return;
+        if (!callHistoryReadyRef.current || !capacityReadyRef.current) return;
         sessionStartRequestedRef.current = true;
         setRestoreConnection("connected");
         setPresenceConnection("connected");
@@ -1774,7 +1732,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         } catch (err) {
           console.error("sweepAbandonedCalls failed", err);
         }
-        if (!callHistoryReadyRef.current) return;
+        if (!callHistoryReadyRef.current || !capacityReadyRef.current) return;
         const q = buildSessionQueue();
         let startedAt: string;
         try {
@@ -1937,7 +1895,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         </div>
       </>
     );
-    if (!callHistoryReady) return holding;
+    if (!callHistoryReady || !capacityReady) return holding;
     if (nextId) {
       const queuedLead = leads.find((l) => l.id === nextId);
       if (queuedLead && !missedCallQueue.includes(nextId) && !dueSet.has(nextId)) {
@@ -2064,7 +2022,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             onDepositPaid={() => {
               if (sessionActive) {
                 setSessionBookings((b) => b + 1);
-                if (!callHistoryReadyRef.current) return;
+                if (!callHistoryReadyRef.current || !capacityReadyRef.current) return;
                 const nextIndex = advanceIndexFrom(sessionIndex + 1);
                 setSessionIndex(nextIndex);
                 const nextId = sessionQueue[nextIndex];
@@ -2129,8 +2087,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           firstCallAt={firstCallByLead[active.id] ?? null}
           onLocalLeadUpdate={updateLocalLead}
           onChangeLead={() => {
-            if (sessionActive && !callHistoryReadyRef.current) {
-              toast.error("Waiting for call history before choosing the next lead");
+            if (sessionActive && (!callHistoryReadyRef.current || !capacityReadyRef.current)) {
+              toast.error("Checking call history and clinic availability before the next lead");
               return;
             }
             // Missed-call priority: if anyone rang us back, jump to them
@@ -2213,16 +2171,18 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
           onOutcomePendingChange={(val) => { outcomePendingRef.current = val; }}
           onCallStarted={() => {}}
-          autoDialEnabled={sessionActive && !manualMode && !sessionPaused && callHistoryReady && active.id !== handoverReviewLeadId}
+          capacityReady={capacityReady}
+          canCheckCapacity={() => practiceMode || capacityReadyRef.current}
+          autoDialEnabled={sessionActive && !manualMode && !sessionPaused && callHistoryReady && capacityReady && !isLeadClinicFull(active) && active.id !== handoverReviewLeadId}
           autoDialArmToken={autoDialArmToken}
           onGoToStep={(next) => setStep(next)}
           pendingOutcomeLeadId={pendingOutcomeLeadId}
           onPendingOutcomeArmed={(leadId) => setPendingOutcomeLeadId(leadId)}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
             setPendingOutcomeLeadId(null);
-            if (sessionActive && !callHistoryReadyRef.current) {
+            if (sessionActive && (!callHistoryReadyRef.current || !capacityReadyRef.current)) {
               if (wasBooked) setSessionBookings((b) => b + 1);
-              toast("Outcome saved. Waiting for call history before the next lead.");
+              toast("Outcome saved. Checking call history and clinic availability before the next lead.");
               return;
             }
             // Missed-call priority also applies right after logging an outcome.
@@ -4297,6 +4257,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     }
     const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId, doctorId: form.doctorId, date: form.date, time: form.time, repId: repId ?? null, promoteStatus: true, norwoodLevel: norwood, expectationsSet: expectationsAnswer === "yes" } });
     if (r.success) {
+      // Stop serving this clinic immediately, before the network refresh returns.
+      invalidateClinicRemainingSlots(r.booking.clinicId);
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
       if (!selectedClinic) {
         toast.error("The booked clinic could not be reloaded. Please retry.");
@@ -4307,8 +4269,6 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       setSavedAppointment({ clinic_id: r.booking.clinicId, doctor_id: r.booking.doctorId, doctor_name: doctorName });
       setBookedData({ date: form.date, time: form.time, clinicName, doctorName });
       setBooked(true);
-      // A saved booking consumes a pack slot — drop the cached balances.
-      invalidateClinicRemainingSlots();
       // Status is promoted atomically inside saveBooking (promoteStatus: true)
       // — no separate updateLeadStatus round-trip. The DB trigger
       // enforce_booking_before_status_lock can never race us because
@@ -6949,7 +6909,7 @@ function RightPanel({
   active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead, onPreviousLead, hasPreviousLead,
   onOutcomeRequiredChange, onOutcomePendingChange, onAfterOutcomeApplied, onCallStarted, practiceMode = false,
   pendingOutcomeLeadId, onPendingOutcomeArmed,
-  autoDialEnabled = false, autoDialArmToken = 0,
+  autoDialEnabled = false, autoDialArmToken = 0, capacityReady, canCheckCapacity,
   onGoToStep,
 }: {
   sessionId: string | null;
@@ -6970,6 +6930,8 @@ function RightPanel({
   practiceMode?: boolean;
   pendingOutcomeLeadId?: string | null;
   onPendingOutcomeArmed?: (leadId: string) => void;
+  capacityReady: boolean;
+  canCheckCapacity: () => boolean;
   autoDialEnabled?: boolean;
   autoDialArmToken?: number;
   /** Jump the script to a step (used to go straight to Deposit & Book). */
@@ -7529,6 +7491,7 @@ function RightPanel({
   const callNow = async () => {
     console.log("[callNow] click", { phone: active.phone, leadId: active.id, deviceStatus });
     if (inCall || preparingCallRef.current || savingHoldRef.current || showSkip) return;
+    if (!practiceMode && !canCheckCapacity()) { toast.info("Checking clinic availability before the next call…"); return; }
     if (onHoldRef.current) { toast.error("This client is on hold and cannot be called."); return; }
     if (!active.phone) { toast.error("No phone number"); return; }
     // Backstop: even if this lead somehow surfaced in the queue, never let a rep
@@ -7555,7 +7518,7 @@ function RightPanel({
           fetchClinicRemainingSlots({ fresh: true }),
         ]);
         if (error) throw error;
-        if (dialLeadRef.current !== active.id || savingHoldRef.current || onHoldRef.current) {
+        if (dialLeadRef.current !== active.id || savingHoldRef.current || onHoldRef.current || !canCheckCapacity()) {
           preparingCallRef.current = false;
           return;
         }
@@ -8078,7 +8041,7 @@ function RightPanel({
           ) : (
           <button
             onClick={() => void callNow()}
-            disabled={onHold || savingHold}
+            disabled={onHold || savingHold || !capacityReady}
             className="w-full rounded-[8px] flex items-center justify-center gap-2"
             style={{
               background: COLORS.coral,
@@ -8088,7 +8051,7 @@ function RightPanel({
               padding: "14px 16px",
             }}
           >
-            {onHold ? "⏸ Client on hold" : "📞 Call Now"}
+            {!capacityReady ? "Checking clinic availability…" : onHold ? "⏸ Client on hold" : "📞 Call Now"}
           </button>
           )
         ) : (
