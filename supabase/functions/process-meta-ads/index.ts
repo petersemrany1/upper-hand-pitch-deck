@@ -3,10 +3,17 @@ import { configuredAccount, createGraph } from '../_shared/meta-ads/graph.ts';
 import { runJob } from '../_shared/meta-ads/worker.ts';
 Deno.serve(async(req)=>{
   const service=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if(!service||req.headers.get('authorization')!==`Bearer ${service}`)return new Response('Unauthorized',{status:401});
+  if(!service)return new Response('Unavailable',{status:503});
+  const workerToken=req.headers.get('X-Meta-Worker-Token')||'';
+  const trustedService=req.headers.get('authorization')===`Bearer ${service}`;
+  if(!trustedService&&!/^[a-f0-9-]{72}$/.test(workerToken))return new Response('Unauthorized',{status:401});
   if(req.method!=='POST')return new Response('Method not allowed',{status:405});
   const db=createClient(Deno.env.get('SUPABASE_URL')!,service,{auth:{persistSession:false,autoRefreshToken:false}});
   try{
+    if(!trustedService){
+      const {data:authorized,error:authError}=await db.rpc('meta_ads_worker_authenticate',{p_token:workerToken});
+      if(authError||authorized!==true)return new Response('Unauthorized',{status:401});
+    }
     const token=Deno.env.get('META_ACCESS_TOKEN'),account=Deno.env.get('META_AD_ACCOUNT_ID');
     if(!token||!account)return Response.json({ok:false,message:'Meta publishing credentials are not configured.'},{status:503});
     const {error:healthError}=await db.from('meta_ads_runtime').update({heartbeat_at:new Date().toISOString(),version:'1'}).eq('id',true);
