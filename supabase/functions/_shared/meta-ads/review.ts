@@ -1,8 +1,6 @@
 import { GOALS, accountPath, budgetLabel, requireGeoMatch, validateConfig, type Account, type AdSet, type Asset, type Campaign, type Geo, type Page, type Review, type WizardConfig } from './model.ts';
 import { ADSET_FIELDS, CAMPAIGN_FIELDS, fingerprint, type Graph } from './graph.ts';
-export async function pagesForAccount(graph: Graph, accountId: string): Promise<Page[]> {
-  return graph.all(`${accountPath(accountId)}/promote_pages`, { fields: 'id,name,instagram_business_account{id,username}' });
-}
+import { grantedPermissions, pagesForAccount } from './page-access.ts';
 export async function searchLocations(graph: Graph, query: string, country: string, type: string): Promise<Geo[]> {
   if (!['country','region','city','zip'].includes(type) || !/^[A-Z]{2}$/.test(country)) throw new Error('Choose a country and location type.');
   const result = await graph.get('search', { type: 'adgeolocation', q: query, country_code: country, location_types: [type], limit: 100 });
@@ -68,6 +66,8 @@ export async function inspectDraft(graph: Graph, c: WizardConfig, assets: Asset[
   return { account, campaign, adset, snapshot, warnings, activationBlockers, summary: { account, campaign: campaign?.name || c.campaignName, adset: adset?.name || c.adsetName, budget: budgetLabel(c, account, campaign, adset), locationExpansion: c.locationExpansion, locations: adset ? targetingLocations(adset) : c.locations.map(l => `${l.name}${l.region ? `, ${l.region}` : ''}, ${l.country_code}${l.type === 'city' ? ` · ${l.radius} km` : ''}`), adCount: c.creatives.length, page: page.name } };
 }
 export async function makeReview(graph: Graph, c: WizardConfig, assets: Asset[], account: string, revision: number) {
+  const grants = await grantedPermissions(graph);
+  if (grants && !grants.has('ads_management')) throw new Error('The connected Meta token needs ads_management to create ads. Update the portal connection and review again.');
   const inspected = await inspectDraft(graph, c, assets, account, { verifyLocations: true });
   const snapshotHash = await fingerprint(inspected.snapshot);
   const hash = await fingerprint({ config: c, revision, assets: assets.filter(a => c.creatives.some(x => x.assetId === a.id)).map(a => ({ id: a.id, path: a.path, size: a.size, status: a.status })), snapshotHash });
