@@ -14,178 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      meta_ads_assets: {
-        Row: {
-          created_at: string
-          draft_id: string
-          duration: number
-          file_name: string
-          height: number
-          id: string
-          mime: string
-          path: string
-          size: number
-          status: string
-          thumbnail_path: string
-          width: number
-        }
-        Insert: {
-          created_at?: string
-          draft_id: string
-          duration: number
-          file_name: string
-          height: number
-          id?: string
-          mime: string
-          path: string
-          size: number
-          status?: string
-          thumbnail_path: string
-          width: number
-        }
-        Update: {
-          created_at?: string
-          draft_id?: string
-          duration?: number
-          file_name?: string
-          height?: number
-          id?: string
-          mime?: string
-          path?: string
-          size?: number
-          status?: string
-          thumbnail_path?: string
-          width?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "meta_ads_assets_draft_id_fkey"
-            columns: ["draft_id"]
-            isOneToOne: false
-            referencedRelation: "meta_ads_drafts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      meta_ads_drafts: {
-        Row: {
-          attempts: number
-          config: Json
-          created_at: string
-          error: string | null
-          id: string
-          lease_token: string | null
-          lease_until: string | null
-          name: string
-          next_attempt_at: string
-          owner_id: string
-          pause_requested: boolean
-          progress: Json
-          requested_mode: string | null
-          review_expires_at: string | null
-          review_hash: string | null
-          review_plan: Json | null
-          revision: number
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          attempts?: number
-          config: Json
-          created_at?: string
-          error?: string | null
-          id?: string
-          lease_token?: string | null
-          lease_until?: string | null
-          name?: string
-          next_attempt_at?: string
-          owner_id: string
-          pause_requested?: boolean
-          progress?: Json
-          requested_mode?: string | null
-          review_expires_at?: string | null
-          review_hash?: string | null
-          review_plan?: Json | null
-          revision?: number
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          attempts?: number
-          config?: Json
-          created_at?: string
-          error?: string | null
-          id?: string
-          lease_token?: string | null
-          lease_until?: string | null
-          name?: string
-          next_attempt_at?: string
-          owner_id?: string
-          pause_requested?: boolean
-          progress?: Json
-          requested_mode?: string | null
-          review_expires_at?: string | null
-          review_hash?: string | null
-          review_plan?: Json | null
-          revision?: number
-          status?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      meta_ads_events: {
-        Row: {
-          actor_id: string | null
-          created_at: string
-          detail: Json
-          draft_id: string | null
-          event: string
-          id: number
-        }
-        Insert: {
-          actor_id?: string | null
-          created_at?: string
-          detail?: Json
-          draft_id?: string | null
-          event: string
-          id?: never
-        }
-        Update: {
-          actor_id?: string | null
-          created_at?: string
-          detail?: Json
-          draft_id?: string | null
-          event?: string
-          id?: never
-        }
-        Relationships: [
-          {
-            foreignKeyName: "meta_ads_events_draft_id_fkey"
-            columns: ["draft_id"]
-            isOneToOne: false
-            referencedRelation: "meta_ads_drafts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      meta_ads_runtime: {
-        Row: {
-          heartbeat_at: string | null
-          id: boolean
-          version: string | null
-        }
-        Insert: {
-          heartbeat_at?: string | null
-          id?: boolean
-          version?: string | null
-        }
-        Update: {
-          heartbeat_at?: string | null
-          id?: boolean
-          version?: string | null
-        }
-        Relationships: []
-      }
       ad_spend_daily: {
         Row: {
           ad_id: string | null
@@ -2833,6 +2661,178 @@ export type Database = {
         }
         Relationships: []
       }
+      meta_ads_assets: {
+        Row: {
+          created_at: string
+          draft_id: string
+          duration: number
+          file_name: string
+          height: number
+          id: string
+          mime: string
+          path: string
+          size: number
+          status: string
+          thumbnail_path: string
+          width: number
+        }
+        Insert: {
+          created_at?: string
+          draft_id: string
+          duration: number
+          file_name: string
+          height: number
+          id?: string
+          mime: string
+          path: string
+          size: number
+          status?: string
+          thumbnail_path: string
+          width: number
+        }
+        Update: {
+          created_at?: string
+          draft_id?: string
+          duration?: number
+          file_name?: string
+          height?: number
+          id?: string
+          mime?: string
+          path?: string
+          size?: number
+          status?: string
+          thumbnail_path?: string
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_ads_assets_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "meta_ads_drafts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_ads_drafts: {
+        Row: {
+          attempts: number
+          config: Json
+          created_at: string
+          error: string | null
+          id: string
+          lease_token: string | null
+          lease_until: string | null
+          name: string
+          next_attempt_at: string
+          owner_id: string
+          pause_requested: boolean
+          progress: Json
+          requested_mode: string | null
+          review_expires_at: string | null
+          review_hash: string | null
+          review_plan: Json | null
+          revision: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          config: Json
+          created_at?: string
+          error?: string | null
+          id?: string
+          lease_token?: string | null
+          lease_until?: string | null
+          name?: string
+          next_attempt_at?: string
+          owner_id: string
+          pause_requested?: boolean
+          progress?: Json
+          requested_mode?: string | null
+          review_expires_at?: string | null
+          review_hash?: string | null
+          review_plan?: Json | null
+          revision?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          config?: Json
+          created_at?: string
+          error?: string | null
+          id?: string
+          lease_token?: string | null
+          lease_until?: string | null
+          name?: string
+          next_attempt_at?: string
+          owner_id?: string
+          pause_requested?: boolean
+          progress?: Json
+          requested_mode?: string | null
+          review_expires_at?: string | null
+          review_hash?: string | null
+          review_plan?: Json | null
+          revision?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      meta_ads_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          detail: Json
+          draft_id: string | null
+          event: string
+          id: number
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json
+          draft_id?: string | null
+          event: string
+          id?: never
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json
+          draft_id?: string | null
+          event?: string
+          id?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_ads_events_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "meta_ads_drafts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_ads_runtime: {
+        Row: {
+          heartbeat_at: string | null
+          id: boolean
+          version: string | null
+        }
+        Insert: {
+          heartbeat_at?: string | null
+          id?: boolean
+          version?: string | null
+        }
+        Update: {
+          heartbeat_at?: string | null
+          id?: boolean
+          version?: string | null
+        }
+        Relationships: []
+      }
       meta_leads: {
         Row: {
           ad_name: string | null
@@ -4620,146 +4620,6 @@ export type Database = {
       }
     }
     Functions: {
-      meta_ads_asset: {
-        Args: {
-          p_asset: Json
-          p_complete?: boolean
-          p_draft: string
-          p_owner: string
-        }
-        Returns: {
-          created_at: string
-          draft_id: string
-          duration: number
-          file_name: string
-          height: number
-          id: string
-          mime: string
-          path: string
-          size: number
-          status: string
-          thumbnail_path: string
-          width: number
-        }
-        SetofOptions: {
-          from: "*"
-          to: "meta_ads_assets"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      meta_ads_claim: {
-        Args: never
-        Returns: {
-          attempts: number
-          config: Json
-          created_at: string
-          error: string | null
-          id: string
-          lease_token: string | null
-          lease_until: string | null
-          name: string
-          next_attempt_at: string
-          owner_id: string
-          pause_requested: boolean
-          progress: Json
-          requested_mode: string | null
-          review_expires_at: string | null
-          review_hash: string | null
-          review_plan: Json | null
-          revision: number
-          status: string
-          updated_at: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "meta_ads_drafts"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      meta_ads_queue: {
-        Args: {
-          p_hash: string
-          p_id: string
-          p_mode: string
-          p_owner: string
-          p_revision: number
-        }
-        Returns: {
-          attempts: number
-          config: Json
-          created_at: string
-          error: string | null
-          id: string
-          lease_token: string | null
-          lease_until: string | null
-          name: string
-          next_attempt_at: string
-          owner_id: string
-          pause_requested: boolean
-          progress: Json
-          requested_mode: string | null
-          review_expires_at: string | null
-          review_hash: string | null
-          review_plan: Json | null
-          revision: number
-          status: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "meta_ads_drafts"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      meta_ads_save: {
-        Args: {
-          p_config: Json
-          p_id: string
-          p_name: string
-          p_owner: string
-          p_revision: number
-        }
-        Returns: {
-          attempts: number
-          config: Json
-          created_at: string
-          error: string | null
-          id: string
-          lease_token: string | null
-          lease_until: string | null
-          name: string
-          next_attempt_at: string
-          owner_id: string
-          pause_requested: boolean
-          progress: Json
-          requested_mode: string | null
-          review_expires_at: string | null
-          review_hash: string | null
-          review_plan: Json | null
-          revision: number
-          status: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "meta_ads_drafts"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      meta_ads_tick: { Args: never; Returns: undefined }
-      meta_ads_worker_authenticate: {
-        Args: { p_token: string }
-        Returns: boolean
-      }
-      save_lead_contact: {
-        Args: { p_lead_id: string; p_first_name: string; p_last_name: string; p_phone: string; p_expected_first_name: string | null; p_expected_last_name: string | null; p_expected_phone: string | null }
-        Returns: Json
-      }
-
       ad_cost_per_show_monthly: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
@@ -5141,6 +5001,141 @@ export type Database = {
         Returns: undefined
       }
       market_city: { Args: { p_text: string }; Returns: string }
+      meta_ads_asset: {
+        Args: {
+          p_asset: Json
+          p_complete?: boolean
+          p_draft: string
+          p_owner: string
+        }
+        Returns: {
+          created_at: string
+          draft_id: string
+          duration: number
+          file_name: string
+          height: number
+          id: string
+          mime: string
+          path: string
+          size: number
+          status: string
+          thumbnail_path: string
+          width: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "meta_ads_assets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      meta_ads_claim: {
+        Args: never
+        Returns: {
+          attempts: number
+          config: Json
+          created_at: string
+          error: string | null
+          id: string
+          lease_token: string | null
+          lease_until: string | null
+          name: string
+          next_attempt_at: string
+          owner_id: string
+          pause_requested: boolean
+          progress: Json
+          requested_mode: string | null
+          review_expires_at: string | null
+          review_hash: string | null
+          review_plan: Json | null
+          revision: number
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "meta_ads_drafts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      meta_ads_queue: {
+        Args: {
+          p_hash: string
+          p_id: string
+          p_mode: string
+          p_owner: string
+          p_revision: number
+        }
+        Returns: {
+          attempts: number
+          config: Json
+          created_at: string
+          error: string | null
+          id: string
+          lease_token: string | null
+          lease_until: string | null
+          name: string
+          next_attempt_at: string
+          owner_id: string
+          pause_requested: boolean
+          progress: Json
+          requested_mode: string | null
+          review_expires_at: string | null
+          review_hash: string | null
+          review_plan: Json | null
+          revision: number
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "meta_ads_drafts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      meta_ads_save: {
+        Args: {
+          p_config: Json
+          p_id: string
+          p_name: string
+          p_owner: string
+          p_revision: number
+        }
+        Returns: {
+          attempts: number
+          config: Json
+          created_at: string
+          error: string | null
+          id: string
+          lease_token: string | null
+          lease_until: string | null
+          name: string
+          next_attempt_at: string
+          owner_id: string
+          pause_requested: boolean
+          progress: Json
+          requested_mode: string | null
+          review_expires_at: string | null
+          review_hash: string | null
+          review_plan: Json | null
+          revision: number
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "meta_ads_drafts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      meta_ads_tick: { Args: never; Returns: undefined }
+      meta_ads_worker_authenticate: {
+        Args: { p_token: string }
+        Returns: boolean
+      }
       meta_lead_classify: { Args: { _prior: string }; Returns: string }
       meta_lead_close_siblings: { Args: { _booked: string }; Returns: number }
       meta_lead_prior_id: {
@@ -5427,6 +5422,18 @@ export type Database = {
       }
       save_clinic_schedule: {
         Args: { p_clinic: string; p_command: Json; p_version: string }
+        Returns: Json
+      }
+      save_lead_contact: {
+        Args: {
+          p_expected_first_name: string
+          p_expected_last_name: string
+          p_expected_phone: string
+          p_first_name: string
+          p_last_name: string
+          p_lead_id: string
+          p_phone: string
+        }
         Returns: Json
       }
       schedule_block_matches: {
