@@ -18,6 +18,7 @@ const MiniMessenger = lazy(() =>
 // Map current pathname → TabKey it belongs to. Returns null for pages that
 // aren't tab-gated (settings, clients, logs, clinic-portal, etc.).
 function tabForPath(pathname: string): TabKey | null {
+  if (pathname.startsWith("/meta-ads")) return "meta_ads";
   if (pathname.startsWith("/invoices")) return "invoices";
   if (pathname === "/") return "dashboard";
   if (pathname.startsWith("/training")) return "training";

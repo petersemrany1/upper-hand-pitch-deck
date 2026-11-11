@@ -1,6 +1,7 @@
 // Per-user tab access. Tab keys match the sidebar items.
 
 export type TabKey =
+  | "meta_ads"
   | "invoices"
   | "dashboard"
   | "training"
@@ -21,6 +22,7 @@ export type TabKey =
   | "sales_test_leads";
 
 export const ALL_TAB_KEYS: TabKey[] = [
+  "meta_ads",
   "dashboard",
   "training",
   "partner_clinics",
@@ -42,6 +44,7 @@ export const ALL_TAB_KEYS: TabKey[] = [
 ];
 
 export const TAB_LABELS: Record<TabKey, string> = {
+  meta_ads: "Meta Ads",
   invoices: "Invoices",
   dashboard: "Dashboard",
   training: "Training",
@@ -69,6 +72,7 @@ export const TAB_GROUPS: { title: string; tabs: TabKey[] }[] = [
 ];
 
 export const TAB_TO_URL: Record<TabKey, string> = {
+  meta_ads: "/meta-ads",
   invoices: "/invoices",
   dashboard: "/",
   training: "/training",

@@ -15,6 +15,7 @@ import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
 import { Route as ConfirmationPreviewRouteImport } from './routes/confirmation-preview'
 import { Route as DemoClinicRouteImport } from './routes/demo-clinic'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MetaAdsPreviewRouteImport } from './routes/meta-ads-preview'
 import { Route as PayDepositRouteImport } from './routes/pay-deposit'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SquarepaymentRouteImport } from './routes/squarepayment'
@@ -34,6 +35,7 @@ import { Route as DashboardLeaderboardRouteImport } from './routes/_dashboard.le
 import { Route as DashboardLeadsRouteImport } from './routes/_dashboard.leads'
 import { Route as DashboardLetterCampaignRouteImport } from './routes/_dashboard.letter-campaign'
 import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
+import { Route as DashboardMetaAdsRouteImport } from './routes/_dashboard.meta-ads'
 import { Route as DashboardMyRecordingsRouteImport } from './routes/_dashboard.my-recordings'
 import { Route as DashboardNumbersRouteImport } from './routes/_dashboard.numbers'
 import { Route as DashboardNumbersGameRouteImport } from './routes/_dashboard.numbers-game'
@@ -106,6 +108,11 @@ const DemoClinicRoute = DemoClinicRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MetaAdsPreviewRoute = MetaAdsPreviewRouteImport.update({
+  id: '/meta-ads-preview',
+  path: '/meta-ads-preview',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PayDepositRoute = PayDepositRouteImport.update({
@@ -211,6 +218,13 @@ const DashboardLogsRoute = DashboardLogsRouteImport.update({
   path: '/logs',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardMetaAdsRoute = DashboardMetaAdsRouteImport.update({
+  id: '/meta-ads',
+  path: '/meta-ads',
+  getParentRoute: () => DashboardRoute,
+} as any).lazy(() =>
+  import('./routes/_dashboard.meta-ads.lazy').then((d) => d.Route),
+)
 const DashboardMyRecordingsRoute = DashboardMyRecordingsRouteImport.update({
   id: '/my-recordings',
   path: '/my-recordings',
@@ -470,6 +484,7 @@ export interface FileRoutesByFullPath {
   '/confirmation-preview': typeof ConfirmationPreviewRoute
   '/demo-clinic': typeof DemoClinicRoute
   '/login': typeof LoginRoute
+  '/meta-ads-preview': typeof MetaAdsPreviewRoute
   '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
   '/squarepayment': typeof SquarepaymentRoute
@@ -488,6 +503,7 @@ export interface FileRoutesByFullPath {
   '/leads': typeof DashboardLeadsRoute
   '/letter-campaign': typeof DashboardLetterCampaignRoute
   '/logs': typeof DashboardLogsRoute
+  '/meta-ads': typeof DashboardMetaAdsRoute
   '/my-recordings': typeof DashboardMyRecordingsRoute
   '/numbers': typeof DashboardNumbersRoute
   '/numbers-game': typeof DashboardNumbersGameRoute
@@ -539,6 +555,7 @@ export interface FileRoutesByTo {
   '/confirmation-preview': typeof ConfirmationPreviewRoute
   '/demo-clinic': typeof DemoClinicRoute
   '/login': typeof LoginRoute
+  '/meta-ads-preview': typeof MetaAdsPreviewRoute
   '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
   '/squarepayment': typeof SquarepaymentRoute
@@ -557,6 +574,7 @@ export interface FileRoutesByTo {
   '/leads': typeof DashboardLeadsRoute
   '/letter-campaign': typeof DashboardLetterCampaignRoute
   '/logs': typeof DashboardLogsRoute
+  '/meta-ads': typeof DashboardMetaAdsRoute
   '/my-recordings': typeof DashboardMyRecordingsRoute
   '/numbers': typeof DashboardNumbersRoute
   '/numbers-game': typeof DashboardNumbersGameRoute
@@ -610,6 +628,7 @@ export interface FileRoutesById {
   '/confirmation-preview': typeof ConfirmationPreviewRoute
   '/demo-clinic': typeof DemoClinicRoute
   '/login': typeof LoginRoute
+  '/meta-ads-preview': typeof MetaAdsPreviewRoute
   '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
   '/squarepayment': typeof SquarepaymentRoute
@@ -628,6 +647,7 @@ export interface FileRoutesById {
   '/_dashboard/leads': typeof DashboardLeadsRoute
   '/_dashboard/letter-campaign': typeof DashboardLetterCampaignRoute
   '/_dashboard/logs': typeof DashboardLogsRoute
+  '/_dashboard/meta-ads': typeof DashboardMetaAdsRoute
   '/_dashboard/my-recordings': typeof DashboardMyRecordingsRoute
   '/_dashboard/numbers': typeof DashboardNumbersRoute
   '/_dashboard/numbers-game': typeof DashboardNumbersGameRoute
@@ -683,6 +703,7 @@ export interface FileRouteTypes {
     | '/confirmation-preview'
     | '/demo-clinic'
     | '/login'
+    | '/meta-ads-preview'
     | '/pay-deposit'
     | '/reset-password'
     | '/squarepayment'
@@ -701,6 +722,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/letter-campaign'
     | '/logs'
+    | '/meta-ads'
     | '/my-recordings'
     | '/numbers'
     | '/numbers-game'
@@ -752,6 +774,7 @@ export interface FileRouteTypes {
     | '/confirmation-preview'
     | '/demo-clinic'
     | '/login'
+    | '/meta-ads-preview'
     | '/pay-deposit'
     | '/reset-password'
     | '/squarepayment'
@@ -770,6 +793,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/letter-campaign'
     | '/logs'
+    | '/meta-ads'
     | '/my-recordings'
     | '/numbers'
     | '/numbers-game'
@@ -822,6 +846,7 @@ export interface FileRouteTypes {
     | '/confirmation-preview'
     | '/demo-clinic'
     | '/login'
+    | '/meta-ads-preview'
     | '/pay-deposit'
     | '/reset-password'
     | '/squarepayment'
@@ -840,6 +865,7 @@ export interface FileRouteTypes {
     | '/_dashboard/leads'
     | '/_dashboard/letter-campaign'
     | '/_dashboard/logs'
+    | '/_dashboard/meta-ads'
     | '/_dashboard/my-recordings'
     | '/_dashboard/numbers'
     | '/_dashboard/numbers-game'
@@ -894,6 +920,7 @@ export interface RootRouteChildren {
   ConfirmationPreviewRoute: typeof ConfirmationPreviewRoute
   DemoClinicRoute: typeof DemoClinicRoute
   LoginRoute: typeof LoginRoute
+  MetaAdsPreviewRoute: typeof MetaAdsPreviewRoute
   PayDepositRoute: typeof PayDepositRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SquarepaymentRoute: typeof SquarepaymentRoute
@@ -963,6 +990,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/meta-ads-preview': {
+      id: '/meta-ads-preview'
+      path: '/meta-ads-preview'
+      fullPath: '/meta-ads-preview'
+      preLoaderRoute: typeof MetaAdsPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pay-deposit': {
@@ -1096,6 +1130,13 @@ declare module '@tanstack/react-router' {
       path: '/logs'
       fullPath: '/logs'
       preLoaderRoute: typeof DashboardLogsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/meta-ads': {
+      id: '/_dashboard/meta-ads'
+      path: '/meta-ads'
+      fullPath: '/meta-ads'
+      preLoaderRoute: typeof DashboardMetaAdsRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/my-recordings': {
@@ -1460,6 +1501,7 @@ interface DashboardRouteChildren {
   DashboardLeadsRoute: typeof DashboardLeadsRoute
   DashboardLetterCampaignRoute: typeof DashboardLetterCampaignRoute
   DashboardLogsRoute: typeof DashboardLogsRoute
+  DashboardMetaAdsRoute: typeof DashboardMetaAdsRoute
   DashboardMyRecordingsRoute: typeof DashboardMyRecordingsRoute
   DashboardNumbersRoute: typeof DashboardNumbersRoute
   DashboardNumbersGameRoute: typeof DashboardNumbersGameRoute
@@ -1489,6 +1531,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardLeadsRoute: DashboardLeadsRoute,
   DashboardLetterCampaignRoute: DashboardLetterCampaignRoute,
   DashboardLogsRoute: DashboardLogsRoute,
+  DashboardMetaAdsRoute: DashboardMetaAdsRoute,
   DashboardMyRecordingsRoute: DashboardMyRecordingsRoute,
   DashboardNumbersRoute: DashboardNumbersRoute,
   DashboardNumbersGameRoute: DashboardNumbersGameRoute,
@@ -1515,6 +1558,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConfirmationPreviewRoute: ConfirmationPreviewRoute,
   DemoClinicRoute: DemoClinicRoute,
   LoginRoute: LoginRoute,
+  MetaAdsPreviewRoute: MetaAdsPreviewRoute,
   PayDepositRoute: PayDepositRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SquarepaymentRoute: SquarepaymentRoute,

@@ -1,4 +1,4 @@
-import { DollarSign, Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy, ChevronDown, Calendar, BarChart3, GraduationCap, BookOpen, UserSearch, PhoneCall, Brain, Monitor, Bell, FileAudio } from "lucide-react";
+import { DollarSign, Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy, ChevronDown, Calendar, BarChart3, GraduationCap, BookOpen, UserSearch, PhoneCall, Brain, Monitor, Bell, FileAudio, Megaphone } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
@@ -37,6 +37,7 @@ const ALL_FOLDERS: NavFolder[] = [
       { title: "Leads", url: "/leads", icon: Users, tab: "leads" },
       { title: "Analytics", url: "/analytics", icon: BarChart3, tab: "analytics" },
       { title: "Numbers", url: "/numbers", icon: DollarSign, tab: "numbers" },
+      { title: "Meta Ads", url: "/meta-ads", icon: Megaphone, tab: "meta_ads" },
       { title: "Numbers Game", url: "/numbers-game", icon: Monitor, tab: "numbers_game" },
       { title: "Phone", url: "/inbox", icon: Phone, tab: "phone" },
       { title: "Chase Queue", url: "/chase-queue", icon: Bell, tab: "chase_queue" },
@@ -113,7 +114,7 @@ export function AppSidebar() {
   // clinic portal users / unknown roles get the empty default and see nothing here
   // (they're routed through their own portal anyway).
   const allowed = new Set<TabKey>(allowedTabs);
-  const canSee = (tab: TabKey) => role === "admin" || allowed.has(tab);
+  const canSee = (tab: TabKey) => tab === "meta_ads" ? role === "admin" : role === "admin" || allowed.has(tab);
   const folders: NavFolder[] = ALL_FOLDERS
     .map((f) => ({ ...f, items: f.items.filter((i) => canSee(i.tab)) }))
     .filter((f) => f.items.length > 0);
