@@ -1,6 +1,7 @@
+import { accessMessage, grantedPermissions, pagesForAccount } from './page-access.ts';
 import { BUCKET, MAX_VIDEO_BYTES, accountPath, emptyConfig, parseConfig, type Asset, type Draft, type Setup } from './model.ts';
 import { ADSET_FIELDS, CAMPAIGN_FIELDS, type Graph } from './graph.ts';
-import { makeReview, pagesForAccount, searchLocations } from './review.ts';
+import { makeReview, searchLocations } from './review.ts';
 
 const uuid = (v: unknown) => { if (typeof v !== 'string' || !/^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/i.test(v)) throw new Error('Invalid batch or upload ID.'); return v; };
 function unwrap<T = any>({ data, error }: { data: T; error: any }): T { if (error) throw new Error(error.message); return data; }
@@ -26,8 +27,10 @@ export async function dispatch(action: string, input: any, context: { db: any; o
       if (!base.databaseReady) return { ...base, message: 'The Meta Ads database setup is pending. Your administrator needs to deploy the Meta Ads migrations.' };
       if (!graph || !accountId) return { ...base, message: 'Connect Meta publishing on the server to load your real campaigns, Pages and lead forms.' };
       try {
-        const [account,pages,campaigns] = await Promise.all([graph.get(accountId,{ fields:'id,name,currency,timezone_name,account_status' }),pagesForAccount(graph,accountId),graph.all(`${accountId}/campaigns`,{fields:CAMPAIGN_FIELDS,effective_status:['ACTIVE','PAUSED']})]);
-        return { ...base, account,pages,campaigns, ...(!base.workerReady ? { message: 'The publishing worker is not running yet. You can prepare drafts; publishing will unlock when it is connected.' } : {}) };
+        const [account,pages,campaigns,grants] = await Promise.all([graph.get(accountId,{ fields:'id,name,currency,timezone_name,account_status' }),pagesForAccount(graph,accountId),graph.all(`${accountId}/campaigns`,{fields:CAMPAIGN_FIELDS,effective_status:['ACTIVE','PAUSED']}),grantedPermissions(graph)]);
+        const identity = pages.length ? undefined : await graph.get<{name?: string}>('me', { fields: 'name' }).catch(() => undefined);
+        const message = accessMessage(pages, grants, identity?.name) || (!base.workerReady ? 'The publishing worker is not running yet. You can prepare drafts; publishing will unlock when it is connected.' : undefined);
+        return { ...base, account, pages, campaigns, message };
       } catch(e) { return { ...base, configured:false,message:e instanceof Error?e.message:'Meta connection failed.' }; }
     }
     case 'list': return unwrap(await db.from('meta_ads_drafts').select('id,name,status,revision,requested_mode,progress,error,updated_at,created_at').eq('owner_id',owner).order('updated_at',{ascending:false}).limit(100));
