@@ -5426,9 +5426,9 @@ export type Database = {
       }
       save_lead_contact: {
         Args: {
-          p_expected_first_name: string
-          p_expected_last_name: string
-          p_expected_phone: string
+          p_expected_first_name: string | null
+          p_expected_last_name: string | null
+          p_expected_phone: string | null
           p_first_name: string
           p_last_name: string
           p_lead_id: string
