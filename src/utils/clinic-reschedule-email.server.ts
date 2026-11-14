@@ -1,12 +1,10 @@
+import { sendClinicEmail } from "./clinic-mailer.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { deliverClinicEmailOnce, type ClinicEmailEvent, type EmailSendResult } from "@/lib/clinic-email-delivery";
 import { clinicRescheduleCc } from "@/lib/clinic-reschedule-email";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export async function sendClinicRescheduleEmail(event: ClinicEmailEvent, db: SupabaseClient = supabaseAdmin): Promise<EmailSendResult> {
-  const url = process.env.HANDOVER_MAILER_URL, secret = process.env.HANDOVER_MAILER_SECRET;
-  if (!url || !secret) return {status: "failed", error: "Clinic email service is not configured."};
-
   // Resolve CC server-side through the saved appointment, never a client-supplied
   // clinic or recipient list. A lookup failure must not silently omit the CCs.
   let cc: string[];
@@ -21,22 +19,7 @@ export async function sendClinicRescheduleEmail(event: ClinicEmailEvent, db: Sup
     return {status: "failed", error: "Could not load the clinic's CC addresses. No email was sent; please retry."};
   }
 
-  // External clinic emails use the same Google Workspace mailer as handovers.
-  // The database claim prevents duplicate sends; uncertain results stay claimed.
-  const response = await fetch(url, {
-    method: "POST", redirect: "follow", signal: AbortSignal.timeout(20000),
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({secret, to: event.email_to, ...(cc.length ? {cc: cc.join(", ")} : {}), subject: event.email_subject, text: event.email_body, fromName: "Hair Transplant Group", replyTo: "peter@gobold.com.au"}),
-  });
-  if (!response.ok) {
-    // A server timeout can follow a successful send. Never blindly retry it.
-    const uncertain = response.status >= 500 || [408,409].includes(response.status);
-    return {status: uncertain ? "uncertain" : "failed", error: `Email service returned ${response.status}.${uncertain ? " Check delivery before sending again." : " The email was not accepted; you can retry it."}`};
-  }
-  const receipt = await response.json() as {ok?: boolean};
-  if (receipt.ok === false) return {status: "failed", error: "Clinic email service rejected the message. You can retry it."};
-  if (receipt.ok !== true) return {status: "uncertain", error: "Email service did not confirm sending. Check delivery before sending again."};
-  return {status: "accepted"};
+  return sendClinicEmail(event.email_to, event.email_subject, event.email_body, cc);
 }
 export async function deliverClinicRescheduleEmail(eventId: string) {
   const db: SupabaseClient = supabaseAdmin;

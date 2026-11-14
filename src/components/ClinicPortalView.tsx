@@ -914,9 +914,8 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
             const bg = isAdminNote ? "#fff7ed" : "#eef5ff";
             const border = isAdminNote ? "#fcd9a8" : "#c7dcf5";
             const badgeBg = isAdminNote ? "#f59e0b" : NAVY;
-            const badgeLabel = isAdminNote ? "ADMIN" : "Clinic";
-            // Hard rule: clinics never see a salesperson's name — always the company name.
-            const shownName = isAdminNote && !isAdmin ? "Hair Transplant Group" : n.author_name;
+            const badgeLabel = isAdminNote ? "Admin" : "Clinic";
+            const shownName = isAdminNote ? null : n.author_name;
             const shownBody = !isAdmin
               ? n.body.replace(/Rescheduled by [^:()]+ \(sales\):/g, "Rescheduled by Hair Transplant Group:")
               : n.body;

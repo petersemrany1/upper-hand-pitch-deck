@@ -1,3 +1,4 @@
+import { ChaseClinicReply } from "@/components/ChaseClinicReply";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -25,7 +26,7 @@ type ChaseRow = {
   chase_status: "requested" | "rebooked" | "not_proceeding" | "no_answer" | "voicemail" | null;
   chase_note: string | null;
   chase_requested_at: string | null;
-  partner_clinics?: { clinic_name: string | null } | null;
+  partner_clinics?: { clinic_name: string | null; email: string | null } | null;
 };
 
 const RESULTS: { key: "rebooked" | "not_proceeding" | "no_answer" | "voicemail"; label: string; color: string; bg: string }[] = [
@@ -77,7 +78,7 @@ function ChaseQueuePage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("clinic_appointments")
-      .select("id, clinic_id, lead_id, patient_name, patient_phone, appointment_date, appointment_time, deposit_amount, chase_status, chase_note, chase_requested_at, partner_clinics(clinic_name)")
+      .select("id, clinic_id, lead_id, patient_name, patient_phone, appointment_date, appointment_time, deposit_amount, chase_status, chase_note, chase_requested_at, partner_clinics(clinic_name,email)")
       .eq("chase_status", "requested")
       .order("chase_requested_at", { ascending: true });
     if (error) toast.error(error.message);
@@ -179,6 +180,8 @@ function ChaseQueuePage() {
                     ))}
                   </div>
                 </div>
+                <ChaseClinicReply key={r.chase_requested_at} appointmentId={r.id} requestedAt={r.chase_requested_at}
+                  recipient={r.partner_clinics?.email?.trim() ?? ""} patient={r.patient_name} />
               </div>
             );
           })}
