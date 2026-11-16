@@ -2,7 +2,7 @@ import {test,expect} from "bun:test";
 import {deliverRescheduleOnce,type DeliveryResult} from "./reschedule-delivery";
 function fixture(send:()=>Promise<DeliveryResult> = async()=>({ok:true,sid:"SMfixture",status:"queued"})) {
  let status="pending",sends=0,logs=0;
- const deps={claim:async()=>{if(!["pending","failed"].includes(status))return null;status="sending";return {sms_body:"Fixture",sms_phone:"+61400000000",appointment_id:"fixture"};},existing:async()=>({status,error:null}),send:async()=>{sends++;return send();},finish:async(next:string)=>{status=next;},log:async()=>{logs++;}};
+ const deps={claim:async()=>{if(!["pending","failed"].includes(status))return null;status="sending";return {sms_body:"Fixture",sms_phone:"+61400000000",appointment_id:"fixture",new_date:"2026-12-07",new_time:"11:00"};},existing:async()=>({status,error:null}),send:async()=>{sends++;return send();},finish:async(next:string)=>{status=next;},log:async()=>{logs++;}};
  return {deps,read:()=>({status,sends,logs})};
 }
 test("repeated and concurrent confirmation requests send only once",async()=>{const f=fixture();await Promise.all([deliverRescheduleOnce(f.deps),deliverRescheduleOnce(f.deps)]);await deliverRescheduleOnce(f.deps);expect(f.read()).toEqual({status:"accepted",sends:1,logs:1});});

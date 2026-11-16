@@ -83,12 +83,27 @@ await actor(1,'admin@fixture.test','service_role');await assert.rejects(commit(3
 await actor(5,'clinic@fixture.test');assert.equal((await db.query('select appointment_time from clinic_appointments where id=$1',[uid(30)])).rows[0].appointment_time,'11:00');assert.equal(await count('appointment_reminders'),0);
 await actor(2,'a@fixture.test');assert.equal(await count('appointment_reschedules'),1);
 await actor(3,'b@fixture.test');assert.equal(await count('appointment_reschedules'),0);
+// A clinic moves the same appointment after a rep has already rescheduled it.
+await actor(5,'clinic@fixture.test');
+const moved = await db.query(
+  "update clinic_appointments set appointment_time='14:30' where id=$1 and appointment_time='11:00' returning id", [uid(30)]
+);
+assert.equal(moved.rows.length, 1);
+await actor(1,'admin@fixture.test');
+const reminderSlot = async () => (await db.query(
+  'select booking_date::text, booking_time::text from appointment_reminders where appointment_id=$1', [uid(30)]
+)).rows;
+assert.deepEqual(await reminderSlot(), [{ booking_date: '2026-12-02', booking_time: '14:30:00' }]);
+const reviewed = (await db.query('select get_booking_reschedule($1) d', [uid(30)])).rows[0].d;
+await actor(1,'admin@fixture.test','service_role');
+await commit(30,93,1,reviewed.version,'2026-12-08','09:15');
+assert.deepEqual(await reminderSlot(), [{ booking_date: '2026-12-08', booking_time: '09:15:00' }]);
 // New bookings cannot spoof another rep's ownership, and service bookings inherit lead ownership.
 await actor(2,'a@fixture.test');
 await db.query('insert into clinic_appointments(id,clinic_id,booking_rep_id,patient_name,appointment_date,appointment_time) values($1,$2,$3,$4,$5,$6)',[uid(60),uid(10),uid(3),'New Fixture','2026-12-10','09:00']);
 assert.equal((await db.query('select booking_rep_id from clinic_appointments where id=$1',[uid(60)])).rows[0].booking_rep_id,uid(2));
 await actor(1,'admin@fixture.test','service_role');
 await db.query('delete from clinic_appointments where id=$1',[uid(30)]);
-assert.equal(await count('appointment_reschedules'),1);
-assert.equal((await db.query('select appointment_id from appointment_reschedules')).rows[0].appointment_id,null);
+assert.equal(await count('appointment_reschedules'),2);
+assert.ok((await db.query('select appointment_id from appointment_reschedules')).rows.every(row => row.appointment_id === null));
 console.log('PASS: rep A/B isolation, admin visibility, clinic-only portal data, caller denial, direct API denial, frozen ownership, slot conflicts, stale updates, atomic reschedule/reminder/lead sync, preserved deposit, single outbox event, retry idempotency and audit visibility.');await db.close();

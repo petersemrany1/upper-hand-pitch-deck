@@ -12,7 +12,6 @@ import { createRefreshQueue } from "@/lib/refresh-queue";
 import { leadLocationText, mayFinishReview } from "./sales-call/session-review";
 import { SkipLeadDialog } from "./sales-call/SkipLeadDialog";
 import { fetchUntouchedLeads } from "./sales-call/lead-skips";
-import { bookingConfirmationSms, clinicSmsAddress } from "@/lib/booking-confirmation-sms";
 import { consultationMemberLabel, consultationProviders, treatingSurgeons } from "@/lib/consultation-team";
 import { useSearch, useNavigate, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
@@ -38,7 +37,7 @@ import {
   saveNorwoodExpectations,
   saveCallNotes, discoveryToAmpAudio, findLeadByPhone,
   getCurrentRepSession, startRepSession, endRepSession, heartbeatRepSession, sweepAbandonedCalls } from "@/utils/sales-call.functions";
-import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
+import { sendClinicHandoverEmail, sendDepositSmsToPatient, getBookingConfirmationDraft, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
 import { stopRingback } from "@/utils/ringback";
 import { generateSlots, holidayLabelFor, summarizeDay, ymdLocal, type TradingHours, type BlockedSlot, type ExistingAppt, type AvailabilityOverride } from "@/lib/slot-generation";
 import { clinicLocationKeywords, fetchClinicRemainingSlots, invalidateClinicRemainingSlots } from "@/lib/clinic-capacity";
@@ -3631,10 +3630,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const [mustDoExpectations, setMustDoExpectations] = useState(false);
   const [confirmingDeposit, setConfirmingDeposit] = useState(false);
   const [confirmationSent, setConfirmationSent] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [sendingConfirmation, setSendingConfirmation] = useState(false);
+  const [loadingConfirmation, setLoadingConfirmation] = useState(false);
   const [patientSmsDraft, setPatientSmsDraft] = useState<{ body: string; phone: string; leadId: string } | null>(null);
-  const [patientSmsCountdown, setPatientSmsCountdown] = useState(10);
+  const [patientSmsCountdown, setPatientSmsCountdown] = useState<number | null>(null);
   const [patientSmsSentPopup, setPatientSmsSentPopup] = useState<{ phone: string } | null>(null);
   const [patientSmsSentPopupDismissed, setPatientSmsSentPopupDismissed] = useState(false);
   const [patientSmsSending, setPatientSmsSending] = useState(false);
@@ -3760,15 +3758,29 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     })();
   }, [lead.id]);
 
+  const activeDraftLead = useRef(lead.id);
+  useEffect(() => {
+    activeDraftLead.current = lead.id;
+    return () => { activeDraftLead.current = ""; };
+  }, [lead.id]);
+
+  const loadConfirmationDraft = useCallback(async (countdown: number | null) => {
+    setLoadingConfirmation(true);
+    try {
+      const draft = await getBookingConfirmationDraft({ data: { leadId: lead.id } });
+      if (activeDraftLead.current !== lead.id) return;
+      setPatientSmsCountdown(countdown);
+      setPatientSmsDraft({ ...draft, leadId: lead.id });
+    } catch (error) {
+      if (activeDraftLead.current === lead.id) toast.error(error instanceof Error ? error.message : "Could not load the booking.");
+    } finally {
+      setLoadingConfirmation(false);
+    }
+  }, [lead.id]);
+
   const openPatientConfirmationDraft = useCallback(async () => {
     if (autoConfirmTriggeredRef.current) return;
-    if (!lead.phone) return;
-    const bookingDate = form.date || lead.booking_date || "";
-    const bookingTime = form.time || lead.booking_time || "";
-    if (!bookingDate || !bookingTime) return;
-
-    // Final idempotency guard: re-check DB right before opening the modal
-    // (protects against realtime + mount effect racing each other).
+    autoConfirmTriggeredRef.current = true;
     const { data: prior } = await supabase
       .from("sms_messages")
       .select("id")
@@ -3776,6 +3788,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       .eq("direction", "outbound")
       .ilike("body", "%consultation is confirmed for%")
       .limit(1);
+    if (activeDraftLead.current !== lead.id) return;
     if (prior && prior.length > 0) {
       setConfirmationSent(true);
       setPatientSmsSentPopupDismissed(true); // already sent previously; skip success modal
@@ -3783,55 +3796,20 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       return;
     }
 
-    autoConfirmTriggeredRef.current = true;
-
-    const sd = doctors.find((d) => d.id === form.doctorId);
-    const selectedClinic =
-      clinics.find((c) => c.id === (form.clinicId || savedAppointment?.clinic_id || lead.clinic_id || "")) ?? null;
-    if (!selectedClinic || !sd) {
-      autoConfirmTriggeredRef.current = false;
-      toast.error("Select the clinic and consultation team member before sending the confirmation text");
-      return;
-    }
-    const dateStr = (() => {
-      try {
-        const d = new Date(`${bookingDate}T${bookingTime}`);
-        return d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" });
-      } catch { return bookingDate; }
-    })();
-    const timeStr = (() => {
-      try {
-        const [h, m] = bookingTime.split(":");
-        const hh = parseInt(h, 10);
-        const ampm = hh >= 12 ? "PM" : "AM";
-        const hour12 = hh % 12 === 0 ? 12 : hh % 12;
-        return `${hour12}:${m} ${ampm}`;
-      } catch { return bookingTime; }
-    })();
-    const smsBody = bookingConfirmationSms({
-      firstName: lead.first_name ?? "there", date: dateStr, time: timeStr,
-      consultantName: sd.name, doctorName: savedAppointment?.doctor_name,
-      clinicName: selectedClinic.clinic_name,
-      clinicAddress: clinicSmsAddress(selectedClinic),
-      clinicPhone: selectedClinic.phone,
-    });
-
-    setPatientSmsCountdown(10);
-    setPatientSmsDraft({ body: smsBody, phone: lead.phone, leadId: lead.id });
-    toast.message("💳 Deposit paid — sending patient confirmation in 10s (tap Cancel to stop)");
-  }, [lead.id, lead.phone, lead.first_name, lead.booking_date, lead.booking_time, lead.clinic_id, savedAppointment?.clinic_id, form.date, form.time, form.clinicId, form.doctorId, clinics, doctors]);
+    await loadConfirmationDraft(10);
+  }, [lead.id, loadConfirmationDraft]);
 
   // Trigger the countdown modal as soon as deposit is paid AND we have a
   // booking date/time. Works whether the deposit arrives while the rep is on
   // this lead's screen, or the rep opens this lead after the deposit was
   // already paid.
   useEffect(() => {
-    if (!paymentReceivedAt) return;
+    if (!paymentReceivedAt || !booked) return;
     if (confirmationSent) return;
     if (patientSmsDraft) return; // already showing
     if (autoConfirmTriggeredRef.current) return;
     void openPatientConfirmationDraft();
-  }, [paymentReceivedAt, confirmationSent, patientSmsDraft, openPatientConfirmationDraft]);
+  }, [booked, paymentReceivedAt, confirmationSent, patientSmsDraft, openPatientConfirmationDraft]);
 
 
 
@@ -4206,7 +4184,6 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead.booking_date, lead.booking_time, clinics, doctors, savedAppointment, form.clinicId, form.doctorId, booked]);
   const clinic = clinics.find((c) => c.id === form.clinicId);
-  const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? null;
 
   // Manual notes flow removed — handover intel now comes strictly from the
   // AI-analysed call recordings (see handoverGate + auto-condense effect).
@@ -4406,55 +4383,35 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
               .select("stripe_payment_intent_id, square_payment_id, deposit_amount")
               .eq("id", lead.id)
               .maybeSingle();
-            const { data: existingClinicAppt } = await supabase
-              .from("clinic_appointments")
-              .select("id, intel_notes, stripe_payment_intent_id, square_payment_id, deposit_amount")
-              .eq("lead_id", lead.id)
-              .limit(1);
-            const clinicPayloadBase: any = {
-              clinic_id: appointmentClinicId,
-              doctor_id: sd?.id ?? savedAppointment?.doctor_id ?? null,
-              doctor_name: doctorName,
-              lead_id: lead.id,
-              patient_name: patientName,
-              patient_phone: lead.phone ?? null,
-              appointment_date: date,
-              appointment_time: time,
-            };
-            // Carry the payment across as it was taken (Square or Stripe) so
-            // the clinic's refund goes back the same way.
-            if (leadDepositRow?.square_payment_id) {
-              clinicPayloadBase.square_payment_id = leadDepositRow.square_payment_id;
-              clinicPayloadBase.payment_processor = "square";
-            } else if (leadDepositRow?.stripe_payment_intent_id) {
-              clinicPayloadBase.stripe_payment_intent_id = leadDepositRow.stripe_payment_intent_id;
-              clinicPayloadBase.payment_processor = "stripe";
+            const deposit = leadDepositRow?.square_payment_id
+              ? { square_payment_id: leadDepositRow.square_payment_id, payment_processor: "square" }
+              : leadDepositRow?.stripe_payment_intent_id
+                ? { stripe_payment_intent_id: leadDepositRow.stripe_payment_intent_id, payment_processor: "stripe" }
+                : null;
+            const { data: existing, error: readError } = await supabase.from("clinic_appointments")
+              .select("id").eq("lead_id", lead.id).maybeSingle();
+            if (readError) throw readError;
+            if (!existing) {
+              const { error } = await supabase.from("clinic_appointments").insert({
+                lead_id: lead.id, clinic_id: appointmentClinicId,
+                appointment_date: date, appointment_time: time,
+                doctor_id: sd?.id ?? savedAppointment?.doctor_id ?? null, doctor_name: doctorName,
+                patient_name: patientName, patient_phone: lead.phone ?? null,
+                ...deposit, deposit_amount: leadDepositRow?.deposit_amount ?? null,
+              });
+              if (error && error.code !== "23505") throw error;
             }
-            if (leadDepositRow?.deposit_amount != null) clinicPayloadBase.deposit_amount = leadDepositRow.deposit_amount;
-            if (existingClinicAppt && existingClinicAppt.length > 0) {
-              // Don't overwrite deposit fields already set on the appointment.
-              if (existingClinicAppt[0].stripe_payment_intent_id || existingClinicAppt[0].square_payment_id) {
-                delete clinicPayloadBase.stripe_payment_intent_id;
-                delete clinicPayloadBase.square_payment_id;
-                delete clinicPayloadBase.payment_processor;
-              }
-              if (existingClinicAppt[0].deposit_amount != null) delete clinicPayloadBase.deposit_amount;
-              // Do not overwrite the handover email snapshot. The clinic portal
-              // intel must stay exactly as sent in the handover email.
-              await supabase.from("clinic_appointments").update(clinicPayloadBase).eq("id", existingClinicAppt[0].id);
-            } else {
-              // Plain insert: the lead uniqueness index is partial
-              // (WHERE lead_id IS NOT NULL) so ON CONFLICT cannot target it.
-              const { error: insertErr } = await supabase
-                .from("clinic_appointments")
-                .insert({ ...clinicPayloadBase, intel_notes: null });
-              if (insertErr) {
-                // Race: a row appeared between the check and the insert.
-                await supabase
-                  .from("clinic_appointments")
-                  .update(clinicPayloadBase)
-                  .eq("lead_id", lead.id);
-              }
+            // A payment can arrive from an old tab after the clinic moved the booking.
+            // Fill only missing payment details, including after a concurrent insert.
+            if (deposit) {
+              const { error } = await supabase.from("clinic_appointments").update(deposit)
+                .eq("lead_id", lead.id).is("stripe_payment_intent_id", null).is("square_payment_id", null);
+              if (error) throw error;
+            }
+            if (leadDepositRow?.deposit_amount != null) {
+              const { error } = await supabase.from("clinic_appointments").update({ deposit_amount: leadDepositRow.deposit_amount })
+                .eq("lead_id", lead.id).is("deposit_amount", null);
+              if (error) throw error;
             }
 
             const { data: currentAppointment } = await supabase.from("clinic_appointments")
@@ -4506,27 +4463,37 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     if (!patientSmsDraft || patientSmsSending) return;
     setPatientSmsSending(true);
     const { body, phone, leadId } = patientSmsDraft;
-    const sres = await sendManualSms({ data: { leadId, phone, body } });
-    setPatientSmsSending(false);
-    setPatientSmsDraft(null);
-    if (sres.success) {
+    setPatientSmsCountdown(null);
+    try {
+      const result = await sendBookingConfirmationSms({ data: { leadId, expected: { body, phone } } });
+      if (activeDraftLead.current !== leadId) return;
+      if (!result.success) {
+        if (result.draft) setPatientSmsDraft({ ...result.draft, leadId });
+        else setPatientSmsDraft(null);
+        toast.error(result.error);
+        return;
+      }
+      setPatientSmsDraft(null);
       setConfirmationSent(true);
       setPatientSmsSentPopup({ phone });
       setPatientSmsSentPopupDismissed(false);
       toast.success("Patient SMS sent ✓");
-    } else {
-      toast.error(`SMS failed: ${sres.error}`);
+    } catch {
+      setPatientSmsDraft(null);
+      toast.error("Could not verify SMS delivery. Check the inbox before retrying.");
+    } finally {
+      setPatientSmsSending(false);
     }
   }, [patientSmsDraft, patientSmsSending]);
 
   // 10-second countdown that auto-fires the SMS when modal is open
   useEffect(() => {
-    if (!patientSmsDraft) return;
+    if (!patientSmsDraft || patientSmsCountdown === null) return;
     if (patientSmsCountdown <= 0) {
       firePatientSms();
       return;
     }
-    const t = setTimeout(() => setPatientSmsCountdown((n) => n - 1), 1000);
+    const t = setTimeout(() => setPatientSmsCountdown(patientSmsCountdown - 1), 1000);
     return () => clearTimeout(t);
   }, [patientSmsDraft, patientSmsCountdown, firePatientSms]);
 
@@ -4587,13 +4554,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         }}
       >
         <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#ea580c", marginBottom: 8 }}>
-          Sending in {patientSmsCountdown}s…
+          {patientSmsCountdown === null ? "Review confirmation" : `Sending in ${patientSmsCountdown}s…`}
         </div>
         <div style={{ fontSize: 18, fontWeight: 600, color: "#111", marginBottom: 4 }}>
           Confirmation text to {patientSmsDraft.phone}
         </div>
         <div style={{ fontSize: 12, color: "#666", marginBottom: 14 }}>
-          The patient will receive this SMS automatically when the timer hits 0.
+          {patientSmsCountdown === null ? "Check the appointment details before sending." : "The patient will receive this SMS automatically when the timer hits 0."}
         </div>
         <div
           style={{
@@ -4976,14 +4943,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
             <button
               onClick={() => {
                 if (!lead.phone) return;
-                setShowConfirmModal(true);
+                void loadConfirmationDraft(null);
               }}
-              disabled={sendingConfirmation}
+              disabled={loadingConfirmation}
               style={{
                 fontSize: 12, color: COLORS.muted, background: "transparent",
                 textAlign: "left", padding: "4px 4px", marginTop: 2,
                 textDecoration: "underline", alignSelf: "flex-start",
-                cursor: sendingConfirmation ? "wait" : "pointer",
+                cursor: loadingConfirmation ? "wait" : "pointer",
               }}
             >
               Resend patient SMS manually
@@ -5006,97 +4973,6 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
             {resetting ? "Resetting…" : "Reset"}
           </button>
         </div>
-
-        {/* Confirmation preview modal */}
-        {showConfirmModal && (() => {
-          const dateStr = (() => {
-            try {
-              const d = new Date(`${bookedData?.date}T${bookedData?.time}`);
-              return d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" });
-            } catch { return bookedData?.date ?? ""; }
-          })();
-          const timeStr = (() => {
-            try {
-              const [h, m] = (bookedData?.time ?? "").split(":");
-              const hh = parseInt(h, 10);
-              const ampm = hh >= 12 ? "PM" : "AM";
-              const hour12 = hh % 12 === 0 ? 12 : hh % 12;
-              return `${hour12}:${m} ${ampm}`;
-            } catch { return bookedData?.time ?? ""; }
-          })();
-          const message = bookingConfirmationSms({
-            firstName: lead.first_name ?? "there", date: dateStr, time: timeStr,
-            consultantName: selectedDoctor?.name, doctorName: bookedData?.doctorName,
-            clinicName: clinic?.clinic_name ?? bookedData?.clinicName ?? "",
-            clinicAddress: clinicSmsAddress(clinic),
-            clinicPhone: clinic?.phone,
-          });
-          return (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center"
-              style={{ background: "rgba(0,0,0,0.5)" }}
-              onClick={() => !sendingConfirmation && setShowConfirmModal(false)}
-            >
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-lg rounded-[12px]"
-                style={{ background: "#ffffff", padding: 24 }}
-              >
-                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Confirm before sending</div>
-                <div style={{ fontSize: 12, color: COLORS.muted, marginBottom: 16 }}>
-                  This SMS will be sent to {lead.phone}
-                </div>
-                <div style={{
-                  background: "#f7f7f5", border: `0.5px solid ${COLORS.line}`,
-                  borderRadius: 8, padding: 14, fontSize: 13, lineHeight: 1.5,
-                  color: COLORS.text, whiteSpace: "pre-wrap", marginBottom: 20,
-                }}>
-                  {message}
-                </div>
-                <div className="flex gap-2 justify-end">
-                  <button
-                    onClick={() => setShowConfirmModal(false)}
-                    disabled={sendingConfirmation}
-                    style={{
-                      fontSize: 13, padding: "8px 14px", borderRadius: 8,
-                      background: "#fff", border: `0.5px solid ${COLORS.line}`,
-                      cursor: sendingConfirmation ? "wait" : "pointer",
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!lead.phone) return;
-                      setSendingConfirmation(true);
-                      const r = await sendManualSms({ data: { leadId: lead.id, phone: lead.phone, body: message } });
-                      setSendingConfirmation(false);
-                      if (r.success) {
-                        setConfirmationSent(true);
-                        setShowConfirmModal(false);
-                        setPatientSmsSentPopup({ phone: lead.phone });
-                        setPatientSmsSentPopupDismissed(false);
-                        toast.success("Confirmation sent ✓");
-                      } else {
-                        toast.error(`Failed: ${r.error}`);
-                      }
-                    }}
-                    disabled={sendingConfirmation}
-                    style={{
-                      fontSize: 13, fontWeight: 500, color: "#fff",
-                      background: COLORS.coral, border: "none", borderRadius: 8,
-                      padding: "8px 14px",
-                      cursor: sendingConfirmation ? "wait" : "pointer",
-                      opacity: sendingConfirmation ? 0.7 : 1,
-                    }}
-                  >
-                    {sendingConfirmation ? "Sending…" : "Send confirmation →"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
 
         {showPreview && (
           <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>

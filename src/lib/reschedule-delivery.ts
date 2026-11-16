@@ -1,5 +1,5 @@
 export type DeliveryStatus={status:string;error:string|null};
-export type DeliveryEvent={sms_phone:string;sms_body:string;appointment_id:string|null};
+export type DeliveryEvent={sms_phone:string;sms_body:string;appointment_id:string|null;new_date:string;new_time:string};
 export type DeliveryResult={ok:boolean;sid?:string;status?:string;error?:string};
 export async function deliverRescheduleOnce(deps:{
  claim():Promise<DeliveryEvent|null>;

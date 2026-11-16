@@ -31,7 +31,19 @@ async function deliverReschedule(eventId:string) {
  return deliverRescheduleOnce({
   async claim(){const {data,error}=await db.from("appointment_reschedules").update({sms_status:"sending",sms_error:null}).eq("id",eventId).in("sms_status",["pending","failed"]).select("*").maybeSingle();if(error)throw error;return data;},
   async existing(){const {data,error}=await db.from("appointment_reschedules").select("sms_status,sms_error").eq("id",eventId).single();if(error)throw error;return {status:data.sms_status,error:data.sms_error};},
-  async send(event){const account=process.env.TWILIO_ACCOUNT_SID,token=process.env.TWILIO_AUTH_TOKEN;if(!account||!token)return {ok:false,error:"SMS service is not configured"};return sendSms(account,token,event.sms_phone,event.sms_body);},
+  async send(event) {
+    const { data: booking, error } = await db.from("clinic_appointments")
+      .select("appointment_date,appointment_time,outcome,disqualified_at")
+      .eq("id", event.appointment_id).maybeSingle();
+    if (error) return { ok: false, error: "Could not verify the current appointment." };
+    if (!booking || booking.outcome || booking.disqualified_at || booking.appointment_date !== event.new_date ||
+        booking.appointment_time.slice(0, 5) !== event.new_time.slice(0, 5)) {
+      return { ok: false, error: "The appointment has changed again. This text is out of date." };
+    }
+    const account = process.env.TWILIO_ACCOUNT_SID, token = process.env.TWILIO_AUTH_TOKEN;
+    if (!account || !token) return { ok: false, error: "SMS service is not configured" };
+    return sendSms(account, token, event.sms_phone, event.sms_body);
+  },
   async finish(status,result){const {error}=await db.from("appointment_reschedules").update({sms_status:status,sms_sid:result.sid??null,sms_error:result.error??null}).eq("id",eventId);if(error)throw error;},
   async log(event,result){
    const {data:a}=await db.from("clinic_appointments").select("lead_id,patient_name").eq("id",event.appointment_id).single();
