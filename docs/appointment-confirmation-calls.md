@@ -27,7 +27,7 @@ when present, otherwise consultant, with a placeholder if no provider is saved.
 The reception/$395 instruction and “most senior” wording reflect Peter's
 confirmation that both apply at every clinic. The SMS draft is separate.
 It uses the appointment date, time, clinic and address, the verified deposit
-reminder, and “Please reply YES to confirm you're coming.” The map remains
+reminder, and “Please reply YES to confirm you'll attend.” The map remains
 available on the calling screen.
 
 ## Release

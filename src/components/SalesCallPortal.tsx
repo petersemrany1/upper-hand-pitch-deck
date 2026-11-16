@@ -8727,10 +8727,10 @@ function RightPanel({
             )}
             <div className="flex flex-wrap gap-1.5" style={{ marginBottom: 8 }}>
               {[
-                { label: "Following up", text: `Hi ${active.first_name ?? "there"}, it's Peter from Hair Transplant Group. Just following up on your enquiry — happy to answer any questions. Give me a call on 0414 999 999 or reply here.` },
-                { label: "Callback confirm", text: `Hi ${active.first_name ?? "there"}, confirming I'll give you a call shortly. Look forward to chatting!` },
-                { label: "Booking reminder", text: `Hi ${active.first_name ?? "there"}, just a reminder of your consultation tomorrow. Looking forward to seeing you — any questions just reply here.` },
-                { label: "Deposit reminder", text: `Hi ${active.first_name ?? "there"}, just a reminder to pay your $75 refundable deposit to secure your consultation spot. Reply if you have any questions!` },
+                { label: "Following up", text: `Hi ${active.first_name ?? "there"}, I'm following up on your hair transplant enquiry. Call 0414 999 999 if you'd like to talk it through.` },
+                { label: "Callback confirm", text: `Hi ${active.first_name ?? "there"}, I'll call you shortly about your consultation enquiry.` },
+                { label: "Booking reminder", text: `Hi ${active.first_name ?? "there"}, a reminder about your upcoming consultation. Your booking confirmation has the time and address. For changes, call the clinic.` },
+                { label: "Deposit reminder", text: `Hi ${active.first_name ?? "there"}, a reminder to pay your $75 deposit to book your consultation. It's refundable when you attend.` },
               ].map((t) => (
                 <button
                   key={t.label}

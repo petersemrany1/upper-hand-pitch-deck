@@ -66,11 +66,11 @@ describe("day-before confirmations", () => {
   expect(text).toContain("Friday 16 October");
   expect(text).toContain("9:30 am");
   expect(text).toContain("123 Example Street, Sydney, NSW");
-  expect(text).toStartWith("Hi Alex, I just tried calling to check you have the address");
+  expect(text).toStartWith("Hi Alex, I just tried calling about your consultation");
   expect(text).not.toContain("Map:");
   expect(text).not.toContain("Hair Transplant Group");
   expect(text).toContain("$75 deposit is refundable when you attend");
-  expect(text).toEndWith("Please reply YES to confirm you're coming");
+  expect(text).toEndWith("Please reply YES to confirm you'll attend.");
   expect(text).not.toContain("$395");
   expect(text).not.toContain("QR");
   expect(confirmationText(fixtureBooking({square_payment_id:null}),false)).not.toContain("deposit");

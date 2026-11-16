@@ -22,23 +22,29 @@ function appointmentDetails(input: PatientSmsDetails, opening: string): string {
 
 function rescheduleContact(input: PatientSmsDetails): string {
   const phone = input.clinicPhone?.trim();
-  return phone ? ` If you need to reschedule, call ${input.clinicName} on ${phone}.` : "";
+  return phone ? ` For changes, call ${phone}.` : "";
 }
 
 /** Patient confirmation copy shared by the SMS sender and its preview. */
 export function bookingConfirmationSms(input: PatientSmsDetails): string {
   const phone = input.clinicPhone?.trim();
-  const contact = phone ? `Call ${input.clinicName} on ${phone}` : "Let us know";
+  const contact = phone ? `call ${phone}` : "call the clinic";
   return appointmentDetails(input, `your hair transplant consultation is confirmed for ${input.date}`)
-    + ` Need to cancel or reschedule? ${contact} at least 24 hours before your appointment to keep your deposit.`;
+    + ` If you need to cancel or reschedule, ${contact} at least 24 hours before your appointment to keep your deposit.`;
 }
 
-export function appointmentReminderSms(input: PatientSmsDetails, kind: "3day" | "24h"): string {
+export type PatientReminderKind = "3day" | "24h" | "request" | "followup";
+
+export function appointmentReminderSms(input: PatientSmsDetails, kind: PatientReminderKind): string {
   if (!input.clinicName.trim() || !input.clinicAddress?.trim() || !input.clinicPhone?.trim()) {
     throw new Error("Missing clinic name, address or phone");
   }
   if (!input.consultantName?.trim() && !input.doctorName?.trim()) throw new Error("Missing consultation provider");
-  return appointmentDetails(input, `this is a reminder that your hair transplant consultation is scheduled for ${kind === "24h" ? `tomorrow (${input.date})` : input.date}`) + rescheduleContact(input);
+  const opening = kind === "24h" ? `your consultation is tomorrow (${input.date})`
+    : kind === "followup" ? `we haven't heard back about your consultation on ${input.date}`
+    : `your consultation is on ${input.date}`;
+  const confirm = kind === "request" || kind === "followup" ? " Please reply YES to confirm you'll attend." : "";
+  return appointmentDetails(input, opening) + rescheduleContact(input) + confirm;
 }
 
 /** Some clinic addresses contain the suburb/state already; others store them separately. */

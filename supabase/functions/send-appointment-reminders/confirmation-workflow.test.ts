@@ -90,7 +90,13 @@ test("claim loss sends nothing; provider uncertainty is never retried blindly",a
 test("staff-day requests use the actual date, not tomorrow; copy has a clear YES action",()=>{
   expect(workflowSms(booking(),"request")).toContain("Friday 23 October");
   expect(workflowSms(booking(),"request")).not.toContain("tomorrow");
-  expect(workflowSms(booking(),"followup")).toContain("reply YES");
+  for (const kind of ["request", "followup"] as const) {
+    const text = workflowSms(booking(), kind);
+    expect(text).toContain("For changes, call 0899999999.");
+    expect(text).toEndWith("Please reply YES to confirm you'll attend.");
+    expect(text).not.toMatch(/\bCHANGE\b|Hair Transplant Group/);
+  }
+  expect(workflowSms(booking(),"followup")).toContain("we haven't heard back");
 });
 test("missing provider details produce a visible failure, not an untracked skipped confirmation",async()=>{
   const {deps,calls}=effects();const row=booking();row.appointment!.clinic!.team=[];
