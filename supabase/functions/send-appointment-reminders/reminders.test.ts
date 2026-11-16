@@ -21,10 +21,10 @@ function effects() {
   return { calls, messages, deps };
 }
 test("Boss 3-day text uses Debra, full Boss details and no surgeon/title/HTG", () => {
-  expect(reminderCopy(fixture(), "3day")).toBe("Hi Peter, this is a reminder that your hair transplant consultation is scheduled for Tuesday 6 October at 10:30 AM with Debra Best at Boss Clinic. Address: 3/28 Hood St Subiaco WA 6008. If you need to reschedule, call Boss Clinic on (08) 9388 2884.");
+  expect(reminderCopy(fixture(), "3day")).toBe("Hi Peter, your consultation is on Tuesday 6 October at 10:30 AM with Debra Best at Boss Clinic. Address: 3/28 Hood St Subiaco WA 6008. For changes, call (08) 9388 2884.");
 });
 test("day-before text has tomorrow, date, provider and every clinic detail", () => {
-  expect(reminderCopy(fixture(), "24h")).toBe("Hi Peter, this is a reminder that your hair transplant consultation is scheduled for tomorrow (Tuesday 6 October) at 10:30 AM with Debra Best at Boss Clinic. Address: 3/28 Hood St Subiaco WA 6008. If you need to reschedule, call Boss Clinic on (08) 9388 2884.");
+  expect(reminderCopy(fixture(), "24h")).toBe("Hi Peter, your consultation is tomorrow (Tuesday 6 October) at 10:30 AM with Debra Best at Boss Clinic. Address: 3/28 Hood St Subiaco WA 6008. For changes, call (08) 9388 2884.");
 });
 test("Nitai falls back to consulting doctor and uses only Nitai contact details", () => {
   const r = fixture(); r.appointment!.doctor_id = "shobhna";
@@ -33,7 +33,7 @@ test("Nitai falls back to consulting doctor and uses only Nitai contact details"
     const text = reminderCopy(r,kind);
     expect(text).toContain("with Dr. Shobhna Singh at Nitai Medical & Cosmetic Centre.");
     expect(text).toContain("Address: 64 Lincoln Rd, Essendon, VIC.");
-    expect(text).toContain("call Nitai Medical & Cosmetic Centre on (03) 9300 1244.");
+    expect(text).toContain("For changes, call (03) 9300 1244.");
     expect(text).not.toMatch(/Boss|Debra|Dr Dr|Hair Transplant Group/);
   }
 });

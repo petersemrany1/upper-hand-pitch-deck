@@ -1,4 +1,4 @@
-import { appointmentReminderSms, clinicSmsAddress, PATIENT_SMS_FROM } from "../_shared/patient-sms.ts";
+import { appointmentReminderSms, clinicSmsAddress, PATIENT_SMS_FROM, type PatientReminderKind } from "../_shared/patient-sms.ts";
 
 export type Kind = "3day" | "24h";
 export type TeamMember = { id: string; name: string; is_active: boolean; conducts_consultations: boolean };
@@ -34,7 +34,7 @@ export function consultationName(appointment: NonNullable<Reminder["appointment"
   if (!provider?.name.trim()) throw new Error("missing_or_ambiguous_consultation_provider");
   return provider.name;
 }
-export function reminderCopy(row: Reminder, kind: Kind, anonymize = false): string {
+export function reminderCopy(row: Reminder, kind: PatientReminderKind, anonymize = false): string {
   const appointment = row.appointment;
   if (!appointment || appointment.id !== row.appointment_id) throw new Error("unlinked_appointment");
   if (appointment.outcome || appointment.disqualified_at) throw new Error("appointment_not_active");

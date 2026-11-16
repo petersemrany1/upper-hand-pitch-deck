@@ -37,6 +37,8 @@ function publicOrigin(requestUrl: string): string {
 }
 
 
+const PATIENT_DEPOSIT_TERMS = "Your deposit is refunded after you attend. If you need to cancel or reschedule, call the clinic at least 24 hours before your appointment to keep your deposit.";
+
 async function depositPayUrl(leadId: string, clinicId?: string): Promise<string> {
   const { getRequest } = await import("@tanstack/react-start/server");
   const baseUrl = new URL("/squarepayment", publicOrigin(getRequest().url));
@@ -1373,7 +1375,7 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
 
     const doctorDisplay = data.doctorName ?? "your specialist";
 
-    const message = `Hi ${data.firstName}, your consultation with ${doctorDisplay} is confirmed for ${bookingDisplay}. To secure your spot, please pay the $75 refundable deposit here: ${depositUrl} — it's fully refunded when you arrive. See you soon!`;
+    const message = `Hi ${data.firstName}, to book your consultation with ${doctorDisplay} at ${snapshot.clinicName} for ${bookingDisplay}, pay your $75 refundable consultation deposit here: ${depositUrl}\n\n${PATIENT_DEPOSIT_TERMS}`;
 
     const raw = data.phone.replace(/[\s\-()]/g, "");
     const formatted = raw.startsWith("+")
@@ -1790,7 +1792,7 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
     // Snapshot the selected clinic into this URL as well as the lead. This makes
     // the checkout deterministic even if the lead is later reassigned.
     const depositUrl = await depositPayUrl(data.leadId, data.clinicId);
-    const message = `Hi ${data.firstName}, here's the link to pay your $75 refundable consultation deposit for ${snapshot.clinicName}: ${depositUrl} — it's fully refunded when you arrive at your appointment. Any questions just reply here.`;
+    const message = `Hi ${data.firstName}, to book your consultation at ${snapshot.clinicName}, pay your $75 refundable consultation deposit here: ${depositUrl}\n\n${PATIENT_DEPOSIT_TERMS}`;
 
 
     const raw = data.phone.replace(/[\s\-()]/g, "");

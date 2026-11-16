@@ -71,9 +71,9 @@ export function confirmationText(b: ConfirmationBooking, missedCall: boolean) {
   const firstName = b.patient_name.trim().split(/\s+/)[0] || "there";
   const address = confirmationAddress(b);
   if (!b.clinic?.clinic_name || !address) throw new Error("Add the clinic name and address before sending an address text.");
-  return `Hi ${firstName}, ${missedCall ? "I just tried calling to check you have the address for" : "here are the details for"} your consultation on ${confirmationDay(b.appointment_date)} at ${confirmationTime(b.appointment_time)} at ${b.clinic.clinic_name}.\n\nAddress: ${address}`
+  return `Hi ${firstName}, ${missedCall ? "I just tried calling about your consultation" : "here are your consultation details"} for ${confirmationDay(b.appointment_date)} at ${confirmationTime(b.appointment_time)} at ${b.clinic.clinic_name}.\n\nAddress: ${address}`
     + (paidConfirmationDeposit(b) ? `\n\nYour $${Number(b.deposit_amount).toFixed(0)} deposit is refundable when you attend. Please check in with reception when you arrive.` : "")
-    + "\n\nPlease reply YES to confirm you're coming";
+    + "\n\nPlease reply YES to confirm you'll attend.";
 }
 export function clinicLocalClock(b: ConfirmationBooking, now = new Date()) {
   const west = /^(WA|Western Australia)$/i.test(b.clinic?.state?.trim() ?? "") || /perth/i.test(b.clinic?.city ?? "");

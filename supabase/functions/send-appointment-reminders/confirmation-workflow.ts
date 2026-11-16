@@ -10,10 +10,7 @@ export type WorkflowDependencies = {
   log(row: ConfirmationBooking, to: string, body: string, result: SendResult): Promise<void>;
 };
 export function workflowSms(row: ConfirmationBooking, kind: Exclude<ReminderAction, "call_email">, anonymize = false): string {
-  if (kind === "3day" || kind === "24h") return reminderCopy(row, kind, anonymize);
-  const details = reminderCopy(row, "3day", anonymize);
-  if (kind === "followup") return details.replace("this is a reminder that", "we haven’t received your confirmation yet.").replace("your hair", "Your hair") + " Please reply YES to confirm you’ll attend, or CHANGE if you need another time.";
-  return details + " Please reply YES to confirm you’ll attend, or CHANGE if you need another time.";
+  return reminderCopy(row, kind, anonymize);
 }
 const escape = (s: string) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 export function confirmationEmail(row: ConfirmationBooking, settings: ReminderSettings, baseUrl: string) {
