@@ -1,3 +1,9 @@
+const excludedLeaderboardNames = new Set(["italo camargo", "scott logan"]);
+
+export function isRankedRep(rep: { name: string }): boolean {
+  return !excludedLeaderboardNames.has(rep.name.trim().toLowerCase().replace(/\s+/g, " "));
+}
+
 export type SalesCallMetric = { id:string;lead_id:string|null;duration:number|null;duration_seconds:number|null;status:string|null;outcome:string|null;called_at:string };
 /** Leaderboard sales-call rules. Group once per lead per rep; exclude service calls. */
 export function salesCallCounts(calls: SalesCallMetric[], excluded: Set<string>, depositPaid: Map<string,number>) {
