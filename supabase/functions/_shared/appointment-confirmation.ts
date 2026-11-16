@@ -1,6 +1,8 @@
 /** Calendar dates and scheduled times in this workflow always belong to the clinic. */
 export type ReminderMode = "off" | "reminders" | "confirmation";
-export type DeliveryKind = "3day" | "24h" | "request" | "followup" | "call_email" | "ack";
+export type ReminderAction = "3day" | "24h" | "request" | "followup" | "call_email";
+// Historical delivery records may include a retired acknowledgement.
+export type DeliveryKind = ReminderAction | "ack";
 export type ConfirmationState = "not_requested" | "awaiting_reply" | "confirmed" | "needs_call";
 export type ReminderSettings = {
   clinic_id: string;
@@ -76,7 +78,7 @@ export function confirmationDay(bookingDate: string, settings: ReminderSettings)
 const elapsed = (now: Date, timestamp: string | null) => timestamp ? (now.getTime() - Date.parse(timestamp)) / 60000 : Infinity;
 
 /** One action per booking per tick: an outage or a late booking cannot cause a burst of texts. */
-export function nextReminderAction(row: WorkflowBooking, settings: ReminderSettings, now: Date): DeliveryKind | null {
+export function nextReminderAction(row: WorkflowBooking, settings: ReminderSettings, now: Date): ReminderAction | null {
   if (settings.mode === "off" || row.status !== "confirmed" || !row.booking_date || !row.booking_time) return null;
   const local = localClock(now, settings.timezone);
   if (local.date > row.booking_date || (local.date === row.booking_date && local.minute >= minutes(row.booking_time))) return null;
@@ -90,8 +92,6 @@ export function nextReminderAction(row: WorkflowBooking, settings: ReminderSetti
     return null;
   }
   const requestDay = confirmationDay(row.booking_date, settings);
-  // Acknowledgements are responses to the patient's own message, including after hours.
-  if (row.confirmation_state === "confirmed" && row.confirmation_method === "sms" && !row.confirmation_ack_at) return "ack";
   if (row.confirmation_state === "needs_call" && !row.confirmation_email_at) return "call_email";
   if (!["confirmed", "needs_call"].includes(row.confirmation_state) && local.date >= requestDay) {
     // Short-notice bookings outside a usable call window go straight to the call list.
