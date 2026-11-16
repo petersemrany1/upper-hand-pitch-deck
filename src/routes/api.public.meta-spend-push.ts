@@ -132,25 +132,16 @@ export const Route = createFileRoute("/api/public/meta-spend-push")({
 
         // 2. Upsert on the sync's key: date + ad_id, falling back to ad_name.
         const dates = [...new Set(rows.map((r) => r.date))].sort();
-        const existing = await supabaseAdmin
-          .from("ad_spend_daily")
-          .select("id, date, ad_id, ad_name")
-          .gte("date", dates[0]!)
-          .lte("date", dates[dates.length - 1]!)
-          .limit(20000);
-        if (existing.error) return json({ error: `Read failed: ${existing.error.message}` }, 500);
-
-        const keyOf = (date: string, adId: string | null, adName: string) =>
-          `${date}|${(adId ?? adName).trim().toLowerCase()}`;
-        const byKey = new Map<string, string>();
-        for (const e of existing.data ?? []) {
-          byKey.set(keyOf(e.date, e.ad_id ?? null, String(e.ad_name)), e.id);
-        }
+        const { existingAdDays } = await import("@/lib/existing-ad-spend.server");
+        const { dailySpendKey } = await import("@/lib/numbers-ad-identity");
+        let byKey: Map<string, string>;
+        try { byKey = await existingAdDays(supabaseAdmin, dates[0]!, dates[dates.length - 1]!); }
+        catch (e) { return json({ error: (e as Error).message }, 500); }
 
         let upserted = 0;
         const toInsert: Row[] = [];
         for (const row of rows) {
-          const id = byKey.get(keyOf(row.date, row.ad_id, row.ad_name));
+          const id = byKey.get(dailySpendKey(row));
           if (id) {
             const { error } = await supabaseAdmin.from("ad_spend_daily").update(row).eq("id", id);
             if (error) return json({ error: `Write failed: ${error.message}` }, 500);

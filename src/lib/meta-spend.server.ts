@@ -1,3 +1,6 @@
+import { existingAdDays } from "./existing-ad-spend.server";
+import { dailySpendKey } from "./numbers-ad-identity";
+
 // Pulls AD-LEVEL daily spend from the Meta Marketing API and upserts it into
 // public.ad_spend_daily. Shared by the nightly webhook and the admin
 // "backfill" button on the Numbers page. Server only.
@@ -207,22 +210,14 @@ export async function syncMetaSpend(opts: { since?: string; until?: string } = {
     if (manualErr) return fail(`Manual row cleanup failed: ${manualErr.message}`);
   }
 
-  // One read for the whole range, then batched writes: rows Meta already
-  // gave us are updated in place, everything else is inserted in one go.
-  const existing = await supabaseAdmin
-    .from("ad_spend_daily")
-    .select("id, date, ad_name")
-    .gte("date", since)
-    .lte("date", until)
-    .limit(10000);
-  if (existing.error) return fail(`Read failed: ${existing.error.message}`);
-  const byKey = new Map<string, string>();
-  for (const r of existing.data ?? []) byKey.set(`${r.date}|${String(r.ad_name).trim().toLowerCase()}`, r.id);
+  let byKey: Map<string, string>;
+  try { byKey = await existingAdDays(supabaseAdmin, since, until); }
+  catch (e) { return fail((e as Error).message); }
 
   const toInsert: typeof upserts = [];
   let written = 0;
   for (const row of upserts) {
-    const id = byKey.get(`${row.date}|${row.ad_name.trim().toLowerCase()}`);
+    const id = byKey.get(dailySpendKey(row));
     if (id) {
       const { error } = await supabaseAdmin.from("ad_spend_daily").update(row).eq("id", id);
       if (error) return fail(`Write failed: ${error.message}`);

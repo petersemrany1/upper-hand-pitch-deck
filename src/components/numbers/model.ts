@@ -243,7 +243,7 @@ export function mostlyUncalled(p: Pipeline | null | undefined): boolean {
 
 // ---- Ads
 
-export type AdVerdictKey = "winning" | "ok" | "poor" | "notBooking" | "uncalled" | "early" | "noName";
+export type AdVerdictKey = "winning" | "ok" | "poor" | "notBooking" | "uncalled" | "early" | "unassigned" | "noName";
 
 export type AdVerdict = { key: AdVerdictKey; label: string; rank: number };
 
@@ -267,6 +267,7 @@ const VERDICTS: Record<AdVerdictKey, AdVerdict> = {
   notBooking: { key: "notBooking", label: "Not booking", rank: 3 },
   uncalled: { key: "uncalled", label: "Not called yet", rank: 3 },
   early: { key: "early", label: "Too early", rank: 4 },
+  unassigned: { key: "unassigned", label: "Unassigned", rank: 5 },
   noName: { key: "noName", label: "Website", rank: 5 },
 };
 
@@ -280,6 +281,7 @@ const VERDICTS: Record<AdVerdictKey, AdVerdict> = {
  */
 export function judgeAd(a: AdPerformanceRow, avgCostPerShow: number | null, pipeline: Pipeline | null = null): AdVerdict {
   if (a.unattributed) return VERDICTS.noName;
+  if (a.name_collision && a.ad_key) return VERDICTS.unassigned;
   const shows = expectedShows(a);
   const cps = perUnit(a.spend, shows);
   if (shows < 3) {
@@ -303,13 +305,13 @@ export function buildAdStats(ads: AdPerformanceRow[], pipelines: Record<string, 
   const rows = ads.map((a) => ({
     ...a,
     shows: expectedShows(a),
-    pipeline: pipelines[pipelineKey(a.ad_name, a.unattributed)] ?? null,
+    pipeline: pipelines[a.ad_key ?? pipelineKey(a.ad_name, a.unattributed)] ?? null,
     costPerLead: a.unattributed ? null : perUnit(a.spend, a.leads),
     costPerBooked: a.unattributed ? null : perUnit(a.spend, a.booked),
     adCostPerShow: a.unattributed ? null : perUnit(a.spend, expectedShows(a)),
     bookRate: ratio(a.booked, a.leads),
     showRate: ratio(a.showed, a.showed + a.noshow),
-    verdict: judgeAd(a, avgCostPerShow, pipelines[pipelineKey(a.ad_name, a.unattributed)] ?? null),
+    verdict: judgeAd(a, avgCostPerShow, pipelines[a.ad_key ?? pipelineKey(a.ad_name, a.unattributed)] ?? null),
   }));
   return { rows, avgCostPerShow };
 }

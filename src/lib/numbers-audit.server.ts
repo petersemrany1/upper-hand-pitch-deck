@@ -1,3 +1,5 @@
+import { manualOverlapDays, type DailyAd } from "./numbers-ad-identity";
+
 // Data-quality audit behind the Numbers page. Pulls the raw tables the page
 // is built from and checks every join and assumption the figures rely on.
 // Server only; admin only (checked by the caller).
@@ -51,7 +53,7 @@ const sydDate = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { tim
 export async function runNumbersAudit(db: Db, meta: { accessToken?: string; accountId?: string }): Promise<AuditReport> {
   const [leads, spend, appts, calls, reps, rates, clinics, packs, reminders, errorLogs, apptPay] = await Promise.all([
     fetchAll(db, "meta_leads", "id, created_at, first_name, last_name, phone, status, ad_name, campaign_name, lead_class, rep_id, booking_date, clinic_id, raw_payload, lead_id", "created_at"),
-    fetchAll(db, "ad_spend_daily", "id, date, ad_id, ad_name, campaign_name, location, spend_aud, source", "date"),
+    fetchAll(db, "ad_spend_daily", "id, date, ad_id, ad_name, adset_name, campaign_name, location, spend_aud, source", "date"),
     fetchAll(db, "clinic_appointments", "id, lead_id, clinic_id, appointment_date, outcome, patient_name, created_at", "created_at"),
     fetchAll(db, "call_records", "id, lead_id, rep_id, called_at, duration, status, direction", "called_at"),
     fetchAll(db, "sales_reps", "id, name, is_active, role", "name"),
@@ -119,9 +121,11 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
   }
   const bySource = new Map<string, number>();
   for (const s of spend) bySource.set(String(s.source), (bySource.get(String(s.source)) ?? 0) + 1);
-  const dupKeys = new Map<string, number>();
-  for (const s of spend) { const k = `${s.date}|${String(s.ad_name).trim().toLowerCase()}`; dupKeys.set(k, (dupKeys.get(k) ?? 0) + 1); }
-  const dups = Array.from(dupKeys.values()).filter((n) => n > 1).length;
+  const dups = manualOverlapDays(spend.map(s => ({
+    date: String(s.date), ad_name: String(s.ad_name ?? ""), ad_id: s.ad_id as DailyAd["ad_id"],
+    adset_name: s.adset_name as string | null, location: s.location as string | null,
+    campaign_name: s.campaign_name as string | null, source: String(s.source),
+  })));
   const orphanSpendRows = spend.filter((s) => !leadAdNames.has(String(s.ad_name).trim().toLowerCase()));
   const orphanSpend = orphanSpendRows.reduce((t, s) => t + Number(s.spend_aud ?? 0), 0);
   const totalSpend = spend.reduce((t, s) => t + Number(s.spend_aud ?? 0), 0);
@@ -145,7 +149,7 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
     items: [
       { label: "Spend rows / total", value: `${spend.length} rows · ${money(totalSpend)}`, severity: "info", detail: `${first ?? "—"} → ${last ?? "—"} · sources: ${Array.from(bySource.entries()).map(([k, v]) => `${k} ${v}`).join(", ")}` },
       { label: "Days with no spend row between first and last", value: S(gapDays), severity: gapDays > 7 ? "warn" : "ok", detail: "Zero-spend days are normal when ads are paused; a long run of gaps means a sync outage." },
-      { label: "Same ad recorded twice on one day", value: S(dups), severity: dups ? "bad" : "ok" },
+      { label: "Days with possible manual/imported spend overlap", value: S(dups), severity: dups ? "bad" : "ok" },
       { label: "Spend on ads that never produced a lead", value: `${money(orphanSpend)} (${pct(orphanSpend, totalSpend)}) across ${new Set(orphanSpendRows.map((s) => String(s.ad_name))).size} ads`, severity: orphanSpend > totalSpend * 0.15 ? "warn" : "info", detail: "Counted in city cost per lead, but shows no lead on the ads table." },
       { label: "Spend with no city", value: money(noLocSpend), severity: noLocSpend > 0 ? "bad" : "ok", detail: "Falls out of every city figure." },
       { label: "Meta ad account", value: accountMeta, severity: accountSev, detail: "The page assumes Sydney time and AUD." },

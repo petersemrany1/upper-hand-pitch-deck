@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { WEBSITE_LABEL, pipelineKey, pipelineOf, type Pipeline } from "@/components/numbers/model";
+import { WEBSITE_LABEL, pipelineOf, type Pipeline } from "@/components/numbers/model";
 
 // ---- Sydney day boundaries, correct through daylight saving. The SQL cuts
 // leads by (created_at AT TIME ZONE 'Australia/Sydney')::date; anything we
@@ -17,10 +17,14 @@ function sydneyDayStart(day: string): string {
   }
   return `${day}T00:00:00+10:00`;
 }
-function sydneyDayEnd(day: string): string {
-  const d = new Date(`${day}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1);
-  const next = d.toISOString().slice(0, 10);
-  return new Date(new Date(sydneyDayStart(next)).getTime() - 1000).toISOString();
+function reportingWindow(data: { from?: string | null; to?: string | null; location?: string | null }) {
+  const next = data.to ? new Date(data.to + "T00:00:00Z") : null;
+  if (next) next.setUTCDate(next.getUTCDate() + 1);
+  return {
+    from: data.from || undefined, to: data.to || undefined, city: data.location || undefined,
+    start: data.from ? sydneyDayStart(data.from) : undefined,
+    endExclusive: next ? sydneyDayStart(next.toISOString().slice(0, 10)) : undefined,
+  };
 }
 
 // Read-only ad-spend reporting + manual spend entry + clearing unresolved
@@ -34,6 +38,9 @@ const RangeSchema = z.object({
 });
 
 export type AdPerformanceRow = {
+  ad_key?: string;
+  ad_id?: string | null;
+  adset_name?: string | null;
   ad_name: string;
   location: string | null;
   spend: number;
@@ -169,38 +176,6 @@ async function callCountsByLead(
   return out;
 }
 
-/** Where every lead in the range sits in the calling pipeline, per ad. Same cohort as ad_performance. */
-async function pipelinesByAd(
-  db: { from: (t: string) => any }, // eslint-disable-line @typescript-eslint/no-explicit-any
-  from: string | undefined,
-  to: string | undefined,
-  location: string | undefined,
-): Promise<Record<string, Pipeline>> {
-  const rows: { lead_id: string; ad_name: string | null; status: string | null; unattributed: boolean; is_booked: boolean }[] = [];
-  const page = 1000;
-  for (let i = 0; i < 50; i += 1) {
-    let q = db.from("ad_lead_outcomes").select("lead_id, ad_name, status, unattributed, is_booked, location").order("created_at", { ascending: true }).order("lead_id", { ascending: true }).range(i * page, i * page + page - 1);
-    if (from) q = q.gte("created_at", sydneyDayStart(from));
-    if (to) q = q.lte("created_at", sydneyDayEnd(to));
-    if (location) q = q.ilike("location", location);
-    const { data, error } = (await q) as { data: typeof rows | null; error: { message: string } | null };
-    if (error) throw new Error(`ad_lead_outcomes: ${error.message}`);
-    rows.push(...(data ?? []));
-    if (!data || data.length < page) break;
-  }
-  const calls = await callCountsByLead(db, from);
-  const byAd = new Map<string, { status: string | null; calls: number; booked: boolean }[]>();
-  for (const r of rows) {
-    const k = pipelineKey(r.ad_name ?? "", r.unattributed);
-    const list = byAd.get(k) ?? [];
-    list.push({ status: r.status, calls: calls.get(r.lead_id)?.calls ?? 0, booked: !!r.is_booked });
-    byAd.set(k, list);
-  }
-  const out: Record<string, Pipeline> = {};
-  for (const [k, list] of byAd) out[k] = pipelineOf(list);
-  return out;
-}
-
 export const getNumbersReport = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => RangeSchema.parse(input ?? {}))
@@ -228,8 +203,9 @@ export const getNumbersReport = createServerFn({ method: "GET" })
       peterId = peter?.id ?? null;
     }
 
-    const [perf, perfAll, locs, monthly, sync, labLoc, labAd, revLoc, revAd, moneyMonth, labLocP, labAdP, moneyMonthP, packEcon] = await Promise.all([
-      db.rpc("ad_performance", { p_from: from, p_to: to, p_location: location }),
+    const { readAdActivity } = await import("./numbers-ad-report.server");
+    const [activity, perfAll, locs, monthly, sync, labLoc, labAd, revLoc, revAd, moneyMonth, labLocP, labAdP, moneyMonthP, packEcon] = await Promise.all([
+      readAdActivity(db, reportingWindow(data)),
       // Unfiltered: every lead and every spend row in the window, city or not.
       // "All cities" is measured against this so nothing can fall out of it.
       location ? db.rpc("ad_performance", { p_from: from, p_to: to, p_location: undefined }) : Promise.resolve(null),
@@ -249,7 +225,12 @@ export const getNumbersReport = createServerFn({ method: "GET" })
     // Anything that is not the money figures must never take the page down.
     const warnings: string[] = [];
     let pipelines: Record<string, Pipeline> = {};
-    try { pipelines = await pipelinesByAd(db as unknown as { from: (t: string) => any }, from, to, location); } // eslint-disable-line @typescript-eslint/no-explicit-any
+    try {
+      const calls = await callCountsByLead(db, from);
+      pipelines = Object.fromEntries([...activity.members].map(([key, leads]) => [key,
+        pipelineOf(leads.map(l => ({ status: l.status, calls: calls.get(l.lead_id)?.calls ?? 0, booked: !!l.is_booked }))),
+      ]));
+    }
     catch (e) { warnings.push(`The "Called" column could not be worked out: ${(e as Error).message}`); }
 
 
@@ -275,23 +256,9 @@ export const getNumbersReport = createServerFn({ method: "GET" })
       for (const c of clinics ?? []) clinicNames.set(c.id, c.clinic_name);
     }
 
-    // How far back the spend data goes, and whether any day has the same ad
-    // recorded twice (a hand-entered row next to a Meta row double counts).
-    const [spendFirst, spendLast, spendKeys] = await Promise.all([
-      db.from("ad_spend_daily").select("date").order("date", { ascending: true }).limit(1).maybeSingle(),
-      db.from("ad_spend_daily").select("date").order("date", { ascending: false }).limit(1).maybeSingle(),
-      db.from("ad_spend_daily").select("date, ad_name, source").limit(5000),
-    ]);
-    const seen = new Map<string, number>();
-    for (const r of spendKeys.data ?? []) {
-      const k = `${r.date}|${String(r.ad_name).trim().toLowerCase()}`;
-      seen.set(k, (seen.get(k) ?? 0) + 1);
-    }
-    const spendDuplicates = Array.from(seen.values()).filter((n) => n > 1).length;
-
     // Leads and spend are the page; without them there is nothing to show.
     // Labour, revenue and the monthly chart degrade to a warning instead.
-    const fatal = perf.error ?? (perfAll && perfAll.error) ?? locs.error;
+    const fatal = perfAll?.error ?? locs.error;
     if (fatal) throw new Error(`Report query failed: ${fatal.message}`);
     const soft = (label: string, r: { error: { message: string } | null } | null) => { if (r?.error) warnings.push(`${label} could not be loaded (${r.error.message}); those figures are blank.`); };
     soft("Labour", labLoc); soft("Labour by ad", labAd); soft("Revenue", revLoc); soft("Revenue by ad", revAd); soft("Monthly figures", moneyMonth); soft("Monthly cost per show", monthly);
@@ -302,10 +269,13 @@ export const getNumbersReport = createServerFn({ method: "GET" })
     // Whatever the window holds that no city claims: leads with no city on them
     // and spend on campaigns that name no city. It goes into one "Website" row
     // so the All-cities total is the whole window, never just the cities.
-    const perfRows = ((perfAll ?? perf).data ?? []) as unknown as AdPerformanceRow[];
+    const perfRows = (perfAll?.data ?? activity.ads) as unknown as AdPerformanceRow[];
     const locRows = ((locs.data ?? []) as unknown as LocationSummaryRow[]).filter((r) => r.location);
     const FUNNEL = ["spend", "leads", "booked", "showed", "noshow", "upcoming", "needs_outcome", "disqualified"] as const;
-    const remainder = Object.fromEntries(FUNNEL.map((k) => [k, Math.max(0, perfRows.reduce((s, r) => s + num(r[k]), 0) - locRows.reduce((s, r) => s + num(r[k]), 0))])) as Record<(typeof FUNNEL)[number], number>;
+    const remainder = Object.fromEntries(FUNNEL.map((k) => {
+      const diff = perfRows.reduce((s, r) => s + num(r[k]), 0) - locRows.reduce((s, r) => s + num(r[k]), 0);
+      return [k, Math.max(0, k === "spend" ? Math.round(diff * 100) / 100 : diff)];
+    })) as Record<(typeof FUNNEL)[number], number>;
     const websiteRow: LocationSummaryRow | null = FUNNEL.some((k) => remainder[k] > 0) ? { location: WEBSITE_LABEL, ...remainder } : null;
     const mapLabour = (rows: unknown): LabourRow[] =>
       ((rows ?? []) as Record<string, unknown>[]).map((r) => ({
@@ -378,11 +348,8 @@ export const getNumbersReport = createServerFn({ method: "GET" })
 
     return {
       peterExcluded,
-      spendCoverage: {
-        from: (spendFirst.data?.date as string | undefined) ?? null,
-        to: (spendLast.data?.date as string | undefined) ?? null,
-      },
-      spendDuplicates,
+      spendCoverage: activity.spendCoverage,
+      spendDuplicates: activity.spendDuplicates,
       labourByLocation: labourLocRows,
       labourByAd: labourAdRows,
       revenueByLocation: mapRevenue(revLoc.data),
@@ -406,10 +373,7 @@ export const getNumbersReport = createServerFn({ method: "GET" })
         over_delivered: num(r.over_delivered),
         list_rate: num(r.list_rate),
       })) as PackEconomicsRow[],
-      ads: ((perf.data ?? []) as unknown as AdPerformanceRow[]).map((r) => ({
-        ...r,
-        spend: Number(r.spend ?? 0),
-      })),
+      ads: activity.ads,
       pipelines,
       locations: [...locRows.map((r) => ({ ...r, spend: Number(r.spend ?? 0) })), ...(websiteRow ? [websiteRow] : [])],
       warnings,
@@ -437,8 +401,7 @@ export const getNumbersReport = createServerFn({ method: "GET" })
   });
 
 const AdLeadsSchema = RangeSchema.extend({
-  adName: z.string().min(1),
-  unattributed: z.boolean().optional(),
+  adKey: z.string().min(1),
 });
 
 export const listAdLeads = createServerFn({ method: "GET" })
@@ -446,24 +409,21 @@ export const listAdLeads = createServerFn({ method: "GET" })
   .inputValidator((input) => AdLeadsSchema.parse(input))
   .handler(async ({ data, context }) => {
     const db = await assertAdmin(context.claims as Record<string, unknown>);
-    let q = db
-      .from("ad_lead_outcomes")
-      .select(
-        "lead_id, created_at, first_name, last_name, phone, status, location, appointment_date, outcome, is_booked, is_showed, is_noshow, is_upcoming, needs_outcome, is_disqualified",
-      )
-      .order("created_at", { ascending: false })
-      .limit(500);
-
-    if (data.unattributed) q = q.eq("unattributed", true);
-    else q = q.eq("ad_name", data.adName).eq("unattributed", false);
-
-    if (data.from) q = q.gte("created_at", sydneyDayStart(data.from));
-    if (data.to) q = q.lte("created_at", sydneyDayEnd(data.to));
-
-    const { data: rows, error } = await q;
-    if (error) throw new Error(error.message);
+    const { readAdActivity } = await import("./numbers-ad-report.server");
+    const { members } = await readAdActivity(db, reportingWindow(data));
+    const leads = members.get(data.adKey) ?? [];
+    if (!leads.length) return [];
+    const rows = [];
+    for (let i = 0; i < leads.length; i += 100) {
+      const { data: details, error } = await db.from("ad_lead_outcomes")
+        .select("lead_id, created_at, first_name, last_name, phone, status, location, appointment_date, outcome, is_booked, is_showed, is_noshow, is_upcoming, needs_outcome, is_disqualified")
+        .in("lead_id", leads.slice(i, i + 100).map(l => l.lead_id));
+      if (error) throw new Error(error.message);
+      rows.push(...(details ?? []));
+    }
+    rows.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
     // How many times each lead has been called, so the list can say who is still to call.
-    const calls = await callCountsByLead(db as unknown as { from: (t: string) => any }, data.from ?? undefined); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const calls = await callCountsByLead(db, data.from ?? undefined);
     return (rows ?? []).map((r) => { const c = r.lead_id ? calls.get(r.lead_id) : undefined; return { ...r, calls: c?.calls ?? 0, last_called_at: c?.last ?? null }; });
   });
 
