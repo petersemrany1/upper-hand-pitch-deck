@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { salesCallCounts, dashboardMetrics, conversionPercent } from "@/lib/leaderboard-metrics";
+import { salesCallCounts, dashboardMetrics, conversionPercent, isRankedRep } from "@/lib/leaderboard-metrics";
 import { addDays, periodDates, sydneyMidnight } from "@/lib/reporting-period";
 import { sydneyTodayISO } from "@/lib/timezone";
 import { bookingActor, assertExistingBookingAccess } from "./booking-access.server";
@@ -1114,7 +1114,8 @@ export const getLeaderboard = createServerFn({ method: "POST" })
   .inputValidator((data: LeaderboardInput) => data)
   .handler(async ({ data, context }) => {
     await bookingActor(context.supabase);
-    return calculateLeaderboard(data);
+    const result = await calculateLeaderboard(data);
+    return { ...result, rows: result.rows.filter(isRankedRep) };
   });
 
 // The dashboard consumes the same calculation, returning only the caller's aggregate.
