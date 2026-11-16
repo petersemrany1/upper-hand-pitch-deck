@@ -24,7 +24,7 @@ export const saveLeadContact = createServerFn({ method: "POST" })
       p_last_name: data.lastName, p_phone: data.phone,
       p_expected_first_name: data.expected.first_name,
       p_expected_last_name: data.expected.last_name, p_expected_phone: data.expected.phone,
-    } as Parameters<typeof context.supabase.rpc<"save_lead_contact">>[1];
+    } as unknown as import("@/integrations/supabase/types").Database["public"]["Functions"]["save_lead_contact"]["Args"];
     const { data: contact, error } = await context.supabase.rpc("save_lead_contact", args);
     if (error) throw new Error(error.message);
     return contactSchema.parse(contact);
