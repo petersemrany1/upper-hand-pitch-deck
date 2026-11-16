@@ -12,6 +12,7 @@ const TONE_FOR: Record<AdVerdictKey, Tone> = {
   notBooking: "red",
   uncalled: "amber",
   early: "grey",
+  unassigned: "grey",
   noName: "grey",
 };
 
@@ -81,7 +82,7 @@ export function AdsTab({
   }, [rows, sortKey, sortAsc]);
 
   const counts = useMemo(() => {
-    const c: Record<AdVerdictKey, number> = { winning: 0, ok: 0, poor: 0, notBooking: 0, uncalled: 0, early: 0, noName: 0 };
+    const c: Record<AdVerdictKey, number> = { winning: 0, ok: 0, poor: 0, notBooking: 0, uncalled: 0, early: 0, unassigned: 0, noName: 0 };
     for (const r of rows) c[r.verdict.key] += 1;
     return c;
   }, [rows]);
@@ -142,19 +143,22 @@ export function AdsTab({
                 const dim = r.verdict.key === "early" || r.verdict.key === "noName";
                 return (
                   <tr
-                    key={`${r.ad_name}-${r.unattributed}`}
+                    key={r.ad_key}
                     onClick={() => onDrill(r)}
                     style={{ borderTop: "0.5px solid #f0f0ee", cursor: "pointer", opacity: dim ? 0.6 : 1 }}
                   >
                     <td style={{ ...td2, paddingLeft: 18, whiteSpace: "normal", minWidth: 220, maxWidth: 380, fontWeight: 600, color: INK }}>
                       {r.unattributed ? "Website & untracked leads" : r.ad_name}
+                      {!r.unattributed && <div style={{ fontSize: 11, color: MUTED, fontWeight: 400 }}>
+                        {[r.adset_name && `Ad set: ${r.adset_name}`, r.ad_id && `ID: ${r.ad_id}`].filter(Boolean).join(" · ")}
+                      </div>}
                       {r.name_collision && (
-                        <span title="Possible renamed or reused ad name" style={{ marginLeft: 6, color: "#8a5a2b" }}>
-                          <AlertTriangle className="inline h-3 w-3" />
+                        <span title="Multiple ads share this name; these records cannot be assigned to a specific Meta ad." style={{ marginLeft: 6, color: "#8a5a2b" }}>
+                          <AlertTriangle className="inline h-3 w-3" /> Ad not identified
                         </span>
                       )}
                       {r.unattributed && (
-                        <div style={{ fontSize: 11, color: MUTED, fontWeight: 400 }}>No ad or campaign on the lead — not costed against ads and not counted in any city</div>
+                        <div style={{ fontSize: 11, color: MUTED, fontWeight: 400 }}>No ad or campaign recorded; enquiries with a known city still count in its totals.</div>
                       )}
                     </td>
                     <td style={td2}>{r.location ?? "—"}</td>
@@ -180,7 +184,7 @@ export function AdsTab({
         </div>
         <Footnote>
           A show is any booking not marked no-show. Winning = cost per show at least 20% under the average shown above. Poor = 20% over. Too early = fewer than 3 shows.
-          Not booking = 10+ leads, none booked, and the leads have been called. Not called yet = 10+ leads, none booked, most still to call. Ads are matched to leads by ad name. Website enquiries have no ad and sit outside the city figures.
+          Not booking = 10+ leads, none booked, and the leads have been called. Not called yet = 10+ leads, none booked, most still to call. Leads are matched by Meta ad ID when available. Older leads use the campaign, ad name and available ad set; ambiguous matches stay separate.
         </Footnote>
       </div>
     </div>

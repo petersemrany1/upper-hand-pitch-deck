@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, Check, X, Ban, Plus, Pencil, Trash2, RefreshCw, Clock } from "lucide-react";
 import { toast } from "sonner";
@@ -159,12 +159,15 @@ function NumbersPage() {
     );
   }, [packEconomics]);
 
+  const latestReport = useRef(0);
   const load = useCallback(async () => {
+    const request = ++latestReport.current;
     setLoading(true);
     try {
       const res = await fetchReport({
         data: { from: range.from, to: range.to, location: locFilter || null, excludePeter: !countMyPay },
       });
+      if (request !== latestReport.current) return;
       setAds(res.ads);
       setPipelines(res.pipelines);
       setLocations(res.locations);
@@ -178,9 +181,9 @@ function NumbersPage() {
       setPeterExcluded(!!res.peterExcluded);
       setSyncState(res.syncState);
     } catch (e) {
-      toast.error((e as Error).message || "Could not load the numbers");
+      if (request === latestReport.current) toast.error((e as Error).message || "Could not load the numbers");
     } finally {
-      setLoading(false);
+      if (request === latestReport.current) setLoading(false);
     }
   }, [fetchReport, range.from, range.to, locFilter, countMyPay]);
 
@@ -261,8 +264,8 @@ function NumbersPage() {
     try {
       const rowsOut = await fetchLeads({
         data: {
-          adName: ad.ad_name,
-          unattributed: ad.unattributed,
+          adKey: ad.ad_key!,
+          location: locFilter || null,
           from: range.from,
           to: range.to,
         },
@@ -326,9 +329,11 @@ function NumbersPage() {
           </div>
           <button
             onClick={() => void load()}
+            title="Reload leads and the latest imported ad spend"
+            disabled={loading}
             style={{ ...CARD, padding: "6px 12px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
           >
-            <RefreshCw className="h-3 w-3" /> Refresh
+            <RefreshCw className="h-3 w-3" /> Refresh report
           </button>
         </div>
 
@@ -531,7 +536,7 @@ function NumbersPage() {
             )}
             {spendDuplicates > 0 && (
               <Note tone="red">
-                {spendDuplicates} day{spendDuplicates === 1 ? "" : "s"} have the same ad recorded twice (a hand-entered row beside a Meta row). Spend is double counted on those days — open "Edit spend by hand" and delete the manual copy.
+                {spendDuplicates} day{spendDuplicates === 1 ? "" : "s"} have a manual spend entry that may overlap imported spend. Review the entries before changing them.
               </Note>
             )}
           </div>
@@ -642,7 +647,7 @@ function NumbersPage() {
                   {spendRows.map((r) => (
                     <tr key={r.id} style={{ borderBottom: "0.5px solid #f0f0ee" }}>
                       <td style={{ fontSize: 12, padding: "6px 8px" }}>{r.date}</td>
-                      <td style={{ fontSize: 12, padding: "6px 8px" }}>{r.ad_name}</td>
+                      <td style={{ fontSize: 12, padding: "6px 8px" }}>{r.ad_name}{(r.adset_name || r.ad_id) && <div style={{ color: MUTED, fontSize: 11 }}>{[r.adset_name, r.ad_id].filter(Boolean).join(" · ")}</div>}</td>
                       <td style={{ fontSize: 12, padding: "6px 8px", color: "#6b6b6b" }}>{r.campaign_name ?? "—"}</td>
                       <td style={{ fontSize: 12, padding: "6px 8px" }}>{money(r.spend_aud)}</td>
                       <td style={{ fontSize: 12, padding: "6px 8px" }}>{r.impressions}</td>
@@ -954,7 +959,7 @@ function NumbersPage() {
         >
           <div onClick={(e) => e.stopPropagation()} style={{ ...CARD, maxWidth: 900, width: "100%", maxHeight: "80vh", overflowY: "auto" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>{drill.ad.unattributed ? "Website & untracked leads" : drill.ad.ad_name}</div>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>{drill.ad.unattributed ? "Website & untracked leads" : [drill.ad.ad_name, drill.ad.adset_name, drill.ad.ad_id].filter(Boolean).join(" · ")}</div>
               <div style={{ flex: 1 }} />
               <button onClick={() => setDrill(null)} style={{ border: "none", background: "transparent", cursor: "pointer" }}>
                 <X className="h-4 w-4" />
