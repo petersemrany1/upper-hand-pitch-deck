@@ -22,13 +22,15 @@ test("Perth 9am request, 1pm second request, 3pm email, no premature messages", 
   expect(nextReminderAction(row, settings, at("14:59"))).toBeNull();
   expect(nextReminderAction(row, settings, at("15:00"))).toBe("call_email");
 });
-test("YES or phone confirmation suppresses chasing, with one SMS acknowledgement", () => {
-  const row=booking({confirmation_state:"confirmed",confirmation_method:"sms"});
-  expect(nextReminderAction(row,settings,at("13:00"))).toBe("ack");
-  row.confirmation_ack_at=at("10:00").toISOString();
-  expect(nextReminderAction(row,settings,at("15:00"))).toBeNull();
-  row.confirmation_method="phone";row.confirmation_ack_at=null;
-  expect(nextReminderAction(row,settings,at("13:00"))).toBeNull();
+test("an SMS or phone confirmation stops all confirmation messages and the call alert", async () => {
+  for (const method of ["sms", "phone"] as const) {
+    const row = booking({ confirmation_state: "confirmed", confirmation_method: method, confirmation_requested_at: at("09:00").toISOString() });
+    const { deps, calls } = effects();
+    for (const time of ["09:05", "13:00", "15:00", "20:00"]) {
+      await processConfirmationWorkflow([row], new Map([[row.id, settings]]), at(time), false, deps, "https://example.test");
+    }
+    expect(calls).toEqual([]);
+  }
 });
 test("all three modes: Off sends nothing; Nitai sends ordinary reminders only", () => {
   for (const time of ["09:00","13:00","15:00"]) expect(nextReminderAction(booking(),{...settings,mode:"off"},at(time))).toBeNull();

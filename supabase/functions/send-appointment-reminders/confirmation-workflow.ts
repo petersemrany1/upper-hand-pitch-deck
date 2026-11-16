@@ -1,19 +1,17 @@
-import { nextReminderAction, type ConfirmationFields, type DeliveryKind, type ReminderSettings, type WorkflowBooking } from "../_shared/appointment-confirmation.ts";
+import { nextReminderAction, type ConfirmationFields, type ReminderAction, type ReminderSettings, type WorkflowBooking } from "../_shared/appointment-confirmation.ts";
 import { reminderCopy, formatAUPhone, type Reminder, type SendResult } from "./reminders.ts";
 
 export type ConfirmationBooking = Reminder & WorkflowBooking & ConfirmationFields & { patient_last_name?: string | null };
 export type WorkflowDependencies = {
-  claim(row: ConfirmationBooking, settings: ReminderSettings, kind: DeliveryKind, body: string, destination: string): Promise<string | null>;
+  claim(row: ConfirmationBooking, settings: ReminderSettings, kind: ReminderAction, body: string, destination: string): Promise<string | null>;
   finish(id: string, status: "accepted" | "failed" | "unknown", provider?: string, error?: string): Promise<void>;
   sms(to: string, body: string, deliveryId: string): Promise<SendResult>;
   email(to: string, subject: string, html: string, idempotencyKey: string): Promise<SendResult>;
   log(row: ConfirmationBooking, to: string, body: string, result: SendResult): Promise<void>;
 };
-export function workflowSms(row: ConfirmationBooking, kind: Exclude<DeliveryKind, "call_email">, anonymize = false): string {
+export function workflowSms(row: ConfirmationBooking, kind: Exclude<ReminderAction, "call_email">, anonymize = false): string {
   if (kind === "3day" || kind === "24h") return reminderCopy(row, kind, anonymize);
-  // Validate appointment, contact and provider even for acknowledgements.
   const details = reminderCopy(row, "3day", anonymize);
-  if (kind === "ack") return details.replace("this is a reminder that your hair transplant consultation is scheduled", "thanks for confirming. Your consultation is booked");
   if (kind === "followup") return details.replace("this is a reminder that", "we haven’t received your confirmation yet.").replace("your hair", "Your hair") + " Please reply YES to confirm you’ll attend, or CHANGE if you need another time.";
   return details + " Please reply YES to confirm you’ll attend, or CHANGE if you need another time.";
 }

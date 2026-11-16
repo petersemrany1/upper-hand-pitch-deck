@@ -12,19 +12,25 @@ export type PatientSmsDetails = {
   clinicPhone?: string | null;
 };
 
-function patientSms(input: PatientSmsDetails, opening: string): string {
+function appointmentDetails(input: PatientSmsDetails, opening: string): string {
   const name = (input.consultantName?.trim() || input.doctorName?.trim() || "your consultation provider")
     .split(" — ")[0].trim();
   const address = input.clinicAddress?.trim().replace(/[.\s]+$/, "");
-  const phone = input.clinicPhone?.trim();
   return `Hi ${input.firstName.trim() || "there"}, ${opening} at ${input.time} with ${name} at ${input.clinicName}.`
-    + (address ? ` Address: ${address}.` : "")
-    + (phone ? ` If you need to reschedule, call ${input.clinicName} on ${phone}.` : "");
+    + (address ? ` Address: ${address}.` : "");
+}
+
+function rescheduleContact(input: PatientSmsDetails): string {
+  const phone = input.clinicPhone?.trim();
+  return phone ? ` If you need to reschedule, call ${input.clinicName} on ${phone}.` : "";
 }
 
 /** Patient confirmation copy shared by the SMS sender and its preview. */
 export function bookingConfirmationSms(input: PatientSmsDetails): string {
-  return patientSms(input, `your hair transplant consultation is confirmed for ${input.date}`);
+  const phone = input.clinicPhone?.trim();
+  const contact = phone ? `Call ${input.clinicName} on ${phone}` : "Let us know";
+  return appointmentDetails(input, `your hair transplant consultation is confirmed for ${input.date}`)
+    + ` Need to cancel or reschedule? ${contact} at least 24 hours before your appointment to keep your deposit.`;
 }
 
 export function appointmentReminderSms(input: PatientSmsDetails, kind: "3day" | "24h"): string {
@@ -32,7 +38,7 @@ export function appointmentReminderSms(input: PatientSmsDetails, kind: "3day" | 
     throw new Error("Missing clinic name, address or phone");
   }
   if (!input.consultantName?.trim() && !input.doctorName?.trim()) throw new Error("Missing consultation provider");
-  return patientSms(input, `this is a reminder that your hair transplant consultation is scheduled for ${kind === "24h" ? `tomorrow (${input.date})` : input.date}`);
+  return appointmentDetails(input, `this is a reminder that your hair transplant consultation is scheduled for ${kind === "24h" ? `tomorrow (${input.date})` : input.date}`) + rescheduleContact(input);
 }
 
 /** Some clinic addresses contain the suburb/state already; others store them separately. */
@@ -46,5 +52,5 @@ export function clinicSmsAddress(clinic: { address: string | null; city: string 
 }
 
 export function rescheduleConfirmationSms(input: PatientSmsDetails): string {
-  return patientSms(input, `your hair transplant consultation has been rescheduled to ${input.date}`);
+  return appointmentDetails(input, `your hair transplant consultation has been rescheduled to ${input.date}`) + rescheduleContact(input);
 }
