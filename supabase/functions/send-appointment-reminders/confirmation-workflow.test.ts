@@ -126,3 +126,25 @@ test("orphan reminder rows are reported without sending; real missing clinic set
   const invalid=await processConfirmationWorkflow([booking()],new Map(),at("09:00"),true,deps,"https://example.test");
   expect(invalid[0].error).toBe("Clinic reminder settings are missing");
 });
+
+test("all scheduled patient texts follow the saved slot, and an old reminder cannot render", () => {
+  const row = booking();
+  const appointment = row.appointment!;
+  for (const [day, time, expected] of [
+    ["2026-10-23", "11:00", "Friday 23 October"],
+    ["2026-11-16", "09:15", "Monday 16 November"],
+  ]) {
+    appointment.appointment_date = day;
+    appointment.appointment_time = time;
+    for (const kind of ["3day", "24h", "request", "followup"] as const) {
+      expect(() => workflowSms(row, kind)).toThrow("appointment_schedule_mismatch");
+    }
+    row.booking_date = day;
+    row.booking_time = time + ":00";
+    for (const kind of ["3day", "24h", "request", "followup"] as const) {
+      const body = workflowSms(row, kind);
+      expect(body).toContain(expected);
+      expect(body).toContain(time === "11:00" ? "at 11:00 AM" : "at 9:15 AM");
+    }
+  }
+});

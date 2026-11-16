@@ -1,5 +1,6 @@
+import { loadPatientConfirmation } from "./patient-confirmation.server";
 import { assertExistingBookingAccess } from "./booking-access.server";
-import { bookingConfirmationSms, PATIENT_SMS_FROM } from "@/lib/booking-confirmation-sms";
+import { PATIENT_SMS_FROM } from "@/lib/booking-confirmation-sms";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
@@ -925,7 +926,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
 
     const { data: savedAppointment, error: appointmentError } = await supabase
       .from("clinic_appointments")
-      .select("clinic_id, doctor_name")
+      .select("id, clinic_id, doctor_name, appointment_date, appointment_time")
       .eq("lead_id", data.leadId)
       .eq("clinic_id", data.clinicId)
       .order("created_at", { ascending: false })
@@ -933,6 +934,11 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       .maybeSingle();
     if (appointmentError || !savedAppointment || invalidBookingLabel(savedAppointment.doctor_name)) {
       return { success: false, error: "The saved appointment is missing its clinic or consultation team member. Please save the booking again before sending." };
+    }
+
+    if (data.bookingDate !== savedAppointment.appointment_date ||
+        data.bookingTime.slice(0, 5) !== savedAppointment.appointment_time.slice(0, 5)) {
+      return { success: false, error: "The booking has moved. Reopen it to review the current appointment before sending." };
     }
 
     // Server-side guard: refuse to send if this lead is still mid-call, still
@@ -1235,35 +1241,14 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     // If this fails, do not send the email — we never want a clinic email whose
     // patient-card intel wasn't captured.
     try {
-      const snapshotPayload = {
-        lead_id: data.leadId,
-        appointment_date: data.bookingDate,
-        appointment_time: data.bookingTime,
-        intel_notes: rawNotes || null,
-        updated_at: new Date().toISOString(),
-      };
-
-      const { data: existingAppointment, error: findErr } = await supabase
-        .from("clinic_appointments")
-        .select("id")
-        .eq("lead_id", data.leadId)
-        .limit(1);
-      if (findErr) throw findErr;
-
-      if (existingAppointment && existingAppointment.length > 0) {
-        const { error: updateErr } = await supabase
-          .from("clinic_appointments")
-          .update(snapshotPayload)
-          .eq("id", existingAppointment[0].id);
-        if (updateErr) throw updateErr;
-      } else if (data.clinicId) {
-        const { error: insertErr } = await supabase
-          .from("clinic_appointments")
-          .insert({ ...snapshotPayload, clinic_id: data.clinicId, patient_name: fullName || "Patient", patient_phone: data.phone ?? null });
-        if (insertErr) throw insertErr;
-      } else {
-        throw new Error("No clinic appointment exists and no clinicId was provided");
-      }
+      const { data: updated, error } = await supabase.from("clinic_appointments")
+        .update({ intel_notes: rawNotes || null, updated_at: new Date().toISOString() })
+        .eq("id", savedAppointment.id).eq("clinic_id", savedAppointment.clinic_id)
+        .eq("appointment_date", savedAppointment.appointment_date)
+        .eq("appointment_time", savedAppointment.appointment_time)
+        .select("id").maybeSingle();
+      if (error) throw error;
+      if (!updated) throw new Error("The booking changed. Reopen it before sending the handover.");
     } catch (snapErr) {
       const message = `Could not save patient intel to the clinic portal: ${snapErr instanceof Error ? snapErr.message : String(snapErr)}`;
       await logError("sendClinicHandoverEmail", message, { leadId: data.leadId, clinicName: data.clinicName });
@@ -1440,24 +1425,15 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
     }
   });
 
+export const getBookingConfirmationDraft = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { leadId: string }) => data)
+  .handler(({ data, context }) => loadPatientConfirmation(context.supabase, data.leadId));
+
 export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(
-    (data: {
-      leadId: string;
-      firstName: string;
-      phone: string;
-      clinicName: string;
-      doctorName: string | null;
-      consultantName?: string | null;
-      clinicPhone?: string | null;
-      bookingDate: string;
-      bookingTime: string;
-      clinicAddress?: string | null;
-      parkingInfo?: string | null;
-    }) => data
-  )
-  .handler(async ({ data }) => {
+  .inputValidator((data: { leadId: string; expected?: { phone: string; body: string } }) => data)
+  .handler(async ({ data, context }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     const TWILIO_FROM = PATIENT_SMS_FROM;
@@ -1466,27 +1442,12 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
       return { success: false as const, error: "Twilio credentials not configured" };
     }
 
-    const date = new Date(`${data.bookingDate}T12:00:00`).toLocaleDateString("en-AU", {
-      weekday: "long", day: "numeric", month: "long",
-    });
-    const [hour, minute] = data.bookingTime.split(":");
-    const h = Number(hour);
-    const time = `${h % 12 || 12}:${minute} ${h >= 12 ? "PM" : "AM"}`;
-    const message = bookingConfirmationSms({
-      firstName: data.firstName, date, time,
-      consultantName: data.consultantName, doctorName: data.doctorName,
-      clinicName: data.clinicName, clinicAddress: data.clinicAddress,
-      clinicPhone: data.clinicPhone,
-    });
-
-    const raw = data.phone.replace(/[\s\-()]/g, "");
-    const formatted = raw.startsWith("+")
-      ? raw
-      : raw.startsWith("0")
-      ? "+61" + raw.slice(1)
-      : "+61" + raw;
-
     try {
+      const draft = await loadPatientConfirmation(context.supabase, data.leadId);
+      if (data.expected && (data.expected.body !== draft.body || data.expected.phone !== draft.phone)) {
+        return { success: false as const, error: "The booking changed. Review the updated text.", draft };
+      }
+      const { body: message, phone: formatted } = draft;
       const response = await fetch(
         `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
         {
