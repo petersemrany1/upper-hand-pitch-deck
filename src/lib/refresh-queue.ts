@@ -23,6 +23,12 @@ export function createRefreshQueue(read: (isCurrent: () => boolean) => Promise<v
     invalidate() {
       if (!stopped && running) { revision += 1; pending = true; }
     },
+    // Routine visibility and timer checks may share the active read.
+    poll() {
+      if (stopped || running) return;
+      pending = true;
+      void drain();
+    },
     refresh() {
       if (stopped) return;
       revision += 1;

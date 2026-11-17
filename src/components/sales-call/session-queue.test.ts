@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { nextSessionIndexFromActive, reorderSessionQueue, sessionQueueIndex } from "./session-queue";
+import { finishSessionPosition, nextSessionIndexFromActive, reorderSessionQueue, sessionQueueIndex } from "./session-queue";
 
 test("fresh leads already deep in a saved queue move ahead of old no-answers", () => {
   expect(reorderSessionQueue({ queue: ["done", "current", "june", "Costa", "Omar", "George"], index: 1,
@@ -79,4 +79,13 @@ test("repairing an afternoon session retains its second turn and callback priori
     priorityIds: ["callback"], orderedIds: ["fresh", "old"] });
   expect(index).toBe(2);
   expect(queue).toEqual(["repeat", "done", "repeat", "callback", "fresh", "old"]);
+});
+
+test("a saved outcome survives an outage, refresh and break without serving the completed lead again", () => {
+  const completed = finishSessionPosition(["done", "current", "next"], "current", 0);
+  const restored = JSON.parse(JSON.stringify(completed));
+  const queue = reorderSessionQueue({ ...restored, activeId: null, orderedIds: ["current", "next", "new"], priorityIds: ["ringback"] });
+  expect(queue.slice(restored.index)).toEqual(["ringback", "next", "new"]);
+  expect(finishSessionPosition(["done", "next"], "manual", 1)).toEqual({queue: ["done", "manual", "next"], index: 2});
+  expect(finishSessionPosition(["repeat", "done", "repeat", "next"], "repeat", 2).index).toBe(3);
 });

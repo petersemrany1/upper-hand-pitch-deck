@@ -1,3 +1,5 @@
+import { createAttendanceCheck } from "./sales-call/attended-phones";
+import { ForcedOutcomeModal } from "./sales-call/ForcedOutcomeModal";
 import { useClinicCapacity } from "./sales-call/use-clinic-capacity";
 import { SalesQueueRefreshNotice } from "./sales-call/SalesQueueRefreshNotice";
 import { EditContact } from "./sales-call/EditContact";
@@ -14,7 +16,7 @@ import { SkipLeadDialog } from "./sales-call/SkipLeadDialog";
 import { fetchUntouchedLeads } from "./sales-call/lead-skips";
 import { consultationMemberLabel, consultationProviders, treatingSurgeons } from "@/lib/consultation-team";
 import { useSearch, useNavigate, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   Brain, MessageCircle, Stethoscope, Megaphone, GraduationCap, Sparkles,
   HandshakeIcon, DollarSign, ShieldCheck, Calendar as CalendarIcon,
@@ -28,7 +30,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { CALLBACK_WINDOW_MS, buildQueue, dueCallbackIds, type HistoryMap } from "./sales-call/queue";
 import { callAttemptsLabel, createCallHistoryLoader } from "./sales-call/call-history";
-import { nextSessionIndexFromActive, reorderSessionQueue, sessionQueueIndex } from "./sales-call/session-queue";
+import { finishSessionPosition, nextSessionIndexFromActive, reorderSessionQueue, sessionQueueIndex } from "./sales-call/session-queue";
 import { isReturningLead, normaliseStatus, requiresManualDial, type StatusKey } from "./sales-call/status";
 import { toast } from "sonner";
 import {
@@ -96,34 +98,6 @@ function leadHasBookedSale(lead: Lead) {
  * an already-booked lead from a previous day is not.
  */
 const bookedThisSession = new Set<string>();
-
-/**
- * Phones of patients whose consult was marked attended ("show"). Once
- * someone has shown up, the sales portal must never dial them again — even
- * if they re-enquire and land back in the queue as a fresh lead. Matched by
- * phone, not lead id, so repeat enquiries under a new lead row are caught.
- */
-const attendedPhones = new Set<string>();
-let attendedPhonesLoadedAt = 0;
-
-async function refreshAttendedPhones() {
-  // Cache for 5 minutes — attendance rarely changes mid-session.
-  if (Date.now() - attendedPhonesLoadedAt < 5 * 60 * 1000) return;
-  const { data, error } = await supabase
-    .from("clinic_appointments")
-    .select("patient_phone")
-    .eq("outcome", "show");
-  if (error) {
-    console.error("attended-phone load failed", error);
-    return; // keep whatever we already had; fail closed only for new arrivals
-  }
-  attendedPhones.clear();
-  for (const row of data ?? []) {
-    const digits = normalisePhoneDigits((row as { patient_phone?: string | null }).patient_phone);
-    if (digits) attendedPhones.add(digits);
-  }
-  attendedPhonesLoadedAt = Date.now();
-}
 
 const SALES_CALL_LEAD_LIMIT = 200;
 
@@ -386,36 +360,58 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // to land in.
   const { activeLeadId: liveCallLeadId, status: queueCallStatus } = useTwilioDevice();
   const [leads, setLeads] = useState<Lead[]>([]);
+  const checkAttendance = useMemo(() => createAttendanceCheck(supabase, normalisePhoneDigits), [user?.id]);
   // Locations (from ad_set_name) that the admin has paused. Leads matching
   // any of these are hidden from the pipeline, session queue, and callback
   // panel. Managed in Settings → "Paused lead locations". Value stored in
   // app_settings key "paused_lead_locations" as a JSON array of lowercase
   // strings, e.g. ["sydney"].
   const [pausedLocations, setPausedLocations] = useState<string[]>([]);
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const [leadsLoaded, setLeadsLoaded] = useState(false);
-
+  const [settingsStatus, setSettingsStatus] = useState<"checking" | "ready" | "error">("checking");
+  const [leadStatus, setLeadStatus] = useState<"checking" | "ready" | "error">("checking");
+  const retrySettings = useRef<() => void>(() => {});
+  const retryLeads = useRef<() => void>(() => {});
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      const { data } = await supabase
-        .from("app_settings")
-        .select("value")
-        .eq("key", "paused_lead_locations")
-        .maybeSingle();
-      if (cancelled) return;
-      const raw = (data?.value ?? []) as unknown;
-      const arr = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
-      setPausedLocations(arr.map((s) => s.toLowerCase()));
-      setSettingsLoaded(true);
-    };
-
-    void load();
+    if (!authReady || !user?.id) return;
+    const controller = new AbortController();
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const reads = createRefreshQueue(async current => {
+      clearTimeout(retry);
+      try {
+        const { data, error } = await supabase.from("app_settings").select("value")
+          .eq("key", "paused_lead_locations")
+          .abortSignal(AbortSignal.any([controller.signal, AbortSignal.timeout(20_000)])).maybeSingle();
+        if (!current()) return;
+        if (error) throw error;
+        const value = data?.value ?? [];
+        if (!Array.isArray(value) || !value.every((v): v is string => typeof v === "string")) throw new Error("Invalid paused locations");
+        setPausedLocations(value.map(v => v.toLowerCase()));
+        setSettingsStatus("ready");
+      } catch {
+        if (!current()) return;
+        setSettingsStatus("error");
+        retry = setTimeout(reads.poll, 5_000);
+      }
+    });
+    const visible = () => { if (document.visibilityState === "visible") reads.poll(); };
+    retrySettings.current = reads.poll;
+    reads.poll();
     const ch = supabase.channel("paused-locations")
-      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings", filter: "key=eq.paused_lead_locations" }, () => void load())
-      .subscribe();
-    return () => { cancelled = true; void supabase.removeChannel(ch); };
-  }, []);
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings", filter: "key=eq.paused_lead_locations" }, () => {
+        setSettingsStatus("checking");
+        reads.refresh();
+      }).subscribe();
+    window.addEventListener("online", visible);
+    document.addEventListener("visibilitychange", visible);
+    const timer = setInterval(visible, 60_000);
+    return () => {
+      reads.stop(); controller.abort(); clearTimeout(retry); clearInterval(timer);
+      retrySettings.current = () => {};
+      window.removeEventListener("online", visible);
+      document.removeEventListener("visibilitychange", visible);
+      void supabase.removeChannel(ch);
+    };
+  }, [authReady, user?.id]);
   const isLeadLocationPaused = useCallback((l: Lead) => {
     if (pausedLocations.length === 0) return false;
     const a = leadLocationText(l);
@@ -536,8 +532,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const [historyError, setHistoryError] = useState(false);
   const retryHistoryRef = useRef<(() => void) | null>(null);
   const callHistoryReady = historyLoadedKey === loadedLeadIdsKey && !historyError;
-  const callHistoryReadyRef = useRef(false);
-  callHistoryReadyRef.current = callHistoryReady;
+  const queueDataReady = callHistoryReady && leadStatus === "ready" && settingsStatus === "ready";
+  const queueDataReadyRef = useRef(false);
+  queueDataReadyRef.current = queueDataReady;
   // Read inside timers/effects that must NOT re-run (and refetch) every time
   // the history object is rebuilt.
   const callHistoryRef = useRef<HistoryMap>({});
@@ -556,10 +553,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // itself is derived from now - started_at, so refresh / new tab no longer
   // resets it to zero. Clicking End Session and then Start Session creates a
   // brand new row, so the timer correctly restarts then.
-  const sessionRestored = (() => {
+  const [sessionRestored] = useState(() => {
     if (typeof window === "undefined") return null;
     try { return JSON.parse(sessionStorage.getItem("salesCall.session") || "null"); } catch { return null; }
-  })();
+  });
   const [sessionActive, setSessionActive] = useState<boolean>(sessionRestored?.active ?? false);
   const [manualMode, setManualMode] = useState<boolean>(sessionRestored?.manualMode ?? false);
   const [sessionQueue, setSessionQueue] = useState<string[]>(sessionRestored?.queue ?? []);
@@ -610,6 +607,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const [pendingHandovers, setPendingHandovers] = useState<PendingHandover[]>([]);
   const [handoverReviewLeadId, setHandoverReviewLeadId] = useState<string | null>(null);
   const sessionStartRequestedRef = useRef(false);
+  const startInFlight = useRef(false);
+  const [startingSession, setStartingSession] = useState(false);
   const [restoreConnection, setRestoreConnection] = useState<SessionConnection>("connected");
   const [presenceConnection, setPresenceConnection] = useState<SessionConnection>("connected");
   const [sessionId, setSessionId] = useState<string | null>(sessionRestored?.sessionId ?? null);
@@ -626,6 +625,16 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       status: setRestoreConnection,
       stillCurrent: () => !sessionEndRequestedRef.current && !sessionStartRequestedRef.current,
       accept: (row) => {
+        // A stale browser cache must not restart a shift ended elsewhere or
+        // attach its old queue to a different shift. A failed request never
+        // reaches this branch. The practice and test queues have no server shift.
+        if (!practiceMode && !testLeadIds.length && sessionRestored?.active &&
+          (!row || (sessionRestored.sessionId && sessionRestored.sessionId !== row.id))) {
+          setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setSessionId(null);
+          setSessionQueue([]); setSessionIndex(0); setActiveId(null);
+          setBreakSeconds(0); setBreakStartedAt(null);
+          return;
+        }
         if (!row) return;
         // Only resume if sessionStorage also has an in-progress queue. Without
         // this guard, opening the tab on a new browser (or after clearing site
@@ -954,12 +963,12 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const check = async () => {
       const now = new Date();
       const windowStart = new Date(now.getTime() - CALLBACK_WINDOW_MS);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("meta_leads")
         .select(SALES_CALL_LEAD_SELECT)
         .lte("callback_scheduled_at", now.toISOString())
         .gte("callback_scheduled_at", windowStart.toISOString());
-      if (cancelled) return;
+      if (cancelled || error) return;
       const rows = (data ?? []) as Lead[];
       if (rows.length > 0) {
         // The dialler must know these leads even if they fell outside the main list.
@@ -970,7 +979,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         });
       }
       // Unknown history must not re-surface an already actioned callback.
-      if (!callHistoryReadyRef.current || !capacityReadyRef.current) return;
+      if (!queueDataReadyRef.current || !capacityReadyRef.current) return;
       const knownRows = rows.filter((l) => callHistoryRef.current[l.id] !== undefined);
       const live = new Set(dueCallbackIds(knownRows, callHistoryRef.current, now, isLeadUnavailableRef.current));
       const surfaced = callbackSurfacedRef.current;
@@ -1043,7 +1052,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         if (cancelled) return;
         console.error("sales-call history load failed", error);
         // Keep the last successful counts. A failed read is not zero attempts.
-        callHistoryReadyRef.current = false;
+        queueDataReadyRef.current = false;
         setHistoryError(true);
         if (failures++ === 0) {
           // Codes only: database error text or URLs can contain lead details.
@@ -1112,13 +1121,23 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // Load leads + realtime
   useEffect(() => {
     if (!authReady || !user?.id) return;
-    const refresh = createRefreshQueue(async (isCurrent) => {
+    const controller = new AbortController();
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    type LeadChange = (rows: Lead[]) => Lead[];
+    let changes: LeadChange[] | null = null;
+    const applyLive = (change: LeadChange) => {
+      changes?.push(change);
+      setLeads(change);
+    };
+    const load = async (isCurrent: () => boolean) => {
+      const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(25_000)]);
       const baseQuery = supabase
         .from("meta_leads")
         .select(SALES_CALL_LEAD_SELECT);
       let fetched: Lead[] = [];
       if (testLeadIds.length > 0) {
-        const { data } = await baseQuery.in("id", testLeadIds);
+        const { data, error } = await baseQuery.in("id", testLeadIds).abortSignal(signal);
+        if (error) throw error;
         fetched = (data ?? []) as Lead[];
       } else {
         // Fetch the most recent N leads AND every lead in an actionable status
@@ -1126,18 +1145,15 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         // off the queue because of the recency cap.
         const ACTIONABLE_STATUSES = ["new", "no_answer", "callback_scheduled", "had_convo_chase_up", "intake"];
         const [{ data: recent, error: recentErr }, { data: actionable, error: actionableErr }] = await Promise.all([
-          baseQuery.order("created_at", { ascending: false }).limit(SALES_CALL_LEAD_LIMIT),
+          baseQuery.order("created_at", { ascending: false }).limit(SALES_CALL_LEAD_LIMIT).abortSignal(signal),
           supabase
             .from("meta_leads")
             .select(SALES_CALL_LEAD_SELECT)
             .in("status", ACTIONABLE_STATUSES)
             .order("created_at", { ascending: false })
-            .limit(1000),
+            .limit(1000).abortSignal(signal),
         ]);
-        if (recentErr || actionableErr) {
-          console.error("sales-call lead load failed", recentErr ?? actionableErr);
-          return; // keep whatever we already have; don't shrink the queue
-        }
+        if (recentErr || actionableErr) throw recentErr ?? actionableErr;
         const byId = new Map<string, Lead>();
         for (const l of (recent ?? []) as Lead[]) byId.set(l.id, l);
         for (const l of (actionable ?? []) as Lead[]) if (!byId.has(l.id)) byId.set(l.id, l);
@@ -1149,8 +1165,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       if (currentId && currentId !== PRACTICE_LEAD_ID && !isSandboxBlocked(currentId)
         && !fetched.some(l => l.id === currentId)) {
         const { data, error } = await supabase.from("meta_leads")
-          .select(SALES_CALL_LEAD_SELECT).eq("id", currentId).maybeSingle();
-        if (error) return;
+          .select(SALES_CALL_LEAD_SELECT).eq("id", currentId).abortSignal(signal).maybeSingle();
+        if (error) throw error;
         if (data) fetched.push(data as Lead);
       }
       if (!isCurrent()) return;
@@ -1164,6 +1180,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         fetched = fetched.filter((l) => !isSandboxBlocked(l.id));
       }
 
+      for (const change of changes ?? []) fetched = change(fetched);
       setLeads((prev) => {
         // Preserve the synthetic practice lead (Dave AI) so the supabase
         // refresh doesn't wipe it out and blank the practice-call page.
@@ -1171,40 +1188,50 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         return practice ? [practice, ...fetched.filter((l) => l.id !== PRACTICE_LEAD_ID)] : fetched;
       });
 
-      setLeadsLoaded(true);
+      setLeadStatus("ready");
+    };
+    const refresh = createRefreshQueue(async current => {
+      clearTimeout(retry);
+      changes = [];
+      try { await load(current); }
+      catch {
+        if (current()) {
+          setLeadStatus("error");
+          retry = setTimeout(refresh.poll, 5_000);
+        }
+      } finally { changes = null; }
     });
-
-    refresh.refresh();
-    void refreshAttendedPhones();
+    retryLeads.current = refresh.poll;
+    refresh.poll();
+    void checkAttendance().catch(() => {}); // Retried at the next dial.
     const ch = supabase.channel("sales-call-leads")
       .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, (payload) => {
-        refresh.invalidate();
         if (isReturningLead((payload.new as { lead_class?: string | null } | null)?.lead_class)) {
           const id = (payload.new as Lead).id;
-          setLeads(prev => prev.filter(l => l.id !== id));
+          applyLive(prev => prev.filter(l => l.id !== id));
           return;
         }
         // New enquiries reach the session via the due-queue top-up effect,
         // which places them right after the lead the rep is on.
         if (payload.eventType === "DELETE") {
           const oldId = (payload.old as { id?: string } | null)?.id;
-          if (oldId) setLeads((prev) => prev.filter((l) => l.id !== oldId));
+          if (oldId) applyLive((prev) => prev.filter((l) => l.id !== oldId));
           return;
         }
         const nextLead = payload.new as Lead | null;
         if (!nextLead?.id) return;
         // Sandbox: ignore every real lead, including live new enquiries.
         if (isSandboxBlocked(nextLead.id)) {
-          setLeads((prev) => prev.filter((l) => l.id !== nextLead.id));
+          applyLive((prev) => prev.filter((l) => l.id !== nextLead.id));
           return;
         }
         if (testLeadIds.length === 0 && (HIDDEN_TEST_LEAD_IDS.has(nextLead.id) || nextLead.status === "blacklisted")) {
-          setLeads((prev) => prev.filter((l) => l.id !== nextLead.id));
+          applyLive((prev) => prev.filter((l) => l.id !== nextLead.id));
           return;
         }
 
 
-        setLeads((prev) => {
+        applyLive((prev) => {
           const idx = prev.findIndex((l) => l.id === nextLead.id);
           if (idx >= 0) {
             const next = [...prev];
@@ -1219,13 +1246,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       }).subscribe();
     // Realtime can disconnect while a tab sleeps. Recover missed enquiries
     // during a session rather than waiting for a page reload.
-    const refreshVisible = () => { if (document.visibilityState === "visible") refresh.refresh(); };
+    const refreshVisible = () => { if (document.visibilityState === "visible") refresh.poll(); };
     const interval = setInterval(refreshVisible, 30_000);
     window.addEventListener("online", refreshVisible);
     window.addEventListener("focus", refreshVisible);
     document.addEventListener("visibilitychange", refreshVisible);
     return () => {
-      refresh.stop();
+      refresh.stop(); controller.abort(); clearTimeout(retry);
+      retryLeads.current = () => {};
       clearInterval(interval);
       window.removeEventListener("online", refreshVisible);
       window.removeEventListener("focus", refreshVisible);
@@ -1474,6 +1502,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const callbackBanner = !practiceMode && <SalesQueueRefreshNotice
     capacity={capacityStatus}
     history={historyError ? "error" : callHistoryReady ? "ready" : "checking"}
+    leads={leadStatus} settings={settingsStatus}
+    retryLeads={() => retryLeads.current()} retrySettings={() => retrySettings.current()}
     retryCapacity={retryCapacity}
     retryHistory={() => retryHistoryRef.current?.()}
   />;
@@ -1509,6 +1539,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     [leads, callHistory, isLeadUnavailable, isPriorityLead, clockTick],
   );
 
+  const currentBuildQueue = useRef(buildSessionQueue);
+  currentBuildQueue.current = buildSessionQueue;
+
   // Keep the waiting list current, including fresh leads already present in
   // a restored queue. The active call stays in place.
   const dueQueue = useMemo(
@@ -1525,7 +1558,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const keep = (id: string) => {
       if (id === liveCallLeadId && queueCallStatus === "in-call") return true;
       const l = byId.get(id);
-      return !l || !isLeadClinicFull(l);
+      return !l || !isLeadUnavailable(l);
     };
     // Scheduled callbacks and ring-backs jump the queue through the missed-call
     // list, so they must be pruned here too — otherwise a callback for a city
@@ -1534,7 +1567,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const next = prev.filter(keep);
       return next.length === prev.length ? prev : next;
     });
-  }, [isLeadClinicFull, leads, liveCallLeadId, queueCallStatus]);
+  }, [isLeadUnavailable, leads, liveCallLeadId, queueCallStatus]);
   const dueLeadIds = dueQueue.order;
   const dueSet = useMemo(() => new Set(dueLeadIds), [dueLeadIds]);
   const dueSetRef = useRef(dueSet);
@@ -1562,27 +1595,53 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     reorderSessionQueue({ queue, index, activeId: currentId, orderedIds: orderedDueRef.current,
       priorityIds: missedCallQueueRef.current, skipped: sessionSkipsRef.current }), []);
   useEffect(() => {
-    if (!sessionActive || !callHistoryReady || practiceMode || testLeadIds.length) return;
+    if (!sessionActive || !queueDataReady || practiceMode || testLeadIds.length) return;
     setSessionQueue(q => refreshWaitingQueue(q, sessionIndex, activeId));
     setSessionIndex(sessionQueueIndex(sessionQueue, activeId, sessionIndex));
-  }, [dueLeadIds, missedCallQueue, sessionActive, callHistoryReady, sessionQueue, sessionIndex, activeId, refreshWaitingQueue, practiceMode, testLeadIds.length]);
+  }, [dueLeadIds, missedCallQueue, sessionActive, queueDataReady, sessionQueue, sessionIndex, activeId, refreshWaitingQueue, practiceMode, testLeadIds.length]);
 
   useEffect(() => {
-    if (!sessionActive || manualMode || practiceMode || !capacityReady || !active || !isLeadClinicFull(active)) return;
+    if (!sessionActive || sessionPaused || manualMode || practiceMode || !queueDataReady || !capacityReady || !active || !isLeadUnavailable(active)) return;
     if (queueCallStatus === "connecting" || queueCallStatus === "in-call" || queueCallStatus === "ringing-incoming") return;
     if (leadHasBookedSale(active) || active.id === handoverReviewLeadId || pendingOutcomeLeadId === active.id
       || outcomePendingRef.current || outcomeRequiredRef.current) return;
     setSessionIndex(nextSessionIndexFromActive(sessionQueue, active.id, sessionIndex));
     setActiveId(null);
-  }, [sessionActive, manualMode, practiceMode, capacityReady, active, isLeadClinicFull, queueCallStatus,
+  }, [sessionActive, sessionPaused, manualMode, practiceMode, queueDataReady, capacityReady, active, isLeadUnavailable, queueCallStatus,
     handoverReviewLeadId, pendingOutcomeLeadId, sessionQueue, sessionIndex]);
 
-  const missingLeadTriedRef = useRef<Set<string>>(new Set());
+  const queuePosition = sessionQueueIndex(sessionQueue, null, sessionIndex);
+  const nextWaitingId = sessionActive && !active && !sessionPaused && queueDataReady && capacityReady
+    ? refreshWaitingQueue(sessionQueue, queuePosition, null)[queuePosition] : null;
+  const missingLeadId = nextWaitingId && !leads.some(lead => lead.id === nextWaitingId) ? nextWaitingId : null;
+  useEffect(() => {
+    if (!missingLeadId) return;
+    const controller = new AbortController();
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const load = async () => {
+      try {
+        const { data, error } = await supabase.from("meta_leads").select(SALES_CALL_LEAD_SELECT)
+          .eq("id", missingLeadId).abortSignal(AbortSignal.any([controller.signal, AbortSignal.timeout(20_000)])).maybeSingle();
+        if (controller.signal.aborted) return;
+        if (error) throw error;
+        if (data) setLeads(prev => prev.some(l => l.id === missingLeadId) ? prev : [...prev, data as Lead]);
+        else {
+          setMissedCallQueue(prev => prev.filter(id => id !== missingLeadId));
+          setRingBackIds(prev => prev.filter(id => id !== missingLeadId));
+          setSessionQueue(prev => prev.filter((id, i) => i < queuePosition || id !== missingLeadId));
+        }
+      } catch {
+        if (!controller.signal.aborted) retry = setTimeout(load, 5_000);
+      }
+    };
+    void load();
+    return () => { controller.abort(); clearTimeout(retry); };
+  }, [missingLeadId, queuePosition]);
 
   // All automatic exits converge here. The database check is authoritative;
   // failed reads retain the session, and cleanup cancels stale async results.
-  const queueExhausted = sessionActive && !active && !sessionQueue[sessionIndex];
-  const { error: completionError, retry: retryCompletion } = useSessionCompletion<Lead>(queueExhausted && !sessionPaused && !practiceMode && callHistoryReady && capacityReady, {
+  const queueExhausted = sessionActive && !active && !nextWaitingId && !sessionQueue[sessionIndex];
+  const { error: completionError, retry: retryCompletion } = useSessionCompletion<Lead>(queueExhausted && !sessionPaused && !practiceMode && queueDataReady && capacityReady, {
     load: async () => {
       // Older browser caches may predate sessionId. Resolve the real session.
       const currentSession = sessionId || (await getCurrentRepSession({ data: undefined as never }))?.id;
@@ -1590,7 +1649,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const fresh = testLeadIds.length ? [] : await fetchUntouchedLeads<Lead>(currentSession!, SALES_CALL_LEAD_SELECT);
       return fresh.filter(l => !sessionSkipsRef.current.has(l.id));
     },
-    stillCurrent: () => capacityReadyRef.current && callHistoryReadyRef.current && mayFinishReview({ cancelled: sessionEndRequestedRef.current, active: sessionActiveRef.current,
+    stillCurrent: () => capacityReadyRef.current && queueDataReadyRef.current && mayFinishReview({ cancelled: sessionEndRequestedRef.current, active: sessionActiveRef.current,
       leadId: activeIdRef.current, queuedAhead: Boolean(sessionQueueRef.current[sessionIndexRef.current]) }),
     restore: fresh => {
       const byId = new Map(fresh.map(l => [l.id,l]));
@@ -1699,7 +1758,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
                 }
                 setSessionPaused((p) => !p);
                 // Coming back from a break: pick up with the lead on screen.
-                if (resuming && activeId) armAutoDial();
+                if (resuming && activeId && !gateActive()) armAutoDial();
               }}
               style={{ fontSize: 13, fontWeight: 700, color: sessionPaused ? '#f59e0b' : '#e8e8e8', background: 'transparent', border: `1px solid ${sessionPaused ? '#f59e0b' : '#555'}`, borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
             >
@@ -1724,7 +1783,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     if (!sessionActive && !manualMode) {
       // Wait for leads, location settings AND complete call history before
       // taking a queue snapshot, or people already called can be served again.
-      if (!leadsLoaded || !settingsLoaded || !callHistoryReady || !capacityReady) {
+      if (!queueDataReady || !capacityReady) {
         return (
           <>
             {callbackBanner}
@@ -1738,8 +1797,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       }
       const queueCount = buildSessionQueue().length;
 
-      const beginSession = async () => {
-        if (!callHistoryReadyRef.current || !capacityReadyRef.current) return;
+      const start = async () => {
+        if (!queueDataReadyRef.current || !capacityReadyRef.current) return;
         sessionStartRequestedRef.current = true;
         setRestoreConnection("connected");
         setPresenceConnection("connected");
@@ -1754,8 +1813,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         } catch (err) {
           console.error("sweepAbandonedCalls failed", err);
         }
-        if (!callHistoryReadyRef.current || !capacityReadyRef.current) return;
-        const q = buildSessionQueue();
+        if (!queueDataReadyRef.current || !capacityReadyRef.current) return;
         let startedAt: string;
         try {
           const row = await startRepSession({ data: undefined as never });
@@ -1766,6 +1824,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           toast.error("Could not start your calling session. Please retry.");
           return;
         }
+        const q = queueDataReadyRef.current && capacityReadyRef.current ? currentBuildQueue.current() : [];
         setSessionQueue(q);
         setSessionIndex(0);
         setSessionCalls(0);
@@ -1802,19 +1861,28 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         void beginSession();
       };
 
+      const beginSession = async () => {
+        if (startInFlight.current) return;
+        startInFlight.current = true;
+        setStartingSession(true);
+        try { await start(); }
+        finally { startInFlight.current = false; setStartingSession(false); }
+      };
+
       return (
         <>
           {callbackBanner}
           {sessionBar}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40, background: "#f7f7f5", overflow: "auto" }}>
             <button
+              disabled={startingSession}
               onClick={() => {
                 setHoursDraft(plannedHours ? String(plannedHours) : "");
                 setHoursPromptOpen(true);
               }}
               style={{ background: "#f4522d", color: "#fff", border: "none", borderRadius: 16, fontSize: 22, fontWeight: 600, padding: "32px 0", width: "100%", maxWidth: 520, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 6px 20px rgba(244,82,45,0.25)", letterSpacing: "-0.01em" }}
             >
-              Start calling session
+              {startingSession ? "Starting session…" : "Start calling session"}
             </button>
             <AdminTestButton />
           </div>
@@ -1917,7 +1985,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         </div>
       </>
     );
-    if (!callHistoryReady || !capacityReady) return holding;
+    if (sessionPaused || !queueDataReady || !capacityReady) return holding;
     if (nextId) {
       const queuedLead = leads.find((l) => l.id === nextId);
       if (queuedLead && !missedCallQueue.includes(nextId) && !dueSet.has(nextId)) {
@@ -1933,6 +2001,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         queueMicrotask(() => {
           setSessionQueue(waitingQueue);
           setSessionIndex(waitingIndex);
+          if (missedCallQueue.includes(nextId)) {
+            setMissedCallQueue(prev => prev.filter(id => id !== nextId));
+            setRingBackIds(prev => prev.filter(id => id !== nextId));
+          }
           setActiveId(nextId);
           setStep("mindset");
           setCompleted((prev) => (prev.size === 0 ? prev : new Set()));
@@ -1940,22 +2012,6 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           setAudioPrefill("");
           armAutoDial();
         });
-      } else if (!leadLoaded && leads.length > 0) {
-        // Leads have loaded but this queued id isn't in the list (older than
-        // the fetch limit, or a status the list doesn't load). Fetch it by id
-        // once; only skip if it genuinely doesn't exist any more.
-        if (!missingLeadTriedRef.current.has(nextId)) {
-          missingLeadTriedRef.current.add(nextId);
-          void supabase
-            .from("meta_leads")
-            .select(SALES_CALL_LEAD_SELECT)
-            .eq("id", nextId)
-            .maybeSingle()
-            .then(({ data }) => {
-              if (data) setLeads((prev) => (prev.some((l) => l.id === nextId) ? prev : [...prev, data as Lead]));
-              else setSessionIndex((i) => i + 1);
-            });
-        }
       }
       // If leads.length === 0 we're still loading — wait for the next render.
       return holding;
@@ -2044,7 +2100,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             onDepositPaid={() => {
               if (sessionActive) {
                 setSessionBookings((b) => b + 1);
-                if (!callHistoryReadyRef.current || !capacityReadyRef.current) return;
+                if (!queueDataReadyRef.current || !capacityReadyRef.current) return;
                 const nextIndex = advanceIndexFrom(sessionIndex + 1);
                 setSessionIndex(nextIndex);
                 const nextId = sessionQueue[nextIndex];
@@ -2109,7 +2165,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           firstCallAt={firstCallByLead[active.id] ?? null}
           onLocalLeadUpdate={updateLocalLead}
           onChangeLead={() => {
-            if (sessionActive && (!callHistoryReadyRef.current || !capacityReadyRef.current)) {
+            if (sessionActive && (!queueDataReadyRef.current || !capacityReadyRef.current)) {
               toast.error("Checking call history and clinic availability before the next lead");
               return;
             }
@@ -2124,7 +2180,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               // booked, dropped, blacklisted etc. They never get jumped to.
               const eligibleIds = mcq.filter((id) => {
                 const l = leads.find((x) => x.id === id);
-                return l ? isRingBackEligible(l) : false;
+                return l ? isRingBackEligible(l) && !isLeadUnavailable(l) : false;
               });
               const [nextMissedId, ...restMissed] = eligibleIds;
               setMissedCallQueue(restMissed);
@@ -2196,15 +2252,20 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           capacityReady={capacityReady}
           availabilityFailed={capacityStatus === "error"}
           retryCapacity={retryCapacity}
-          canCheckCapacity={() => practiceMode || capacityReadyRef.current}
-          autoDialEnabled={sessionActive && !manualMode && !sessionPaused && callHistoryReady && capacityReady && !isLeadClinicFull(active) && active.id !== handoverReviewLeadId}
+          checkAttendance={checkAttendance}
+          canCheckCapacity={() => practiceMode || (capacityReadyRef.current && queueDataReadyRef.current && !isLeadLocationPaused(active))}
+          autoDialEnabled={sessionActive && !manualMode && !sessionPaused && queueDataReady && capacityReady && !isLeadUnavailable(active) && active.id !== handoverReviewLeadId}
           autoDialArmToken={autoDialArmToken}
           onGoToStep={(next) => setStep(next)}
           pendingOutcomeLeadId={pendingOutcomeLeadId}
           onPendingOutcomeArmed={(leadId) => setPendingOutcomeLeadId(leadId)}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
             setPendingOutcomeLeadId(null);
-            if (sessionActive && (!callHistoryReadyRef.current || !capacityReadyRef.current)) {
+            if (sessionActive && (sessionPaused || !queueDataReadyRef.current || !capacityReadyRef.current)) {
+              const completed = finishSessionPosition(sessionQueue, active.id, sessionIndex);
+              setSessionQueue(completed.queue);
+              setSessionIndex(completed.index);
+              setActiveId(null);
               if (wasBooked) setSessionBookings((b) => b + 1);
               toast("Outcome saved. Checking call history and clinic availability before the next lead.");
               return;
@@ -2218,7 +2279,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               // booked, dropped, blacklisted etc. They never get jumped to.
               const eligibleIds = mcq.filter((id) => {
                 const l = leads.find((x) => x.id === id);
-                return l ? isRingBackEligible(l) : false;
+                return l ? isRingBackEligible(l) && !isLeadUnavailable(l) : false;
               });
               const [nextMissedId, ...restMissed] = eligibleIds;
               setMissedCallQueue(restMissed);
@@ -6810,7 +6871,7 @@ function RightPanel({
   active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead, onPreviousLead, hasPreviousLead,
   onOutcomeRequiredChange, onOutcomePendingChange, onAfterOutcomeApplied, onCallStarted, practiceMode = false,
   pendingOutcomeLeadId, onPendingOutcomeArmed,
-  autoDialEnabled = false, autoDialArmToken = 0, capacityReady, availabilityFailed, retryCapacity, canCheckCapacity,
+  autoDialEnabled = false, autoDialArmToken = 0, capacityReady, availabilityFailed, retryCapacity, checkAttendance, canCheckCapacity,
   onGoToStep,
 }: {
   sessionId: string | null;
@@ -6834,6 +6895,7 @@ function RightPanel({
   capacityReady: boolean;
   availabilityFailed: boolean;
   retryCapacity: () => void;
+  checkAttendance: () => Promise<Set<string>>;
   canCheckCapacity: () => boolean;
   autoDialEnabled?: boolean;
   autoDialArmToken?: number;
@@ -7247,6 +7309,7 @@ function RightPanel({
       if (!r?.success) {
         toast.error(r?.error ?? "Could not log No Answer");
         setOutcomePending(true);
+        setOutcomeRequired(true);
         return;
       }
       onLocalLeadUpdate?.(active.id, { status: "no_answer" } as Partial<Lead>);
@@ -7259,6 +7322,10 @@ function RightPanel({
       setAutoDialNote("No answer twice — logged No Answer and moved on");
       toast("No answer twice — logged No Answer, next lead");
       onAfterOutcomeApplied?.(false);
+    } catch {
+      toast.error("Could not confirm No Answer was saved. Review the outcome and retry.");
+      setOutcomePending(true);
+      setOutcomeRequired(true);
     } finally {
       setAutoOutcomeBusy(false);
     }
@@ -7320,7 +7387,7 @@ function RightPanel({
       setRedialCountdown(null);
       if (deviceStatus === "ready" || deviceStatus === "error") {
         setAutoDialNote(`Second try dialled at ${new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}`);
-        void callNowRef.current();
+        void callNowRef.current(true);
       } else {
         setAutoDialNote(`Second try waiting for the dialler (status: ${deviceStatus})`);
         setAutoDialWaiting(true);
@@ -7391,10 +7458,20 @@ function RightPanel({
   const preparingCallRef = useRef(false);
   const dialLeadRef = useRef(active.id);
   dialLeadRef.current = active.id;
-  const callNow = async () => {
+  const dialPermission = useRef({ autoDialEnabled, canCheckCapacity });
+  dialPermission.current = { autoDialEnabled, canCheckCapacity };
+  const automaticDialRevision = useRef(0);
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const callNow = async (automatic = false) => {
+    const revision = automaticDialRevision.current;
+    const permitted = () => mounted.current && dialLeadRef.current === active.id
+      && !savingHoldRef.current && !onHoldRef.current && dialPermission.current.canCheckCapacity()
+      && (!automatic || (revision === automaticDialRevision.current && dialPermission.current.autoDialEnabled
+        && document.visibilityState === "visible"));
     console.log("[callNow] click", { phone: active.phone, leadId: active.id, deviceStatus });
     if (inCall || preparingCallRef.current || savingHoldRef.current || showSkip) return;
-    if (!practiceMode && !canCheckCapacity()) { toast.info("Checking clinic availability before the next call…"); return; }
+    if (!practiceMode && !permitted()) { toast.info("Check the queue and clinic availability before calling."); return; }
     if (onHoldRef.current) { toast.error("This client is on hold and cannot be called."); return; }
     if (!active.phone) { toast.error("No phone number"); return; }
     // Backstop: even if this lead somehow surfaced in the queue, never let a rep
@@ -7404,20 +7481,18 @@ function RightPanel({
       toast.error("Already booked — open the existing patient record instead of calling this enquiry.");
       return;
     }
-    // Hard rule: anyone who has already shown up to a consult is never
-    // dialled from the sales portal again, however they resurfaced.
-    if (!practiceMode && attendedPhones.has(normalisePhoneDigits(active.phone))) {
-      toast.error("Already attended a consult — the sales portal can't call them again.");
-      return;
-    }
-
     preparingCallRef.current = true;
     if (!practiceMode) {
       // The cutoff is at the next dial, not at the booking save. A rep already
       // on the phone can finish, even when another rep uses the final credit.
       try {
-        const { clinics, remaining } = await fetchClinicCapacity({ fresh: true });
-        if (dialLeadRef.current !== active.id || savingHoldRef.current || onHoldRef.current || !canCheckCapacity()) {
+        const [{ clinics, remaining }, attended] = await Promise.all([fetchClinicCapacity({ fresh: true }), checkAttendance()]);
+        if (attended.has(normalisePhoneDigits(active.phone))) {
+          preparingCallRef.current = false;
+          toast.error("Already attended a consult — the sales portal can't call them again.");
+          return;
+        }
+        if (!permitted()) {
           preparingCallRef.current = false;
           return;
         }
@@ -7433,7 +7508,7 @@ function RightPanel({
         salesCallCapacity.admit(active.id, remaining);
       } catch (error) {
         preparingCallRef.current = false;
-        toast.error("Could not check available shows. Please retry before calling.");
+        toast.error("Could not verify clinic availability or previous attendance. Please retry before calling.");
         return;
       }
     }
@@ -7448,7 +7523,7 @@ function RightPanel({
     setOutcomePending(true);
     try {
       console.log("[callNow] placing call to", active.phone);
-      await placeCall(active.phone, { leadId: active.id, repId: repId ?? "" });
+      await placeCall(active.phone, { leadId: active.id, repId: repId ?? "" }, permitted);
       console.log("[callNow] placeCall returned");
     } catch (e) {
       salesCallCapacity.clear();
@@ -7482,6 +7557,7 @@ function RightPanel({
   const callNowRef = useRef(callNow);
   callNowRef.current = callNow;
   const cancelAutoDial = useCallback((reason?: string) => {
+    automaticDialRevision.current += 1;
     setAutoDialCountdown(null);
     setRedialCountdown(null);
     setAutoDialWaiting(false);
@@ -7536,7 +7612,7 @@ function RightPanel({
       setAutoDialCountdown(null);
       if (deviceStatus === "ready" || deviceStatus === "error") {
         setAutoDialNote(`Auto-dialled at ${new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}`);
-        void callNowRef.current();
+        void callNowRef.current(true);
       } else {
         setAutoDialNote(`Auto-dial waiting for the dialler (status: ${deviceStatus})`);
         setAutoDialWaiting(true);
@@ -7551,7 +7627,7 @@ function RightPanel({
     if (deviceStatus === "ready" || deviceStatus === "error") {
       setAutoDialWaiting(false);
       setAutoDialNote(`Auto-dialled at ${new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}`);
-      void callNowRef.current();
+      void callNowRef.current(true);
       return;
     }
     const t = window.setTimeout(() => {
@@ -7562,8 +7638,11 @@ function RightPanel({
     return () => window.clearTimeout(t);
   }, [autoDialWaiting, deviceStatus]);
   useEffect(() => {
-    if (autoDialCountdown === null && redialCountdown === null && !autoDialWaiting) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") cancelAutoDial("Auto-dial cancelled"); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && (preparingCallRef.current || autoDialCountdown !== null || redialCountdown !== null || autoDialWaiting)) {
+        cancelAutoDial("Auto-dial cancelled");
+      }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [autoDialCountdown, redialCountdown, autoDialWaiting, cancelAutoDial]);
@@ -8794,7 +8873,9 @@ function RightPanel({
       {/* Forced outcome modal */}
       {outcomeRequired && (
         <ForcedOutcomeModal
-          active={active}
+          leadId={active.id}
+          booked={leadHasBookedSale(active)}
+          saveStatus={updateLeadStatus}
           onTakePayment={() => {
             // They booked on the call: close the box and go take the
             // deposit. The booking itself settles the outcome.
@@ -8837,300 +8918,6 @@ function RightPanel({
           }}
         />
       )}
-    </div>
-  );
-}
-
-function ForcedOutcomeModal({
-  active, callDuration, view, setView,
-  callbackDate, setCallbackDate, callbackTime, setCallbackTime,
-  busy, setBusy, onLocalLeadUpdate, onClosed, onCallBack, onTakePayment,
-}: {
-  active: Lead;
-  callDuration: number;
-  onCallBack?: () => void;
-  onTakePayment?: () => void;
-  view: "menu" | "callback" | "drop";
-  setView: (v: "menu" | "callback" | "drop") => void;
-  callbackDate: string;
-  setCallbackDate: (v: string) => void;
-  callbackTime: string;
-  setCallbackTime: (v: string) => void;
-  busy: boolean;
-  setBusy: (v: boolean) => void;
-  onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
-  onClosed: (status?: string) => void;
-}) {
-  const apply = async (status: string, extra?: Partial<Lead>) => {
-    if (busy) return;
-    if (leadHasBookedSale(active) && status !== "booked_deposit_paid") {
-      onClosed("booked_deposit_paid");
-      return;
-    }
-    setBusy(true);
-    try {
-      const r = await updateLeadStatus({ data: { leadId: active.id, status } });
-      if (!r?.success) {
-        toast.error(r?.error ?? "Failed to update");
-        setBusy(false);
-        return;
-      }
-      onLocalLeadUpdate?.(active.id, { status, ...(extra ?? {}) } as Partial<Lead>);
-      onClosed(status);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const confirmCallback = async () => {
-    if (!callbackDate || !callbackTime) return;
-    const dt = new Date(`${callbackDate}T${callbackTime}:00`);
-    if (isNaN(dt.getTime())) { toast.error("Invalid date/time"); return; }
-    if (busy) return;
-    setBusy(true);
-    try {
-      const r = await updateLeadStatus({ data: { leadId: active.id, status: "callback_scheduled" } });
-      if (!r?.success) {
-        toast.error(r?.error ?? "Failed to update");
-        setBusy(false);
-        return;
-      }
-      const { error } = await supabase
-        .from("meta_leads")
-        .update({ callback_scheduled_at: dt.toISOString() })
-        .eq("id", active.id);
-      if (error) {
-        toast.error(error.message);
-        setBusy(false);
-        return;
-      }
-      onLocalLeadUpdate?.(active.id, { status: "callback_scheduled", callback_scheduled_at: dt.toISOString() } as Partial<Lead>);
-      onClosed("callback_scheduled");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const optionStyle: CSSProperties = {
-    width: "100%",
-    padding: "14px 20px",
-    borderRadius: 10,
-    border: "1.5px solid #e8e8e6",
-    background: "#fff",
-    textAlign: "left",
-    fontSize: 15,
-    cursor: "pointer",
-    marginBottom: 8,
-    transition: "border-color 120ms ease",
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-  };
-  const dotStyle = (color: string): CSSProperties => ({
-    display: "inline-block",
-    width: 12,
-    height: 12,
-    borderRadius: 999,
-    background: color,
-    flexShrink: 0,
-  });
-  const onHover = (e: ReactMouseEvent<HTMLButtonElement>) => { e.currentTarget.style.borderColor = "#f4522d"; };
-  const onLeave = (e: ReactMouseEvent<HTMLButtonElement>) => { e.currentTarget.style.borderColor = "#e8e8e6"; };
-
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div style={{ background: "#fff", borderRadius: 16, padding: 32, maxWidth: 400, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
-        <div style={{ fontSize: 20, fontWeight: 600, color: "#111" }}>How did that go?</div>
-        <div style={{ fontSize: 12, color: "#999", marginBottom: 20, marginTop: 4 }}>
-          Set the outcome to keep your pipeline accurate.
-          {callDuration > 0 ? ` (Call: ${Math.floor(callDuration / 60)}:${(callDuration % 60).toString().padStart(2, "0")})` : ""}
-        </div>
-
-        {view === "menu" && leadHasBookedSale(active) && (
-          <>
-            <div style={{ padding: "12px 14px", borderRadius: 10, background: "#ecfdf5", border: "1px solid #a7f3d0", fontSize: 13, color: "#065f46", lineHeight: 1.5, marginBottom: 14 }}>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>✓ Already booked — deposit paid</div>
-              This lead is locked in. Don't pick another outcome — it would overwrite the booking.
-            </div>
-            <button
-              style={{ ...optionStyle, justifyContent: "center", borderColor: "#10b981", color: "#065f46", fontWeight: 600 }}
-              onClick={() => onClosed("booked_deposit_paid")}
-            >
-              Close
-            </button>
-          </>
-        )}
-
-        {view === "menu" && !leadHasBookedSale(active) && (
-          <>
-            {onTakePayment && (
-              <button
-                style={{ ...optionStyle, background: "#0f6b3e", color: "#fff", borderColor: "#0f6b3e", fontWeight: 700, marginBottom: 8 }}
-                disabled={busy}
-                onClick={onTakePayment}
-              >
-                Booked — take the deposit now
-              </button>
-            )}
-            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("no_answer")}>
-              <span style={dotStyle("#eab308")} /> No Answer
-            </button>
-            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} onClick={() => setView("callback")}>
-              <span style={dotStyle("#f97316")} /> Callback Scheduled
-            </button>
-            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("had_convo_chase_up")}>
-              <span style={dotStyle("#5b3a13")} /> Had Convo — Chase Up
-            </button>
-            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("had_convo_no_sale")}>
-              <span style={dotStyle("#be185d")} /> Had Convo — No Sale
-            </button>
-            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("not_interested")}>
-              <span style={dotStyle("#ef4444")} /> Not Interested
-            </button>
-            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} onClick={() => setView("drop")}>
-              <span style={dotStyle("#000000")} /> Dropped
-            </button>
-            {onCallBack && (
-              <button
-                style={{ ...optionStyle, marginTop: 10, borderColor: "#111", fontWeight: 700 }}
-                onMouseEnter={onHover}
-                onMouseLeave={onLeave}
-                disabled={busy}
-                onClick={onCallBack}
-              >
-                📞 Call dropped out — call back now
-              </button>
-            )}
-          </>
-        )}
-
-        {view === "callback" && (
-          <div>
-            <div style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>Pick a date and time for the callback:</div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-              {([
-                { label: "+30 min", mins: 30 },
-                { label: "+1 hr", mins: 60 },
-                { label: "+2 hrs", mins: 120 },
-              ] as const).map((opt) => (
-                <button
-                  key={opt.label}
-                  disabled={busy}
-                  onClick={() => {
-                    const d = new Date(Date.now() + opt.mins * 60_000);
-                    const yyyy = d.getFullYear(); const mm = String(d.getMonth() + 1).padStart(2, "0"); const dd = String(d.getDate()).padStart(2, "0");
-                    const hh = String(d.getHours()).padStart(2, "0"); const mi = String(d.getMinutes()).padStart(2, "0");
-                    setCallbackDate(`${yyyy}-${mm}-${dd}`);
-                    setCallbackTime(`${hh}:${mi}`);
-                  }}
-                  style={{ flex: 1, fontSize: 12, padding: "8px 10px", borderRadius: 8, border: "1.5px solid #e8e8e6", background: "#fff", color: "#111", cursor: busy ? "not-allowed" : "pointer", fontWeight: 600 }}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-              {([
-                { label: "Tomorrow 9am", time: "09:00" },
-                { label: "Tomorrow 12pm", time: "12:00" },
-                { label: "Tomorrow 3pm", time: "15:00" },
-              ] as const).map((opt) => (
-                <button
-                  key={opt.label}
-                  disabled={busy}
-                  onClick={() => {
-                    const d = new Date(); d.setDate(d.getDate() + 1);
-                    const yyyy = d.getFullYear(); const mm = String(d.getMonth() + 1).padStart(2, "0"); const dd = String(d.getDate()).padStart(2, "0");
-                    setCallbackDate(`${yyyy}-${mm}-${dd}`);
-                    setCallbackTime(opt.time);
-                  }}
-                  style={{ flex: 1, fontSize: 11, padding: "8px 6px", borderRadius: 8, border: "1.5px solid #e8e8e6", background: "#fff", color: "#111", cursor: busy ? "not-allowed" : "pointer", fontWeight: 600 }}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <div style={{ fontSize: 11, color: "#999", marginBottom: 6, fontStyle: "italic" }}>Or pick custom:</div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-              <input
-                type="date"
-                value={callbackDate}
-                onChange={(e) => setCallbackDate(e.target.value)}
-                style={{ flex: 1, padding: "10px 12px", border: "1.5px solid #e8e8e6", borderRadius: 10, fontSize: 14 }}
-              />
-              <input
-                type="time"
-                value={callbackTime}
-                onChange={(e) => setCallbackTime(e.target.value)}
-                style={{ flex: 1, padding: "10px 12px", border: "1.5px solid #e8e8e6", borderRadius: 10, fontSize: 14 }}
-              />
-            </div>
-            {callbackDate && callbackTime && (
-              <div style={{ fontSize: 12, color: "#15803d", background: "#dcfce7", padding: "8px 12px", borderRadius: 8, marginBottom: 10, fontWeight: 600 }}>
-                Will call back: {new Date(`${callbackDate}T${callbackTime}:00`).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })}
-              </div>
-            )}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={() => setView("menu")}
-                style={{ flex: 1, padding: "12px", borderRadius: 10, border: "1.5px solid #e8e8e6", background: "#fff", fontSize: 14, cursor: "pointer" }}
-              >
-                ← Back
-              </button>
-              <button
-                onClick={confirmCallback}
-                disabled={!callbackDate || !callbackTime || busy}
-                style={{
-                  flex: 2,
-                  padding: "12px",
-                  borderRadius: 10,
-                  border: "none",
-                  background: (!callbackDate || !callbackTime || busy) ? "#f4a892" : "#f4522d",
-                  color: "#fff",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: (!callbackDate || !callbackTime || busy) ? "not-allowed" : "pointer",
-                }}
-              >
-                Confirm Callback →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {view === "drop" && (
-          <div>
-            <div style={{ fontSize: 14, color: "#111", marginBottom: 16, lineHeight: 1.4 }}>
-              Are you sure? This will permanently drop this lead.
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={() => setView("menu")}
-                style={{ flex: 1, padding: "12px", borderRadius: 10, border: "1.5px solid #e8e8e6", background: "#fff", fontSize: 14, cursor: "pointer" }}
-              >
-                ← Back
-              </button>
-              <button
-                onClick={() => apply("dropped")}
-                disabled={busy}
-                style={{
-                  flex: 2,
-                  padding: "12px",
-                  borderRadius: 10,
-                  border: "none",
-                  background: busy ? "#f1a3a3" : "#dc2626",
-                  color: "#fff",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: busy ? "not-allowed" : "pointer",
-                }}
-              >
-                Yes, Drop
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

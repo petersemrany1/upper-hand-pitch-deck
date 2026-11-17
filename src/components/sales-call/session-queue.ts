@@ -37,3 +37,10 @@ export function sessionQueueIndex(queue: string[], activeLeadId: string | null |
 export function nextSessionIndexFromActive(queue: string[], activeLeadId: string | null | undefined, fallbackIndex: number) {
   return sessionQueueIndex(queue, activeLeadId, fallbackIndex) + 1;
 }
+
+/** Commit the completed position without deciding who is eligible while reads are down. */
+export function finishSessionPosition(queue: string[], leadId: string, index: number) {
+  const position = sessionQueueIndex(queue, leadId, index);
+  const anchored = queue[position] === leadId ? queue : [...queue.slice(0, position), leadId, ...queue.slice(position)];
+  return { queue: anchored, index: position + 1 };
+}

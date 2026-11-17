@@ -79,3 +79,14 @@ test("one retry covers both failed checks and stays available when only history 
   await render("ready", "ready");
   expect(host.textContent).toBe("");
 });
+
+test("an unavailable lead list or location rules offer a targeted retry and preserve the other checks", async () => {
+  let retries = 0;
+  root = createRoot(host);
+  await act(async () => root.render(h(SalesQueueRefreshNotice, { capacity:"ready", history:"ready", leads:"error", settings:"error",
+    retryCapacity: () => { throw Error(); }, retryHistory: () => { throw Error(); },
+    retryLeads: () => { retries++; }, retrySettings: () => { retries++; } })));
+  expect(host.textContent).toContain("the lead list and paused locations");
+  host.querySelector("button")!.click();
+  expect(retries).toBe(2);
+});

@@ -1,3 +1,4 @@
+import { saveSalesOutcome, stampLatestCallOutcome } from "./sales-outcome.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { salesCallCounts, dashboardMetrics, conversionPercent, isRankedRep } from "@/lib/leaderboard-metrics";
 import { addDays, periodDates, sydneyMidnight } from "@/lib/reporting-period";
@@ -474,7 +475,7 @@ export const saveBooking = createServerFn({ method: "POST" })
         await logError("saveBooking.statusPromote", statusErr.message, { leadId: data.leadId });
         return { success: false as const, error: `Booked, but status update failed: ${statusErr.message}` };
       }
-      await stampLatestCallOutcome(data.leadId, "booked_deposit_paid");
+      await stampLatestCallOutcome(supabaseAdmin, data.leadId, "booked_deposit_paid");
     }
 
     // The appointment trigger owns the schedule/provider and resets flags only
@@ -572,63 +573,16 @@ export const clearBooking = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
-/**
- * Stamp the outcome the rep just chose onto that lead's most recent call
- * record. Live calls are created by the Twilio SDK / voice-outbound, neither
- * of which knows the outcome — it's only known when the rep logs it. Without
- * this, call_records.outcome stays NULL for every call.
- *
- * Best-effort and never blocks the status write. Only fills rows that are
- * still NULL (never overwrites), and only looks back 6 hours so an old call
- * can't be mislabelled by a much later status change.
- */
-/**
- * Statuses a rep can only pick as the result of a live call. Admin-side status
- * changes made elsewhere (cancelled, no_show from the appointments page, etc.)
- * must never be written onto a call record.
- */
-const CALL_OUTCOME_STATUSES = new Set([
-  "no_answer", "callback_scheduled", "had_convo_chase_up", "had_convo_no_sale",
-  "not_interested", "dropped", "booked_deposit_paid",
-]);
-
-async function stampLatestCallOutcome(leadId: string, status: string): Promise<void> {
-  try {
-    if (!CALL_OUTCOME_STATUSES.has(status)) return;
-    const since = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
-    const { data: recent } = await supabaseAdmin
-      .from("call_records")
-      .select("id, status")
-      .eq("lead_id", leadId)
-      .is("outcome", null)
-      .gte("called_at", since)
-      .order("called_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!recent?.id) return;
-    // Don't stamp a call that's still in flight.
-    const live = ["initiated", "queued", "ringing", "in-progress"];
-    if (recent.status && live.includes(recent.status)) return;
-    await supabaseAdmin.from("call_records")
-      .update({ outcome: status, updated_at: new Date().toISOString() })
-      .eq("id", recent.id)
-      .is("outcome", null);
-  } catch { /* non-fatal */ }
-}
-
 export const updateLeadStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { leadId: string; status: string }) => ({
-    leadId: String(data.leadId ?? ""), status: String(data.status ?? ""),
-  }))
-  .handler(async ({ data }) => {
-    if (!data.leadId || !data.status) return { success: false as const, error: "leadId and status required" };
-    const { error } = await supabaseAdmin.from("meta_leads")
-      .update({ status: data.status, updated_at: new Date().toISOString() }).eq("id", data.leadId);
-    if (error) return { success: false as const, error: error.message };
-    await stampLatestCallOutcome(data.leadId, data.status);
-    return { success: true as const };
-  });
+  .inputValidator((data: { leadId: string; status: string; callbackAt?: string }) => {
+    if (data.callbackAt !== undefined && (data.status !== "callback_scheduled" || !Number.isFinite(Date.parse(data.callbackAt)))) {
+      throw new Error("Invalid callback date or time");
+    }
+    return { leadId: String(data.leadId ?? ""), status: String(data.status ?? ""),
+      callbackAt: data.callbackAt === undefined ? undefined : new Date(data.callbackAt).toISOString() };
+  })
+  .handler(({ data }) => saveSalesOutcome(supabaseAdmin, data));
 
 export const saveCallNotes = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

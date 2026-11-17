@@ -38,3 +38,19 @@ test("applied lead events only replace a full read if it was already in flight",
   pending.shift()!(); await flush(); q.invalidate();
   expect(reads).toBe(2); expect(published).toEqual([2]); q.stop();
 });
+
+test("focus and timer polls let a slow initial read finish, while an explicit change supersedes it", async () => {
+  const results: number[] = [], pending: (() => void)[] = [];
+  let number = 0;
+  const q = createRefreshQueue(async current => {
+    const n = ++number;
+    await new Promise<void>(resolve => pending.push(resolve));
+    if (current()) results.push(n);
+  });
+  q.poll(); q.poll(); q.poll();
+  pending.shift()!(); await flush();
+  expect(results).toEqual([1]); expect(pending).toHaveLength(0);
+  q.poll(); q.refresh(); q.poll();
+  pending.shift()!(); await flush(); pending.shift()!(); await flush();
+  expect(results).toEqual([1, 3]); q.stop();
+});
