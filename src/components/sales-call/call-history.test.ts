@@ -22,6 +22,7 @@ function fixture(initial: ReturnType<typeof call>[]) {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { fetch: (async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
+      if (url.pathname.includes("/rpc/")) return new Response(JSON.stringify({ code: "PGRST202", message: "RPC not installed" }), {status: 404});
       state.urls.push(url);
       const offset = Number(url.searchParams.get("offset") ?? 0);
       if (state.fail || offset === state.failOffset) return new Response(JSON.stringify({ message: "Read failed", code: "XX000" }), { status: 500 });
@@ -137,4 +138,28 @@ describe("sales call history", () => {
     expect(next.counts[id(1)]).toBe(1);
     expect(next.history[id(1)]?.attempts).toBe(3);
   });
+});
+
+test("a queue refresh reads one complete RPC snapshot and never accepts missing leads or falls back on a timeout", async () => {
+  const ids = [id(1),id(2)];
+  const row = { attempts: 1, firstCallAt: now.toISOString(), lastAttemptAt: now.toISOString(), todayAttempts: 1,
+    todayFirstAttemptAt: now.toISOString(), todayLastAttemptAt: now.toISOString(), days: { "2026-10-13": { count: 1, lastOutcome: "no_answer" } } };
+  let payload: unknown = Object.fromEntries(ids.map(key => [key, row]));
+  let status = 200;
+  const reads: URL[] = [];
+  const db = createClient<Database>("https://calls.example.test","test-key",{auth:{persistSession:false,autoRefreshToken:false},
+    global:{fetch:(async(input,init) => {
+      reads.push(new URL(String(input)));
+      expect(JSON.parse(String(init?.body)).p_leads).toEqual(ids);
+      return new Response(JSON.stringify(payload),{status,headers:{"Content-Type":"application/json"}});
+    }) as typeof fetch}});
+  const load=createCallHistoryLoader(db,ids,new AbortController().signal);
+  const snapshot=await load(now);
+  expect(snapshot.history[id(2)]?.attempts).toBe(1);
+  expect(snapshot.byDay[id(1)]["2026-10-13"].lastOutcome).toBe("no_answer");
+  payload={ [id(1)]:row };
+  await expect(load(now)).rejects.toThrow("Incomplete sales call history");
+  status=500;payload={message:"statement timeout",code:"57014"};
+  await expect(load(now)).rejects.toMatchObject({code:"57014"});
+  expect(reads.map(url=>url.pathname)).toEqual(Array(3).fill("/rest/v1/rpc/sales_queue_history"));
 });

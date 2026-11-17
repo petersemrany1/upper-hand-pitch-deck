@@ -1,5 +1,6 @@
 import { createCapacityCache } from "./clinic-capacity-cache";
-import { getClinicRemainingSlots } from "@/utils/clinic-capacity.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
 
 export { clinicLocationKeywords } from "./clinic-capacity-state";
 
@@ -12,20 +13,19 @@ export { clinicLocationKeywords } from "./clinic-capacity-state";
  * paid credit.
  * A clinic with no paid packs has nothing bought, so it has 0 remaining.
  */
-const capacityCache = createCapacityCache(async (monitorSignal) => {
-  // The monitor already retries and owns its deadline. Do not start another
-  // server request after it gives up or the rep leaves the page.
-  if (monitorSignal) return getClinicRemainingSlots({ signal: monitorSignal });
-  const signal = AbortSignal.timeout(30_000);
-  try { return await getClinicRemainingSlots({ signal }); }
-  catch (error) {
-    console.warn("clinic capacity check failed, retrying once", error);
-    await new Promise(resolve => setTimeout(resolve, 400));
-    signal.throwIfAborted();
-    return getClinicRemainingSlots({ signal });
-  }
+const capacitySchema = z.object({
+  clinics: z.array(z.object({ id: z.string(), city: z.string().nullable(), location: z.string().nullable() })),
+  remaining: z.record(z.number().int()),
 });
-export const fetchClinicRemainingSlots = capacityCache.fetch;
+
+const capacityCache = createCapacityCache(async (signal) => {
+  const { data, error } = await supabase.rpc("sales_capacity_snapshot").abortSignal(signal ?? AbortSignal.timeout(25_000));
+  if (error) throw error;
+  return capacitySchema.parse(data);
+});
+export const fetchClinicCapacity = capacityCache.fetch;
+export const fetchClinicRemainingSlots = async (options: { fresh?: boolean } = {}) =>
+  (await fetchClinicCapacity(options)).remaining;
 
 /** Drop the cached balances after a booking is saved or a pack changes. */
 export function invalidateClinicRemainingSlots(clinicId?: string) {
