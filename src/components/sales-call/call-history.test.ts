@@ -26,10 +26,10 @@ function fixture(initial: ReturnType<typeof call>[]) {
       const offset = Number(url.searchParams.get("offset") ?? 0);
       if (state.fail || offset === state.failOffset) return new Response(JSON.stringify({ message: "Read failed", code: "XX000" }), { status: 500 });
       const leads = url.searchParams.get("lead_id")!.slice(4, -1).split(",");
-      const filter = url.searchParams.get("called_at")!;
-      const boundary = new Date(filter.slice(filter.indexOf(".") + 1)).getTime();
+      const filter = url.searchParams.get("called_at");
+      const boundary = filter ? Date.parse(filter.slice(filter.indexOf(".") + 1)) : 0;
       const rows = state.rows.filter((r) => leads.includes(r.lead_id) &&
-        (filter.startsWith("gte.") ? new Date(r.called_at).getTime() >= boundary : new Date(r.called_at).getTime() < boundary))
+        (!filter || new Date(r.called_at).getTime() >= boundary))
         .sort((a, b) => a.called_at.localeCompare(b.called_at) || a.id.localeCompare(b.id));
       const limit = Math.min(1000, Number(url.searchParams.get("limit") ?? 1000));
       return new Response(JSON.stringify(rows.slice(offset, offset + limit)), { status: 200, headers: { "Content-Type": "application/json" } });
@@ -73,6 +73,7 @@ describe("sales call history", () => {
     const { db, state } = fixture([call(9000, ids[1000])]);
     const result = await createCallHistoryLoader(db, ids, new AbortController().signal)(now);
     expect(result.counts[ids[1000]]).toBe(1);
+    expect(state.urls).toHaveLength(11); // One cold read per batch, not separate older/recent scans.
     expect(state.urls.every((u) => u.toString().length < 8000)).toBe(true);
     expect(state.urls.every((u) => u.searchParams.get("order") === "called_at.asc,id.asc")).toBe(true);
   });
@@ -99,7 +100,7 @@ describe("sales call history", () => {
     expect(refreshed.history[id(1)]?.lastAttemptAt).toBe(iso("2026-10-13", "11:30"));
     expect(refreshed.history[id(1)]?.todayLastAttemptAt).toBe(iso("2026-10-13", "11:30"));
     expect(dueCallbackIds([lead(id(1), iso("2026-10-13", "11:00"))], refreshed.history, now)).toEqual([]);
-    expect(state.urls.filter((u) => u.searchParams.get("called_at")?.startsWith("lt.")).length).toBe(1);
+    expect(state.urls.map(u => u.searchParams.has("called_at"))).toEqual([false, true]);
   });
 
   test("inbound calls don't count as dials, but answered and unanswered outbound calls do", async () => {

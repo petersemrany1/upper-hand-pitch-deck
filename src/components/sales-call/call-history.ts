@@ -25,7 +25,7 @@ export function callAttemptsLabel(day: number, count: number | undefined) {
 }
 
 /** Keep URLs bounded and read every page; even three days can exceed the API's row cap. */
-async function fetchCalls(db: Db, leadIds: string[], since: string, recent: boolean, signal: AbortSignal) {
+async function fetchCalls(db: Db, leadIds: string[], since: string | null, signal: AbortSignal) {
   const rows: CallRow[] = [];
   // At most three batches in flight so a shared-pool refresh doesn't flood the DB.
   for (let start = 0; start < leadIds.length; start += LEADS_PER_BATCH * 3) {
@@ -39,10 +39,12 @@ async function fetchCalls(db: Db, leadIds: string[], since: string, recent: bool
         let query = db.from("call_records")
           .select("id, lead_id, called_at, direction, outcome, status")
           .in("lead_id", ids);
-        query = recent ? query.gte("called_at", since) : query.lt("called_at", since);
+        if (since) query = query.gte("called_at", since);
+        const pageSignal = AbortSignal.any([signal, AbortSignal.timeout(25_000)]);
         const { data, error } = await query
           .order("called_at", { ascending: true }).order("id", { ascending: true })
-          .range(offset, offset + PAGE_SIZE - 1).abortSignal(signal);
+          .range(offset, offset + PAGE_SIZE - 1).abortSignal(pageSignal);
+        pageSignal.throwIfAborted();
         if (error) throw error;
         batch.push(...(data ?? []));
         if ((data?.length ?? 0) < PAGE_SIZE) return batch;
@@ -85,11 +87,15 @@ export function createCallHistoryLoader(db: Db, leadIds: string[], signal: Abort
   return async (now = new Date()) => {
     const sinceDate = new Date(now); sinceDate.setHours(0, 0, 0, 0); sinceDate.setDate(sinceDate.getDate() - 2);
     const since = sinceDate.toISOString();
-    const recent = await fetchCalls(db, leadIds, since, true, signal);
     if (!older || older.since !== since || now.getTime() - older.loadedAt >= HISTORY_TTL_MS) {
-      const rows = await fetchCalls(db, leadIds, since, false, signal);
-      older = { since, loadedAt: now.getTime(), rows };
+      // On a cold load, fetch each batch once. A single timeline supplies both
+      // the initial snapshot and the pre-window cache used by later refreshes.
+      const all = await fetchCalls(db, leadIds, null, signal);
+      signal.throwIfAborted();
+      older = { since, loadedAt: now.getTime(), rows: all.filter(row => row.called_at && Date.parse(row.called_at) < sinceDate.getTime()) };
+      return summarizeCallHistory(leadIds, all, now);
     }
+    const recent = await fetchCalls(db, leadIds, since, signal);
     signal.throwIfAborted();
     return summarizeCallHistory(leadIds, [...older.rows, ...recent], now);
   };
