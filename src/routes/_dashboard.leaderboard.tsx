@@ -55,17 +55,36 @@ function LeaderboardPage() {
     } catch { if(version===loadVersion.current) {setRows([]);setLoadError("Leaderboard could not be loaded. Check the date range and refresh.");} }
     finally {if(version===loadVersion.current)setLoading(false);}
   };
-  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [range, customFrom, customTo]);
-
-  // Realtime refresh on bookings/calls
   useEffect(() => {
+    let stopped = false, running = false, pending = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const read = async () => {
+      if (stopped || document.visibilityState !== "visible") return;
+      if (running) { pending = true; return; }
+      running = true;
+      try { await load(); }
+      finally {
+        running = false;
+        if (pending && !stopped) { pending = false; schedule(); }
+      }
+    };
+    const schedule = () => {
+      if (!stopped && !timer && document.visibilityState === "visible") {
+        timer = setTimeout(() => { timer = undefined; void read(); }, 2_000);
+      }
+    };
+    void read();
     const ch = supabase.channel("leaderboard-stream")
-      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, () => void load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "appointment_reminders" }, () => void load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "clinic_appointments" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointment_reminders" }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "clinic_appointments" }, schedule)
       .subscribe();
-    return () => { void supabase.removeChannel(ch); };
+    document.addEventListener("visibilitychange", schedule);
+    return () => {
+      stopped = true; ++loadVersion.current; clearTimeout(timer); void supabase.removeChannel(ch);
+      document.removeEventListener("visibilitychange", schedule);
+    };
     // eslint-disable-next-line
   }, [range, customFrom, customTo]);
 

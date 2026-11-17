@@ -18,6 +18,11 @@ export function createRefreshQueue(read: (isCurrent: () => boolean) => Promise<v
     }
   };
   return {
+    // The caller already applied a row event. Only a snapshot that was in
+    // flight can now be stale; idle events need no full table refetch.
+    invalidate() {
+      if (!stopped && running) { revision += 1; pending = true; }
+    },
     refresh() {
       if (stopped) return;
       revision += 1;

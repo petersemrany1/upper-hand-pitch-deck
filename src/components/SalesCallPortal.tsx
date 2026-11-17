@@ -40,7 +40,7 @@ import {
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, getBookingConfirmationDraft, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
 import { stopRingback } from "@/utils/ringback";
 import { generateSlots, holidayLabelFor, summarizeDay, ymdLocal, type TradingHours, type BlockedSlot, type ExistingAppt, type AvailabilityOverride } from "@/lib/slot-generation";
-import { clinicLocationKeywords, fetchClinicRemainingSlots, invalidateClinicRemainingSlots } from "@/lib/clinic-capacity";
+import { clinicLocationKeywords, fetchClinicCapacity, fetchClinicRemainingSlots, invalidateClinicRemainingSlots } from "@/lib/clinic-capacity";
 import { canStartSalesCall, salesCallCapacity } from "@/lib/sales-call-capacity";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -421,7 +421,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const a = leadLocationText(l);
     return pausedLocations.some((loc) => a.includes(loc));
   }, [pausedLocations]);
-  const { capacity: clinicCapacity, status: capacityStatus, readyRef: capacityReadyRef, retry: retryCapacity } = useClinicCapacity(supabase, fetchClinicRemainingSlots);
+  const { capacity: clinicCapacity, status: capacityStatus, readyRef: capacityReadyRef, retry: retryCapacity } = useClinicCapacity(supabase, fetchClinicCapacity);
   const capacityReady = practiceMode || capacityStatus === "ready";
   const isLeadClinicFull = useCallback((l: Lead) => {
     if (clinicCapacity.all.length === 0) return false;
@@ -1178,9 +1178,12 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     void refreshAttendedPhones();
     const ch = supabase.channel("sales-call-leads")
       .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, (payload) => {
-        // Invalidate an older in-flight snapshot as well as applying the event.
-        refresh.refresh();
-        if (isReturningLead((payload.new as { lead_class?: string | null } | null)?.lead_class)) return;
+        refresh.invalidate();
+        if (isReturningLead((payload.new as { lead_class?: string | null } | null)?.lead_class)) {
+          const id = (payload.new as Lead).id;
+          setLeads(prev => prev.filter(l => l.id !== id));
+          return;
+        }
         // New enquiries reach the session via the due-queue top-up effect,
         // which places them right after the lead the rep is on.
         if (payload.eventType === "DELETE") {
@@ -2191,6 +2194,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onOutcomePendingChange={(val) => { outcomePendingRef.current = val; }}
           onCallStarted={() => {}}
           capacityReady={capacityReady}
+          availabilityFailed={capacityStatus === "error"}
+          retryCapacity={retryCapacity}
           canCheckCapacity={() => practiceMode || capacityReadyRef.current}
           autoDialEnabled={sessionActive && !manualMode && !sessionPaused && callHistoryReady && capacityReady && !isLeadClinicFull(active) && active.id !== handoverReviewLeadId}
           autoDialArmToken={autoDialArmToken}
@@ -6805,7 +6810,7 @@ function RightPanel({
   active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead, onPreviousLead, hasPreviousLead,
   onOutcomeRequiredChange, onOutcomePendingChange, onAfterOutcomeApplied, onCallStarted, practiceMode = false,
   pendingOutcomeLeadId, onPendingOutcomeArmed,
-  autoDialEnabled = false, autoDialArmToken = 0, capacityReady, canCheckCapacity,
+  autoDialEnabled = false, autoDialArmToken = 0, capacityReady, availabilityFailed, retryCapacity, canCheckCapacity,
   onGoToStep,
 }: {
   sessionId: string | null;
@@ -6827,6 +6832,8 @@ function RightPanel({
   pendingOutcomeLeadId?: string | null;
   onPendingOutcomeArmed?: (leadId: string) => void;
   capacityReady: boolean;
+  availabilityFailed: boolean;
+  retryCapacity: () => void;
   canCheckCapacity: () => boolean;
   autoDialEnabled?: boolean;
   autoDialArmToken?: number;
@@ -7409,11 +7416,7 @@ function RightPanel({
       // The cutoff is at the next dial, not at the booking save. A rep already
       // on the phone can finish, even when another rep uses the final credit.
       try {
-        const [{ data: clinics, error }, remaining] = await Promise.all([
-          supabase.from("partner_clinics").select("id, location, city").eq("is_active", true),
-          fetchClinicRemainingSlots({ fresh: true }),
-        ]);
-        if (error) throw error;
+        const { clinics, remaining } = await fetchClinicCapacity({ fresh: true });
         if (dialLeadRef.current !== active.id || savingHoldRef.current || onHoldRef.current || !canCheckCapacity()) {
           preparingCallRef.current = false;
           return;
@@ -7936,8 +7939,8 @@ function RightPanel({
             </div>
           ) : (
           <button
-            onClick={() => void callNow()}
-            disabled={onHold || savingHold || !capacityReady}
+            onClick={() => { if (availabilityFailed && !capacityReady) retryCapacity(); else void callNow(); }}
+            disabled={onHold || savingHold || (!capacityReady && !availabilityFailed)}
             className="w-full rounded-[8px] flex items-center justify-center gap-2"
             style={{
               background: COLORS.coral,
@@ -7947,7 +7950,7 @@ function RightPanel({
               padding: "14px 16px",
             }}
           >
-            {!capacityReady ? "Checking clinic availability…" : onHold ? "⏸ Client on hold" : "📞 Call Now"}
+            {!capacityReady && availabilityFailed ? "Retry clinic availability" : !capacityReady ? "Checking clinic availability…" : onHold ? "⏸ Client on hold" : "📞 Call Now"}
           </button>
           )
         ) : (

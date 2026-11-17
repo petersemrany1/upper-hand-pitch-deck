@@ -25,3 +25,16 @@ test("a handled failed read keeps old data and allows the next refresh", async (
   q.refresh(); await flush(); expect(value).toBe(4);
   q.refresh(); await flush(); expect(value).toBe(5); q.stop();
 });
+
+test("applied lead events only replace a full read if it was already in flight", async () => {
+  const pending: (()=>void)[] = []; const published: number[] = []; let reads = 0;
+  const q = createRefreshQueue(async current => {
+    const n = ++reads; await new Promise<void>(resolve => pending.push(resolve));
+    if (current()) published.push(n);
+  });
+  q.invalidate(); expect(reads).toBe(0);
+  q.refresh(); q.invalidate(); q.invalidate();
+  pending.shift()!(); await flush(); expect(published).toEqual([]);
+  pending.shift()!(); await flush(); q.invalidate();
+  expect(reads).toBe(2); expect(published).toEqual([2]); q.stop();
+});

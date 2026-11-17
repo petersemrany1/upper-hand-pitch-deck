@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { buildHistory, type HistoryMap } from "./queue";
@@ -82,7 +83,7 @@ export function summarizeCallHistory(leadIds: string[], rows: CallRow[], now: Da
 }
 
 /** Cache only the history BEFORE the recent window, so new dials update every queue field. */
-export function createCallHistoryLoader(db: Db, leadIds: string[], signal: AbortSignal) {
+function createPagedHistoryLoader(db: Db, leadIds: string[], signal: AbortSignal) {
   let older: { since: string; loadedAt: number; rows: CallRow[] } | null = null;
   return async (now = new Date()) => {
     const sinceDate = new Date(now); sinceDate.setHours(0, 0, 0, 0); sinceDate.setDate(sinceDate.getDate() - 2);
@@ -98,5 +99,42 @@ export function createCallHistoryLoader(db: Db, leadIds: string[], signal: Abort
     const recent = await fetchCalls(db, leadIds, since, signal);
     signal.throwIfAborted();
     return summarizeCallHistory(leadIds, [...older.rows, ...recent], now);
+  };
+}
+
+const historyRow = z.object({
+  attempts: z.number().int().nonnegative(), firstCallAt: z.string().nullable(), lastAttemptAt: z.string().nullable(),
+  todayAttempts: z.number().int().nonnegative(), todayFirstAttemptAt: z.string().nullable(), todayLastAttemptAt: z.string().nullable(),
+  days: z.record(z.object({ count: z.number().int().nonnegative(), lastOutcome: z.string().nullable() })),
+});
+const historyResponse = z.record(historyRow);
+
+export function createCallHistoryLoader(db: Pick<SupabaseClient<Database>, "from" | "rpc">, leadIds: string[], signal: AbortSignal) {
+  const legacy = createPagedHistoryLoader(db, leadIds, signal);
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return async (now = new Date()) => {
+    const today = new Date(now); today.setHours(0, 0, 0, 0);
+    const since = new Date(today); since.setDate(since.getDate() - 2);
+    const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(25_000)]);
+    const { data, error } = await db.rpc("sales_queue_history", {
+      p_leads: leadIds, p_today: today.toISOString(), p_since: since.toISOString(), p_zone: zone,
+    }).abortSignal(requestSignal);
+    requestSignal.throwIfAborted();
+    // During a staggered rollback only a missing RPC permits the old paged read.
+    if (error?.code === "PGRST202") return legacy(now);
+    if (error) throw error;
+    const rows = historyResponse.parse(data);
+    const history: HistoryMap = {}, counts: Record<string, number> = {}, firsts: Record<string, string> = {};
+    const byDay: Record<string, z.infer<typeof historyRow>["days"]> = {};
+    for (const id of leadIds) {
+      const row = rows[id];
+      if (!row) throw new Error("Incomplete sales call history");
+      const { days, ...summary } = row;
+      history[id] = summary;
+      counts[id] = summary.todayAttempts;
+      if (summary.firstCallAt) firsts[id] = summary.firstCallAt;
+      if (Object.keys(days).length) byDay[id] = days;
+    }
+    return { history, counts, firsts, byDay };
   };
 }

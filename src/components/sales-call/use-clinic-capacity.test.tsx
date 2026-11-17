@@ -31,9 +31,10 @@ test("booking event pauses immediately, shows failed refresh, writes diagnostic,
   db.channel = (() => channel) as unknown as typeof db.channel;
   db.removeChannel = (async () => { removed = true; return "ok"; }) as typeof db.removeChannel;
   const fetchRemaining = () => new Promise<Record<string, number>>((resolve, reject) => reads.push({ resolve, reject }));
+  const fetchSnapshot = async () => ({ clinics: [{ id: "boss", city: "Perth" }], remaining: await fetchRemaining() });
   let current!: ReturnType<typeof useClinicCapacity>;
   function Harness() {
-    current = useClinicCapacity(db, fetchRemaining);
+    current = useClinicCapacity(db, fetchSnapshot);
     return h("div", null, h(SalesQueueRefreshNotice, { capacity: current.status, history: "ready", retryCapacity: current.retry, retryHistory: () => {} }),
       h("button", { disabled: !current.readyRef.current }, "Next call"), h("p", null, current.capacity.available.join(",")));
   }

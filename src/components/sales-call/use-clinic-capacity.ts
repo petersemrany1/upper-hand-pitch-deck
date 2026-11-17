@@ -1,23 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { capacityLocations, createCapacityMonitor, initialCapacityState } from "@/lib/clinic-capacity-state";
+import { capacityLocations, createCapacityMonitor, initialCapacityState, type CapacityRead } from "@/lib/clinic-capacity-state";
 import { scrubMessage } from "@/utils/scrub-pii";
 
-export function useClinicCapacity(db: SupabaseClient<Database>, fetchRemaining: (options: { fresh: boolean; signal: AbortSignal }) => Promise<Record<string, number>>) {
+export function useClinicCapacity(db: SupabaseClient<Database>, fetchCapacity: (options: { fresh: boolean; signal: AbortSignal }) => Promise<CapacityRead>) {
   const [state, setState] = useState(initialCapacityState);
   const readyRef = useRef(false);
   const monitorRef = useRef<ReturnType<typeof createCapacityMonitor> | null>(null);
   useEffect(() => {
     const monitor = createCapacityMonitor({
-      read: async (signal) => {
-        const [clinics, remaining] = await Promise.all([
-          db.from("partner_clinics").select("id, location, city").eq("is_active", true).abortSignal(signal),
-          fetchRemaining({ fresh: true, signal }),
-        ]);
-        if (clinics.error) throw clinics.error;
-        return { clinics: clinics.data ?? [], remaining };
-      },
+      read: signal => fetchCapacity({ fresh: true, signal }),
       changed: next => { readyRef.current = next.status === "ready"; setState(next); },
       report: error => {
         const message = error instanceof Error ? error.message : String((error as { message?: string })?.message ?? "Availability check failed");
@@ -42,7 +35,7 @@ export function useClinicCapacity(db: SupabaseClient<Database>, fetchRemaining: 
     window.addEventListener("focus", onVisible);
     window.addEventListener("online", onVisible);
     document.addEventListener("visibilitychange", onVisible);
-    const poll = window.setInterval(onVisible, 15_000);
+    const poll = window.setInterval(onVisible, 60_000);
     const changed = (payload: { new: unknown; old: unknown }) => {
       const row = payload.new as { clinic_id?: string }, old = payload.old as { clinic_id?: string };
       monitor.refresh({ clinicId: row.clinic_id ?? old.clinic_id });
@@ -66,7 +59,7 @@ export function useClinicCapacity(db: SupabaseClient<Database>, fetchRemaining: 
       window.clearInterval(poll);
       void db.removeChannel(channel);
     };
-  }, [db, fetchRemaining]);
+  }, [db, fetchCapacity]);
   return { capacity: useMemo(() => capacityLocations(state), [state]), status: state.status, readyRef,
     retry: () => monitorRef.current?.refresh() };
 }
