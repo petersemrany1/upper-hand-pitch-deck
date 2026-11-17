@@ -16,16 +16,12 @@ export const saveLeadContact = createServerFn({ method: "POST" })
     expected: contactSchema,
   }))
   .handler(async ({ data, context }) => {
-    // The generated types mark the p_expected_* params as non-nullable text, but the
-    // database function declares them plain text and compares with IS DISTINCT FROM,
-    // so a null last name or phone is genuinely valid and must pass through as null.
-    const args = {
+    const { data: contact, error } = await context.supabase.rpc("save_lead_contact", {
       p_lead_id: data.leadId, p_first_name: data.firstName,
       p_last_name: data.lastName, p_phone: data.phone,
       p_expected_first_name: data.expected.first_name,
       p_expected_last_name: data.expected.last_name, p_expected_phone: data.expected.phone,
-    } as unknown as import("@/integrations/supabase/types").Database["public"]["Functions"]["save_lead_contact"]["Args"];
-    const { data: contact, error } = await context.supabase.rpc("save_lead_contact", args);
+    });
     if (error) throw new Error(error.message);
     return contactSchema.parse(contact);
   });
