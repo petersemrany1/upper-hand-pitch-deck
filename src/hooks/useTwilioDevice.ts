@@ -1,3 +1,5 @@
+import { recoverVoiceRegistration } from "@/lib/voice-registration";
+import { connectVoiceCall, VOICE_RATE_LIMIT_CODES } from "@/lib/connect-voice-call";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Device as DeviceType, Call } from "@twilio/voice-sdk";
 type Device = DeviceType;
@@ -248,11 +250,10 @@ function startTokenWatchdog() {
 
 // Twilio codes that mean "transient" rather than "broken": rate limiting and
 // signalling/transport hiccups. These are worth retrying or re-registering for.
-const RATE_LIMIT_CODES = new Set([31206, 20429]);
 const CONNECTION_ERROR_CODES = new Set([31000, 31005, 31009, 53000, 53405]);
 
 function friendlyVoiceError(code: number | undefined, fallback: string): string {
-  if (code !== undefined && RATE_LIMIT_CODES.has(code)) {
+  if (code !== undefined && VOICE_RATE_LIMIT_CODES.has(code)) {
     return "The phone system is busy — trying again in a moment.";
   }
   if (code !== undefined && CONNECTION_ERROR_CODES.has(code)) {
@@ -483,10 +484,13 @@ async function ensureDevice(): Promise<void> {
       const msg = extractErrorMessage(err, "Failed to initialise dialler");
       console.error("Voice SDK init failed:", err);
       setSnapshot({ error: msg, activeCallStartedAt: null, activeCallInstanceId: null, status: "error", dialerStatus: "failed" });
-      await logFrontendError("voice-sdk", `Init failed: ${msg}`, {
+      void logFrontendError("voice-sdk", `Init failed: ${msg}`, {
         stepsToReproduce: "Page load triggered Voice SDK initialisation.",
       });
-      // Allow retry on next consumer mount
+      // Dispose a partly registered device before trying again after an outage.
+      if (device && !activeCall) {
+        try { device.removeAllListeners(); device.destroy(); } catch { /* already closed */ }
+      }
       device = null;
       initPromise = null;
     }
@@ -494,7 +498,11 @@ async function ensureDevice(): Promise<void> {
   return initPromise;
 }
 
-async function placeCall(phone: string, extraParams?: Record<string, string>): Promise<void> {
+async function placeCall(phone: string, extraParams?: Record<string, string>, permitted?: () => boolean): Promise<void> {
+  const requirePermission = () => {
+    if (permitted && !permitted()) throw new Error("Call cancelled before dialling");
+  };
+  requirePermission();
   console.log("[placeCall] entry", { phone, hasDevice: !!device, currentStatus });
   if (!device) {
     await ensureDevice();
@@ -527,6 +535,13 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     throw new Error(`Dialler not ready (status: ${currentStatus}). Wait until DEVICE READY before calling.`);
   }
 
+  if (permitted) await preferHeadsetMicrophone(device);
+  requirePermission();
+  // A sales dial that waited for a token or microphone must never replace
+  // another call that arrived while it was waiting.
+  if (permitted && (activeCall || pendingIncoming || currentStatus !== "ready")) {
+    throw new Error("Another call is already in progress");
+  }
   if (activeCall || currentStatus === "in-call") {
     stopRingback();
     try { activeCall?.disconnect(); } catch { /* noop */ }
@@ -542,36 +557,11 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     // and log a from_number that doesn't match the number Twilio actually
     // dialled from.
     const params: Record<string, string> = { phone, ...(extraParams || {}) };
-    await preferHeadsetMicrophone(device);
-    // Twilio occasionally throttles ("too many requests") or drops the
-    // signalling connection. Both are transient — wait briefly and try again
-    // rather than showing the rep a failed call.
-    const connectWithRetry = async (): Promise<Call> => {
-      const delays = [800, 1600, 3200];
-      let lastErr: unknown = null;
-      for (let attempt = 0; attempt <= delays.length; attempt += 1) {
-        try {
-          return await device!.connect({ params, ...lowLatencyMediaOptions() });
-        } catch (err) {
-          lastErr = err;
-          const code = (err as { code?: number } | null)?.code;
-          // Only rate limiting is safe to auto-retry: Twilio rejected the
-          // request outright, so no call leg exists and a retry can't
-          // double-dial the patient. Connection/transport errors get a
-          // background re-register instead — the device is clean for the next
-          // attempt, but we don't risk placing a second call.
-          if (code !== undefined && CONNECTION_ERROR_CODES.has(code)) {
-            void reregisterDevice();
-            break;
-          }
-          if (code === undefined || !RATE_LIMIT_CODES.has(code) || attempt === delays.length) break;
-          console.warn(`Voice SDK: rate limited (${code}) — retrying dial`, err);
-          await new Promise((r) => setTimeout(r, delays[attempt]));
-        }
-      }
-      throw lastErr ?? new Error("Failed to start call");
-    };
-    const outgoing = await connectWithRetry();
+    if (!permitted) await preferHeadsetMicrophone(device);
+    const outgoing = await connectVoiceCall(
+      () => device!.connect({ params, ...lowLatencyMediaOptions() }), requirePermission,
+      code => { if (code !== undefined && CONNECTION_ERROR_CODES.has(code)) void reregisterDevice(); },
+    );
     activeCall = outgoing;
 
     // Insert the call_records row as soon as Twilio assigns a CallSid.
@@ -846,14 +836,27 @@ export function useTwilioDevice(enabled: boolean = false) {
     const sub = () => forceRender((n) => n + 1);
     subRef.current = sub;
     subscribers.add(sub);
-    if (enabled) void ensureDevice();
+    const recovery = enabled ? recoverVoiceRegistration(async () => {
+      await ensureDevice();
+      return device !== null;
+    }, () => document.visibilityState === "visible" && navigator.onLine !== false) : null;
+    if (recovery) {
+      recovery.wake();
+      window.addEventListener("online", recovery.wake);
+      document.addEventListener("visibilitychange", recovery.wake);
+    }
     return () => {
+      if (recovery) {
+        recovery.stop();
+        window.removeEventListener("online", recovery.wake);
+        document.removeEventListener("visibilitychange", recovery.wake);
+      }
       subscribers.delete(sub);
       // Intentionally do NOT destroy the Device — it's a singleton.
     };
   }, [enabled]);
 
-  const call = useCallback((phone: string, extraParams?: Record<string, string>) => placeCall(phone, extraParams), []);
+  const call = useCallback((phone: string, extraParams?: Record<string, string>, permitted?: () => boolean) => placeCall(phone, extraParams, permitted), []);
   const hangup = useCallback(() => hangupCall(), []);
   const answer = useCallback(() => answerIncoming(), []);
   const reject = useCallback(() => rejectIncoming(), []);
@@ -861,7 +864,10 @@ export function useTwilioDevice(enabled: boolean = false) {
   const mute = useCallback((m: boolean) => setMute(m), []);
   const retry = useCallback(() => {
     setSnapshot({ error: null });
-    if (device && currentStatus !== "ready") setSnapshot({ status: "ready", activeCallStartedAt: null, activeCallInstanceId: null });
+    if (!device) { void ensureDevice(); return; }
+    if (activeCall || pendingIncoming || currentStatus === "connecting") return;
+    if (device.state === "unregistered") { void reregisterDevice(); return; }
+    if (currentStatus === "error") setSnapshot({ status: "ready", activeCallStartedAt: null, activeCallInstanceId: null });
   }, []);
 
   return {
