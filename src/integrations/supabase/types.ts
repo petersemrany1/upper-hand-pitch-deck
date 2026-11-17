@@ -4620,11 +4620,6 @@ export type Database = {
       }
     }
     Functions: {
-      sales_capacity_snapshot: { Args: Record<PropertyKey, never>; Returns: Json }
-      sales_queue_history: {
-        Args: { p_leads: string[]; p_today: string; p_since: string; p_zone: string }
-        Returns: Json
-      }
       ad_cost_per_show_monthly: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
@@ -5396,7 +5391,17 @@ export type Database = {
           shows: number
         }[]
       }
+      sales_capacity_snapshot: { Args: never; Returns: Json }
       sales_journey_phone: { Args: { p: string }; Returns: string }
+      sales_queue_history: {
+        Args: {
+          p_leads: string[]
+          p_since: string
+          p_today: string
+          p_zone: string
+        }
+        Returns: Json
+      }
       save_clinic_reminder_settings: {
         Args: {
           p_clinic: string
