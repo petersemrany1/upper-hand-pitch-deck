@@ -31,7 +31,7 @@ export function capacityLocations(state: CapacityState) {
 /** Mutations invalidate old reads; routine polls do not. In particular, a slow
  * response must not be discarded forever by the next 15-second poll. */
 export function createCapacityMonitor(options: {
-  read: () => Promise<CapacityRead>;
+  read: (signal: AbortSignal) => Promise<CapacityRead>;
   changed: (state: CapacityState) => void;
   report: (error: unknown) => void;
   schedule?: typeof setTimeout;
@@ -43,7 +43,7 @@ export function createCapacityMonitor(options: {
   let revision = 0, failures = 0;
   let running = false, pending = false, stopped = false;
   let retry: ReturnType<typeof setTimeout> | undefined;
-  let deadline: ReturnType<typeof setTimeout> | undefined;
+  let active: AbortController | undefined;
   const publish = (patch: Partial<CapacityState>) => {
     if (stopped) return;
     state = { ...state, ...patch };
@@ -53,11 +53,19 @@ export function createCapacityMonitor(options: {
     if (stopped || running) return;
     running = true;
     const started = revision;
+    const controller = new AbortController();
+    active = controller;
+    // Close the dial gate on the original 12s schedule. A slow, still-valid
+    // response gets a chance to finish instead of restarting the same work.
+    const pause = schedule(() => {
+      if (!stopped && started === revision && state.status === "ready") publish({ status: "checking" });
+    }, 12_000);
+    const deadline = schedule(() => controller.abort(new Error("Clinic availability check timed out")), options.timeoutMs ?? 30_000);
     try {
       const result = await Promise.race([
-        Promise.resolve().then(options.read),
+        Promise.resolve().then(() => options.read(controller.signal)),
         new Promise<never>((_, reject) => {
-          deadline = schedule(() => reject(new Error("Clinic availability check timed out")), options.timeoutMs ?? 12_000);
+          controller.signal.addEventListener("abort", () => reject(controller.signal.reason), { once: true });
         }),
       ]);
       if (!stopped && started === revision) {
@@ -65,6 +73,7 @@ export function createCapacityMonitor(options: {
         publish({ ...result, blockedClinicIds: [], status: "ready" });
       }
     } catch (error) {
+      controller.abort(); // Cancel the other leg if one of the two reads failed.
       if (!stopped && started === revision) {
         publish({ status: "error" });
         // One diagnostic per outage, without flooding logs on each retry.
@@ -72,8 +81,9 @@ export function createCapacityMonitor(options: {
         retry = schedule(() => { retry = undefined; void run(); }, Math.min(2_000 * 2 ** (failures - 1), 15_000));
       }
     } finally {
-      if (deadline !== undefined) cancel(deadline);
-      deadline = undefined;
+      cancel(pause);
+      cancel(deadline);
+      active = undefined;
       running = false;
       if (pending && !stopped) { pending = false; void run(); }
     }
@@ -95,7 +105,7 @@ export function createCapacityMonitor(options: {
     stop() {
       stopped = true;
       if (retry !== undefined) cancel(retry);
-      if (deadline !== undefined) cancel(deadline);
+      active?.abort();
     },
   };
 }

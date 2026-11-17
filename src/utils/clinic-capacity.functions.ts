@@ -13,7 +13,7 @@ export const getClinicRemainingSlots = createServerFn({ method: "GET" })
   .middleware([attachSupabaseAuth, requireSupabaseAuth])
   .handler(async ({ context }): Promise<Record<string, number>> => {
     await bookingActor(context.supabase);
-    const signal = AbortSignal.timeout(6_000);
+    const signal = AbortSignal.timeout(20_000);
     const pageSize = 1000;
     const [packs, appts, trials] = await Promise.all([
       (async () => {
@@ -32,6 +32,8 @@ export const getClinicRemainingSlots = createServerFn({ method: "GET" })
         for (let offset = 0; ; offset += pageSize) {
           const { data, error } = await supabaseAdmin.from("clinic_appointments")
             .select("clinic_id, outcome, disqualified_at, booked_at, is_free_trial")
+            .is("disqualified_at", null)
+            .or("outcome.is.null,outcome.not.in.(noshow,disqualified)")
             .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%")
             .order("id").range(offset, offset + pageSize - 1).abortSignal(signal);
           if (error) throw error;

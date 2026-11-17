@@ -4,7 +4,7 @@ import { act, createElement as h } from "react";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { useClinicCapacity } from "./use-clinic-capacity";
-import { ClinicCapacityNotice } from "./ClinicCapacityNotice";
+import { SalesQueueRefreshNotice } from "./SalesQueueRefreshNotice";
 
 const browser = new Window({ url: "http://localhost" });
 const environment = { window: browser, document: browser.document, navigator: browser.navigator, IS_REACT_ACT_ENVIRONMENT: true };
@@ -34,7 +34,7 @@ test("booking event pauses immediately, shows failed refresh, writes diagnostic,
   let current!: ReturnType<typeof useClinicCapacity>;
   function Harness() {
     current = useClinicCapacity(db, fetchRemaining);
-    return h("div", null, h(ClinicCapacityNotice, { status: current.status, retry: current.retry }),
+    return h("div", null, h(SalesQueueRefreshNotice, { capacity: current.status, history: "ready", retryCapacity: current.retry, retryHistory: () => {} }),
       h("button", { disabled: !current.readyRef.current }, "Next call"), h("p", null, current.capacity.available.join(",")));
   }
   root = createRoot(host);
@@ -59,4 +59,22 @@ test("booking event pauses immediately, shows failed refresh, writes diagnostic,
   await act(async () => { reads.shift()!.resolve({ boss: 1 }); });
   expect(host.textContent).toContain("perth");
   await act(async () => root.unmount()); expect(removed).toBe(true);
+});
+
+test("one retry covers both failed checks and stays available when only history still needs it", async () => {
+  let capacityRetries = 0, historyRetries = 0;
+  root = createRoot(host);
+  const render = async (capacity: "ready" | "error", history: "ready" | "error") =>
+    act(async () => root.render(h(SalesQueueRefreshNotice, { capacity, history,
+      retryCapacity: () => { capacityRetries++; }, retryHistory: () => { historyRetries++; } })));
+  await render("error", "error");
+  expect(host.querySelectorAll("button")).toHaveLength(1);
+  host.querySelector("button")!.click();
+  expect([capacityRetries, historyRetries]).toEqual([1, 1]);
+  await render("ready", "error");
+  expect(host.textContent).toContain("call history");
+  host.querySelector("button")!.click();
+  expect([capacityRetries, historyRetries]).toEqual([1, 2]);
+  await render("ready", "ready");
+  expect(host.textContent).toBe("");
 });

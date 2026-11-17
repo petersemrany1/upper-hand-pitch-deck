@@ -13,13 +13,14 @@ function fixture() {
   let state = initialCapacityState(), reads = 0;
   const pending: ReturnType<typeof deferred<CapacityRead>>[] = [], errors: unknown[] = [];
   const timers = new Map<number, { delay: number; run: () => void }>(); let sequence = 0;
+  const signals: AbortSignal[] = [];
   const monitor = createCapacityMonitor({
-    read: () => { reads++; const next = deferred<CapacityRead>(); pending.push(next); return next.promise; },
+    read: signal => { signals.push(signal); reads++; const next = deferred<CapacityRead>(); pending.push(next); return next.promise; },
     changed: next => { state = next; }, report: error => { errors.push(error); },
     schedule: ((fn: () => void, delay: number) => { timers.set(++sequence, { delay, run: fn }); return sequence; }) as unknown as typeof setTimeout,
     cancel: ((id: number) => { timers.delete(id); }) as unknown as typeof clearTimeout,
   });
-  return { monitor, pending, errors, timers, get state() { return state; }, get reads() { return reads; },
+  return { monitor, pending, errors, timers, signals, get state() { return state; }, get reads() { return reads; },
     fire(delay: number) { const entry = [...timers].find(([, t]) => t.delay === delay); expect(entry).toBeDefined(); timers.delete(entry![0]); entry![1].run(); } };
 }
 
@@ -80,9 +81,19 @@ test("failed refresh stays paused, logs once per outage, retries automatically a
   expect(f.state.status).toBe("ready"); expect(f.state.blockedClinicIds).toEqual([]); expect(f.timers.size).toBe(0); f.monitor.stop();
 });
 
+test("a slow balance pauses new dials at 12 seconds and recovers from the same request", async () => {
+  const f = fixture(); f.monitor.refresh(); await flush(); f.pending.shift()!.resolve(result(1)); await flush();
+  f.monitor.refresh(); await flush(); f.fire(12_000); await flush();
+  expect(f.state.status).toBe("checking"); expect(f.signals[1].aborted).toBe(false);
+  f.monitor.refresh(); expect(f.reads).toBe(2); // Ordinary poll does not restart it.
+  f.pending.shift()!.resolve(result(0)); await flush();
+  expect(f.state.status).toBe("ready"); expect(f.state.remaining.boss).toBe(0); expect(f.errors).toEqual([]);
+  f.monitor.stop();
+});
+
 test("hung requests time out; late responses cannot replace a recovered balance", async () => {
   const f = fixture(); f.monitor.refresh(); await flush(); const late = f.pending.shift()!;
-  f.fire(12_000); await flush(); expect(f.state.status).toBe("error"); expect(f.errors).toHaveLength(1);
+  f.fire(30_000); await flush(); expect(f.signals[0].aborted).toBe(true); expect(f.state.status).toBe("error"); expect(f.errors).toHaveLength(1);
   f.fire(2_000); await flush(); f.pending.shift()!.resolve(result(0)); await flush();
   late.resolve(result(1)); await flush(); expect(f.state.remaining.boss).toBe(0); f.monitor.stop();
 });

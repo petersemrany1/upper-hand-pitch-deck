@@ -1,5 +1,5 @@
 import { useClinicCapacity } from "./sales-call/use-clinic-capacity";
-import { ClinicCapacityNotice } from "./sales-call/ClinicCapacityNotice";
+import { SalesQueueRefreshNotice } from "./sales-call/SalesQueueRefreshNotice";
 import { EditContact } from "./sales-call/EditContact";
 import { CustomerJourneyTimeline } from "./sales-call/CustomerJourneyTimeline";
 import { useCustomerJourney, refreshCustomerJourney } from "./sales-call/useCustomerJourney";
@@ -534,6 +534,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const [callHistory, setCallHistory] = useState<HistoryMap>({});
   const [historyLoadedKey, setHistoryLoadedKey] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState(false);
+  const retryHistoryRef = useRef<(() => void) | null>(null);
   const callHistoryReady = historyLoadedKey === loadedLeadIdsKey && !historyError;
   const callHistoryReadyRef = useRef(false);
   callHistoryReadyRef.current = callHistoryReady;
@@ -1020,13 +1021,17 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const fetchHistory = createCallHistoryLoader(supabase, leadIds, controller.signal);
     let loading = false;
     let reloadRequested = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let failures = 0;
     const load = async () => {
       if (cancelled) return;
+      if (retryTimer !== undefined) clearTimeout(retryTimer);
       if (loading) { reloadRequested = true; return; }
       loading = true;
       try {
         const snapshot = await fetchHistory();
         if (cancelled) return;
+        failures = 0;
         setAttemptCounts(snapshot.counts);
         setAttemptsByDay(snapshot.byDay);
         setFirstCallByLead(snapshot.firsts);
@@ -1038,7 +1043,19 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         if (cancelled) return;
         console.error("sales-call history load failed", error);
         // Keep the last successful counts. A failed read is not zero attempts.
+        callHistoryReadyRef.current = false;
         setHistoryError(true);
+        if (failures++ === 0) {
+          // Codes only: database error text or URLs can contain lead details.
+          const code = (error as { code?: unknown } | null)?.code;
+          const reason = error instanceof Error && error.name === "TimeoutError" ? "timeout"
+            : typeof code === "string" && /^(?:[A-Z0-9]{5}|PGRST[0-9]{3})$/.test(code) ? code : "read_failed";
+          void Promise.resolve(supabase.from("error_logs").insert({
+            function_name: "sales-call.history-refresh",
+            error_message: "Call history could not refresh: " + reason,
+          })).catch(() => {});
+        }
+        retryTimer = setTimeout(refreshVisible, Math.min(5_000 * 2 ** (failures - 1), 30_000));
       } finally {
         loading = false;
         if (reloadRequested && !cancelled) {
@@ -1055,6 +1072,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       debounce = setTimeout(() => { debounce = null; void load(); }, 2000);
     };
     const refreshVisible = () => { if (document.visibilityState === "visible") void load(); };
+    retryHistoryRef.current = () => { if (!loading) void load(); };
     void load();
     // Recover missed realtime events and roll today's counters over at midnight.
     const interval = setInterval(refreshVisible, 60_000);
@@ -1066,6 +1084,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     return () => {
       cancelled = true;
       controller.abort();
+      retryHistoryRef.current = null;
+      clearTimeout(retryTimer);
       if (debounce) clearTimeout(debounce);
       clearInterval(interval);
       window.removeEventListener("online", scheduleLoad);
@@ -1448,12 +1468,12 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     setDiscoveryNotes("");
   }, [activeId]);
 
-  const callbackBanner = !practiceMode ? <>
-    <ClinicCapacityNotice status={capacityStatus} retry={retryCapacity} />
-    {!callHistoryReady && <div role="status" style={{ padding: "10px 16px", background: "#fff7ed", color: "#9a3412", fontSize: 13 }}>
-      {historyError ? "Call history could not refresh. Automatic calling is paused while we retry." : "Checking call history before automatic calling…"}
-    </div>}
-  </> : null;
+  const callbackBanner = !practiceMode && <SalesQueueRefreshNotice
+    capacity={capacityStatus}
+    history={historyError ? "error" : callHistoryReady ? "ready" : "checking"}
+    retryCapacity={retryCapacity}
+    retryHistory={() => retryHistoryRef.current?.()}
+  />;
 
   // Today's callbacks (overdue + scheduled-for-today) for the at-a-glance panel
   const todaysCallbacks = useMemo(() => {

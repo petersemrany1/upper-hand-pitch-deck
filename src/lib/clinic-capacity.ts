@@ -12,12 +12,17 @@ export { clinicLocationKeywords } from "./clinic-capacity-state";
  * paid credit.
  * A clinic with no paid packs has nothing bought, so it has 0 remaining.
  */
-const capacityCache = createCapacityCache(async () => {
-  try { return await getClinicRemainingSlots(); }
+const capacityCache = createCapacityCache(async (monitorSignal) => {
+  // The monitor already retries and owns its deadline. Do not start another
+  // server request after it gives up or the rep leaves the page.
+  if (monitorSignal) return getClinicRemainingSlots({ signal: monitorSignal });
+  const signal = AbortSignal.timeout(30_000);
+  try { return await getClinicRemainingSlots({ signal }); }
   catch (error) {
     console.warn("clinic capacity check failed, retrying once", error);
     await new Promise(resolve => setTimeout(resolve, 400));
-    return getClinicRemainingSlots();
+    signal.throwIfAborted();
+    return getClinicRemainingSlots({ signal });
   }
 });
 export const fetchClinicRemainingSlots = capacityCache.fetch;

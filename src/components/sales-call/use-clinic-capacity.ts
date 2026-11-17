@@ -4,16 +4,16 @@ import type { Database } from "@/integrations/supabase/types";
 import { capacityLocations, createCapacityMonitor, initialCapacityState } from "@/lib/clinic-capacity-state";
 import { scrubMessage } from "@/utils/scrub-pii";
 
-export function useClinicCapacity(db: SupabaseClient<Database>, fetchRemaining: (options: { fresh: boolean }) => Promise<Record<string, number>>) {
+export function useClinicCapacity(db: SupabaseClient<Database>, fetchRemaining: (options: { fresh: boolean; signal: AbortSignal }) => Promise<Record<string, number>>) {
   const [state, setState] = useState(initialCapacityState);
   const readyRef = useRef(false);
   const monitorRef = useRef<ReturnType<typeof createCapacityMonitor> | null>(null);
   useEffect(() => {
     const monitor = createCapacityMonitor({
-      read: async () => {
+      read: async (signal) => {
         const [clinics, remaining] = await Promise.all([
-          db.from("partner_clinics").select("id, location, city").eq("is_active", true).abortSignal(AbortSignal.timeout(10_000)),
-          fetchRemaining({ fresh: true }),
+          db.from("partner_clinics").select("id, location, city").eq("is_active", true).abortSignal(signal),
+          fetchRemaining({ fresh: true, signal }),
         ]);
         if (clinics.error) throw clinics.error;
         return { clinics: clinics.data ?? [], remaining };
@@ -40,8 +40,9 @@ export function useClinicCapacity(db: SupabaseClient<Database>, fetchRemaining: 
     monitor.refresh();
     window.addEventListener("clinic-capacity-changed", onChanged);
     window.addEventListener("focus", onVisible);
+    window.addEventListener("online", onVisible);
     document.addEventListener("visibilitychange", onVisible);
-    const poll = window.setInterval(() => monitor.refresh(), 15_000);
+    const poll = window.setInterval(onVisible, 15_000);
     const changed = (payload: { new: unknown; old: unknown }) => {
       const row = payload.new as { clinic_id?: string }, old = payload.old as { clinic_id?: string };
       monitor.refresh({ clinicId: row.clinic_id ?? old.clinic_id });
@@ -60,6 +61,7 @@ export function useClinicCapacity(db: SupabaseClient<Database>, fetchRemaining: 
       readyRef.current = false;
       window.removeEventListener("clinic-capacity-changed", onChanged);
       window.removeEventListener("focus", onVisible);
+      window.removeEventListener("online", onVisible);
       document.removeEventListener("visibilitychange", onVisible);
       window.clearInterval(poll);
       void db.removeChannel(channel);
