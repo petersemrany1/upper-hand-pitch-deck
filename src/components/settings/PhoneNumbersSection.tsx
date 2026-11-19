@@ -17,6 +17,12 @@ type PhoneNumberRow = {
   created_at: string;
   mms_enabled: boolean;
 };
+type ReplacementStatus = {
+  enabled: boolean; target_active: number; active_numbers: number;
+  max_additional_numbers: number; used_numbers: number;
+  max_monthly_cents: number; committed_cents: number; currency: string;
+  checked_at: string | null; last_result: string | null; last_error: string | null;
+};
 
 export function PhoneNumbersSection() {
   const provisionNumberFn = useServerFn(provisionNumber);
@@ -25,6 +31,7 @@ export function PhoneNumbersSection() {
   const [numbers, setNumbers] = useState<PhoneNumberRow[]>([]);
   const [health, setHealth] = useState<Database["public"]["Tables"]["voice_number_health"]["Row"][]>([]);
   const [healthError, setHealthError] = useState(false);
+  const [replacement, setReplacement] = useState<ReplacementStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [addResult, setAddResult] = useState<string | null>(null);
@@ -37,12 +44,22 @@ export function PhoneNumbersSection() {
     else toast.error(r.error || "Failed to load numbers");
     setLoading(false);
   };
-  useEffect(() => { void load(); }, []);
   useEffect(() => {
     let active = true;
     const refresh = async () => {
-      const result = await supabase.from("voice_number_health").select("*").order("number");
-      if (active) { setHealth(result.data || []); setHealthError(Boolean(result.error)); }
+      try {
+        const [result, pool, lifecycle] = await Promise.all([
+          supabase.from("voice_number_health").select("*").order("number"),
+          listPhoneNumbersFn(),
+          supabase.rpc("voice_pool_status"),
+        ]);
+        if (active) {
+          setHealth(result.data || []); setHealthError(Boolean(result.error));
+          if (pool.success) setNumbers(pool.numbers as PhoneNumberRow[]);
+          setReplacement(lifecycle.error ? null : lifecycle.data as unknown as ReplacementStatus);
+        }
+      } catch { if (active) setHealthError(true); }
+      finally { if (active) setLoading(false); }
     };
     void refresh();
     const timer = setInterval(() => { void refresh(); }, 60_000);
@@ -120,6 +137,15 @@ export function PhoneNumbersSection() {
       <div className="mb-5 rounded-lg border border-border p-4 text-xs">
         <h3 className="font-semibold text-sm mb-2">Automatic number rotation</h3>
         <p className="text-muted-foreground mb-3">Checks run hourly, even with the portal closed. Each number allows up to 80 outbound attempts per rolling 24 hours, then traffic moves to another eligible number. Clear, recent caller-ID spam reports trigger automatic outbound retirement.</p>
+        <div className="mb-3 rounded-md bg-muted/40 p-3">
+          <h4 className="font-semibold">Automatic replacements</h4>
+          {replacement ? <>
+            <p>{replacement.enabled ? `Enabled · maintains ${replacement.target_active} active numbers` : "Disabled"} · {replacement.active_numbers} active now</p>
+            <p>{replacement.used_numbers} of {replacement.max_additional_numbers} approved replacements committed · US${(replacement.committed_cents / 100).toFixed(2)} of US${(replacement.max_monthly_cents / 100).toFixed(2)}/month rental allowance</p>
+            {replacement.checked_at && <p className="text-muted-foreground">Checked {fmtDate(replacement.checked_at)}</p>}
+            {replacement.last_error && <p className="text-amber-700">Replacement needs attention: {replacement.last_error}</p>}
+          </> : <p className="text-muted-foreground">Replacement status is currently unavailable.</p>}
+        </div>
         {healthError || health.length === 0 ? (
           <p className="text-amber-700">Health checks are unavailable or have not run yet.</p>
         ) : (
@@ -135,7 +161,7 @@ export function PhoneNumbersSection() {
             ))}
           </div>
         )}
-        <p className="text-muted-foreground mt-3">15s+ connections include voicemail. Transcript signals may refer to calls or texts; neither measure proves a carrier spam label. Retirements, low-pool warnings and new performance alerts appear in the error log. Numbers are never purchased or released automatically.</p>
+        <p className="text-muted-foreground mt-3">15s+ connections include voicemail. Transcript signals may refer to calls or texts; neither measure proves a carrier spam label. Retired numbers remain billed for callbacks and texts. Replacement purchases stop at the approved allowance, which does not reset monthly. Numbers are never released automatically. Alerts appear in the error log.</p>
       </div>
       {addResult && (
         <div className="mb-4 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">

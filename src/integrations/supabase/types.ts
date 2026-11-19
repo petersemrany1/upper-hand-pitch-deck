@@ -4751,6 +4751,7 @@ export type Database = {
       }
     }
     Functions: {
+      voice_pool_status: { Args: never; Returns: Json }
       ad_cost_per_show_monthly: {
         Args: { p_from?: string; p_to?: string }
         Returns: {

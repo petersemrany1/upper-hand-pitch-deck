@@ -6,6 +6,9 @@ verify_jwt = false
 [functions.voice-outbound]
 verify_jwt = false
 
+[functions.voice-pool-maintenance]
+verify_jwt = false
+
 [functions.twilio-status]
 verify_jwt = false
 
