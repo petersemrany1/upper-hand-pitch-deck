@@ -1,238 +1,35 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { validateTwilioSignature } from "../_shared/twilio-signature.ts";
+import { blockedMessage, outboundTwiml, repIdFromIdentity, spokenResponse } from "../_shared/voice-policy.ts";
 
-// TwiML returned to Twilio when the browser SDK initiates an outbound call.
-// Twilio POSTs here (per the TwiML App's Voice Request URL). We read the
-// dialled number from the SDK params and bridge to PSTN with the verified
-// callerId. The call is recorded and statusCallback updates call_records.
-
-const FALLBACK_CALLER_ID = "+61483938205";
-
-// Twilio abandons a voice webhook after ~15s and plays "we are sorry, an
-// application error has occurred". Under database load our caller-ID lookup
-// and call_records upsert have taken 20-60s, which is exactly what reps
-// heard mid-dial. Every DB touch here is now time-boxed, and the bookkeeping
-// write no longer blocks the TwiML response.
-const DB_TIMEOUT_MS = 2500;
-// The caller-ID lookup is on the dial path: if it times out we fall back to the
-// default number and still dial, so a slightly larger budget is safe. The
-// longer cache means the query runs a couple of times an hour, not per call.
-const CALLER_ID_TIMEOUT_MS = 4000;
-const CALLER_ID_TTL_MS = 30 * 60_000;
-
-let cachedCallerIds: { numbers: string[]; at: number } | null = null;
-
-function withTimeout<T>(p: PromiseLike<T>, ms: number, label: string): Promise<T | null> {
-  return Promise.race([
-    Promise.resolve(p).catch((e) => {
-      console.error(`voice-outbound: ${label} failed`, e);
-      return null;
-    }),
-    new Promise<null>((resolve) =>
-      setTimeout(() => {
-        console.warn(`voice-outbound: ${label} timed out after ${ms}ms`);
-        resolve(null);
-      }, ms)
-    ),
-  ]);
-}
-
-// Keep one stable caller ID per destination while distributing patients across
-// the active pool. Rotating to a different number on every rapid retry looks
-// like spam-dialling to Australian carriers and can cause the destination leg
-// to be rejected after one ring. A deterministic assignment avoids that while
-// still balancing the pool across different patients.
-function stableIndex(value: string, size: number): number {
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i += 1) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0) % size;
-}
-
-async function pickCallerId(sb: ReturnType<typeof createClient>, destination: string): Promise<string> {
-  let numbers =
-    cachedCallerIds && Date.now() - cachedCallerIds.at < CALLER_ID_TTL_MS
-      ? cachedCallerIds.numbers
-      : null;
-
-  if (!numbers) {
-  try {
-    const result = await withTimeout(
-      sb
-        .from("phone_numbers")
-        .select("number")
-        .eq("status", "active")
-        .order("number", { ascending: true }),
-      CALLER_ID_TIMEOUT_MS,
-      "pickCallerId query",
-    );
-    const rows = result?.data as { number: string }[] | null | undefined;
-    if (rows?.length) {
-      numbers = rows.map((row) => row.number).filter(Boolean);
-      cachedCallerIds = { numbers, at: Date.now() };
-    }
-  } catch (e) {
-    console.error("voice-outbound: pickCallerId failed", e);
-  }
-  }
-
-  const available = numbers ?? cachedCallerIds?.numbers ?? [];
-  if (available.length === 0) return FALLBACK_CALLER_ID;
-  return available[stableIndex(destination, available.length)] ?? FALLBACK_CALLER_ID;
-}
-
-// Mirror of src/utils/phone.ts — keep in sync. Returns E.164 (+61...)
-// when valid, otherwise null so we can refuse to dial bad numbers.
-function formatAUPhone(raw: string): string | null {
-  if (!raw) return null;
-  const trimmed = String(raw).trim();
-  const hasPlus = trimmed.startsWith("+");
-  const digits = trimmed.replace(/[^0-9]/g, "");
-  if (!digits) return null;
-  if (hasPlus && digits.startsWith("61")) {
-    const rest = digits.slice(2);
-    if (rest.length < 8 || rest.length > 12) return null;
-    return "+" + digits;
-  }
-  if (hasPlus) {
-    if (digits.length < 8 || digits.length > 15) return null;
-    return "+" + digits;
-  }
-  if (digits.startsWith("61") && digits.length >= 10) return "+" + digits;
-  if (digits.startsWith("1300") || digits.startsWith("1800")) {
-    if (digits.length !== 10) return null;
-    return "+61" + digits;
-  }
-  if (digits.startsWith("13") && digits.length === 6) return "+61" + digits;
-  if (digits.startsWith("0")) {
-    if (digits.length !== 10) return null;
-    if (!"234578".includes(digits[1])) return null;
-    return "+61" + digits.slice(1);
-  }
-  if (digits.length === 9 && "234578".includes(digits[0])) return "+61" + digits;
-  return null;
-}
-
-function escapeXml(s: string): string {
-  return s.replace(/[<>&'"]/g, (c) => ({
-    "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;",
-  }[c]!));
-}
-
+// The reservation is one bounded, atomic database operation. No stale cache or
+// retired fallback: unavailable policy checks must never silently place a call.
 serve(async (req) => {
-  const url = new URL(req.url);
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  const statusCallbackUrl = `${supabaseUrl}/functions/v1/twilio-status`;
-
-  // Twilio always POSTs to voice webhooks. Reject anything else so an
-  // unauthenticated GET can't bypass signature validation and inject
-  // arbitrary call_records rows via query params.
-  if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
-  }
-
-  let phone = "";
-  let callSid = "";
-  let clinicId = "";
-  let leadId = "";
-  let repId = "";
-
+  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+  const xml = (body: string) => new Response(body, { headers: { "Content-Type": "text/xml" } });
   try {
     const form = await req.formData();
-
-    // Reject unsigned requests so attackers can't probe TwiML generation
-    // or trigger arbitrary outbound dials.
-    if (!(await validateTwilioSignature(req, form))) {
-      return new Response("Forbidden", { status: 403 });
+    if (!(await validateTwilioSignature(req, form))) return new Response("Forbidden", { status: 403 });
+    const get = (key: string) => form.get(key)?.toString() || "";
+    const repId = repIdFromIdentity(get("From")); // Identity comes from the signed Voice grant, not SDK custom repId.
+    const callSid = get("CallSid");
+    const phone = get("phone") || get("To");
+    if (!repId || !/^CA[a-f0-9]{32}$/i.test(callSid)) return xml(spokenResponse(blockedMessage("unknown_rep")));
+    const uuid = (value: string) => /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value) ? value : null;
+    const base = Deno.env.get("SUPABASE_URL")!;
+    const sb = createClient(base, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data, error } = await sb.rpc("claim_outbound_call", {
+      p_call_sid: callSid, p_phone: phone, p_rep_id: repId,
+      p_lead_id: uuid(get("leadId")), p_clinic_id: uuid(get("clinicId")),
+    }).abortSignal(AbortSignal.timeout(4500));
+    if (error || !data?.allowed || !data?.caller_id) {
+      if (error) console.error("voice-outbound: reservation unavailable", error.code);
+      return xml(spokenResponse(blockedMessage(data?.reason || "unavailable")));
     }
-
-    phone = (form.get("phone")?.toString() ?? "") || (form.get("To")?.toString() ?? "") || url.searchParams.get("phone") || url.searchParams.get("To") || "";
-    callSid = (form.get("CallSid")?.toString() ?? "") || url.searchParams.get("CallSid") || "";
-    clinicId = (form.get("clinicId")?.toString() ?? "") || url.searchParams.get("clinicId") || "";
-    leadId = (form.get("leadId")?.toString() ?? "") || url.searchParams.get("leadId") || "";
-    repId = (form.get("repId")?.toString() ?? "") || url.searchParams.get("repId") || "";
-
-    if (!repId) {
-      const from = form.get("From")?.toString() ?? "";
-      const m = from.match(/^client:rep_([a-f0-9]{32})$/i);
-      if (m) {
-        const hex = m[1];
-        repId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
-      }
-    }
-  } catch {
-    return new Response("Bad Request", { status: 400 });
+    return xml(outboundTwiml(`+${data.phone}`, data.caller_id, `${base}/functions/v1/twilio-status`, callSid));
+  } catch (error) {
+    console.error("voice-outbound: unavailable", error instanceof Error ? error.name : "error");
+    return xml(spokenResponse(blockedMessage("unavailable")));
   }
-
-  console.log("voice-outbound: incoming", { phone, callSid, clinicId, leadId, repId, method: req.method });
-
-  if (!phone) {
-    const errXml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say voice="alice">No destination number was provided.</Say>
-  <Hangup/>
-</Response>`;
-    return new Response(errXml, { status: 200, headers: { "Content-Type": "text/xml" } });
-  }
-
-  const formatted = formatAUPhone(phone);
-  if (!formatted) {
-    console.log("voice-outbound: rejected unformattable number", phone);
-    const errXml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say voice="alice">The destination number could not be formatted.</Say>
-  <Hangup/>
-</Response>`;
-    return new Response(errXml, { status: 200, headers: { "Content-Type": "text/xml" } });
-  }
-  const dialTo = escapeXml(formatted);
-
-  const childStatusCallbackUrl = escapeXml(
-    callSid ? `${statusCallbackUrl}?parentCallSid=${encodeURIComponent(callSid)}` : statusCallbackUrl,
-  );
-
-  // Pick the caller-ID BEFORE building the TwiML, so we can write the
-  // actual dialled from_number and get accurate per-number analytics.
-  const sbForCaller = (supabaseUrl && serviceKey) ? createClient(supabaseUrl, serviceKey) : null;
-  const callerId = sbForCaller ? await pickCallerId(sbForCaller, formatted) : FALLBACK_CALLER_ID;
-
-  // Server-side safety net: ensure a call_records row exists tagged with
-  // clinic_id, lead_id, rep_id, and the REAL from_number (overwrites any
-  // stale from_number the browser may have optimistically inserted).
-  // Deliberately NOT awaited — Twilio's 15s timeout budget comes first, and
-  // the twilio-status callbacks repair the row moments later anyway.
-  if (callSid && supabaseUrl && serviceKey) {
-    try {
-      const sb = sbForCaller ?? createClient(supabaseUrl, serviceKey);
-      void sb.from("call_records").upsert(
-        {
-          twilio_call_sid: callSid,
-          status: "initiated",
-          clinic_id: clinicId || null,
-          lead_id: leadId || null,
-          rep_id: repId || null,
-          phone: dialTo,
-          from_number: callerId,
-        },
-        { onConflict: "twilio_call_sid" },
-      ).then(({ error }) => {
-        if (error) console.error("voice-outbound: upsert error", error);
-      });
-    } catch (err) {
-      console.error("voice-outbound: failed to upsert call_records", err);
-    }
-  }
-
-  const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Dial answerOnBridge="true" callerId="${escapeXml(callerId)}" record="record-from-answer" recordingStatusCallback="${statusCallbackUrl}" recordingStatusCallbackMethod="POST" trim="trim-silence" timeout="30">
-    <Number statusCallback="${childStatusCallbackUrl}" statusCallbackMethod="POST" statusCallbackEvent="initiated ringing answered completed">${dialTo}</Number>
-  </Dial>
-</Response>`;
-
-  return new Response(twiml, { status: 200, headers: { "Content-Type": "text/xml" } });
 });

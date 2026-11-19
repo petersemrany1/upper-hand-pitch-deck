@@ -597,6 +597,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>, pe
         phone,
       });
       try {
+        // Insert-only so SDK ringing/accept events cannot overwrite a server status.
         // from_number is deliberately omitted here — voice-outbound's upsert
         // fills it with the real caller-ID it picked and dialled from.
         await supabase.from("call_records").upsert(
@@ -609,7 +610,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>, pe
             status: "initiated",
             called_at: new Date().toISOString(),
           },
-          { onConflict: "twilio_call_sid" },
+          { onConflict: "twilio_call_sid", ignoreDuplicates: true },
         );
       } catch (e) {
         console.error("call_records insert failed", e);

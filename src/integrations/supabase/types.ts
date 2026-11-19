@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      voice_number_health: {
+        Row: {
+          number: string
+          checked_at: string
+          attempts_7d: number
+          connected_15s_7d: number
+          failures_7d: number
+          baseline_connected_rate: number | null
+          alert: string | null
+          transcript_signals: number
+        }
+        Insert: {
+          number: string
+          checked_at: string
+          attempts_7d: number
+          connected_15s_7d: number
+          failures_7d: number
+          baseline_connected_rate: number | null
+          alert: string | null
+          transcript_signals: number
+        }
+        Update: {
+          number?: string
+          checked_at?: string
+          attempts_7d?: number
+          connected_15s_7d?: number
+          failures_7d?: number
+          baseline_connected_rate?: number | null
+          alert?: string | null
+          transcript_signals?: number
+        }
+        Relationships: []
+      }
       ad_spend_daily: {
         Row: {
           ad_id: string | null

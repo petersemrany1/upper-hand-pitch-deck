@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { Phone, Plus, Loader2 } from "lucide-react";
 import { provisionNumber, listPhoneNumbers, retireNumber } from "@/utils/phone-pool.functions";
 
@@ -21,6 +23,8 @@ export function PhoneNumbersSection() {
   const listPhoneNumbersFn = useServerFn(listPhoneNumbers);
   const retireNumberFn = useServerFn(retireNumber);
   const [numbers, setNumbers] = useState<PhoneNumberRow[]>([]);
+  const [health, setHealth] = useState<Database["public"]["Tables"]["voice_number_health"]["Row"][]>([]);
+  const [healthError, setHealthError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [addResult, setAddResult] = useState<string | null>(null);
@@ -34,6 +38,16 @@ export function PhoneNumbersSection() {
     setLoading(false);
   };
   useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      const result = await supabase.from("voice_number_health").select("*").order("number");
+      if (active) { setHealth(result.data || []); setHealthError(Boolean(result.error)); }
+    };
+    void refresh();
+    const timer = setInterval(() => { void refresh(); }, 60_000);
+    return () => { active = false; clearInterval(timer); };
+  }, []);
 
   const onAdd = async () => {
     setAdding(true);
@@ -86,7 +100,7 @@ export function PhoneNumbersSection() {
           <div>
             <h2 className="text-lg font-bold text-foreground">Phone Numbers</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Twilio number pool for outbound call rotation.
+              Business numbers for calls and callbacks.
             </p>
           </div>
         </div>
@@ -101,8 +115,28 @@ export function PhoneNumbersSection() {
         </button>
       </div>
       <p className="text-xs text-muted-foreground mb-5">
-        Calls rotate across active numbers automatically. Add more numbers to reduce spam flagging.
+        Calls use the active number pool automatically. Retired numbers stop making outbound calls while retaining callbacks and existing texts. A familiar caller ID is preserved until it retires or reaches its daily limit.
       </p>
+      <div className="mb-5 rounded-lg border border-border p-4 text-xs">
+        <h3 className="font-semibold text-sm mb-2">Automatic number rotation</h3>
+        <p className="text-muted-foreground mb-3">Checks run hourly, even with the portal closed. Each number allows up to 80 outbound attempts per rolling 24 hours, then traffic moves to another eligible number. Clear, recent caller-ID spam reports trigger automatic outbound retirement.</p>
+        {healthError || health.length === 0 ? (
+          <p className="text-amber-700">Health checks are unavailable or have not run yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {health.filter(h => numbers.some(n => n.number === h.number && n.status === "active")).map(h => (
+              <div key={h.number} className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-2">
+                <span className="font-mono font-semibold">{h.number}</span>
+                <span>{h.attempts_7d} attempts · {h.attempts_7d ? Math.round(h.connected_15s_7d / h.attempts_7d * 100) : 0}% lasted 15s+ · past 7 days</span>
+                <span className={h.alert ? "text-amber-700" : "text-muted-foreground"}>{h.alert || "No new performance alert"}</span>
+                {h.transcript_signals > 0 && <span className="text-amber-700">{h.transcript_signals} transcript signal(s) to review</span>}
+                <span className={Date.now() - new Date(h.checked_at).getTime() > 2 * 3600_000 ? "text-red-700" : "text-muted-foreground"}>Checked {fmtDate(h.checked_at)}{Date.now() - new Date(h.checked_at).getTime() > 2 * 3600_000 ? " — overdue" : ""}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="text-muted-foreground mt-3">15s+ connections include voicemail. Transcript signals may refer to calls or texts; neither measure proves a carrier spam label. Retirements, low-pool warnings and new performance alerts appear in the error log. Numbers are never purchased or released automatically.</p>
+      </div>
       {addResult && (
         <div className="mb-4 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           {addResult}
@@ -122,8 +156,8 @@ export function PhoneNumbersSection() {
               <tr className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/30">
                 <th className="text-left px-4 py-2.5 font-semibold">Number</th>
                 <th className="text-left px-4 py-2.5 font-semibold">Status</th>
-                <th className="text-left px-4 py-2.5 font-semibold">Last Used</th>
-                <th className="text-left px-4 py-2.5 font-semibold">Calls</th>
+                <th className="text-left px-4 py-2.5 font-semibold">Last Call</th>
+                <th className="text-left px-4 py-2.5 font-semibold">Call Attempts</th>
                 <th className="text-right px-4 py-2.5 font-semibold">Actions</th>
               </tr>
             </thead>
