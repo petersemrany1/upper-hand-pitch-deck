@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { blockedMessage, inboundTwiml, outboundTwiml, repIdFromIdentity, spokenResponse } from './voice-policy';
+import { blockedMessage, inboundTwiml, outboundTwiml, repIdFromIdentity, spokenResponse, voicemailTwiml } from './voice-policy';
 describe('voice safety responses',()=> {
   test('uses the signed identity rather than custom parameters',()=> {
     expect(repIdFromIdentity('client:rep_00000000000040008000000000000001')).toBe('00000000-0000-4000-8000-000000000001');
@@ -23,5 +23,11 @@ describe('voice safety responses',()=> {
     expect(xml).toContain('rep_00000000000040008000000000000001'); expect(xml).not.toContain('peter_browser');
     const voicemail=inboundTwiml([],'https://example.test/status','https://example.test/action','CA123');
     expect(voicemail).toContain('Hair Transplant Group'); expect(voicemail).toContain('<Record');
+    expect(voicemail).toContain('action="https://example.test/action?voicemail=done"');
+  });
+  test('voicemail explicitly finishes instead of re-requesting the initial routing document',()=> {
+    const xml=voicemailTwiml('https://example.test/status','https://example.test/inbound?source=call');
+    expect(xml).toContain('action="https://example.test/inbound?source=call&amp;voicemail=done" method="POST"');
+    expect(xml).toContain('recordingStatusCallback="https://example.test/status"');
   });
 });

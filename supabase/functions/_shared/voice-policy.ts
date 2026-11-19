@@ -23,11 +23,14 @@ export function outboundTwiml(destination: string, callerId: string, callbackUrl
 }
 export function inboundTwiml(repIds: string[], callbackUrl: string, actionUrl: string, callSid: string): string {
   const clientIds = [...new Set(repIds)].filter(id => /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id));
-  if (!clientIds.length) return voicemailTwiml(callbackUrl);
+  if (!clientIds.length) return voicemailTwiml(callbackUrl, actionUrl);
   const child = escapeXml(`${callbackUrl}?parentCallSid=${encodeURIComponent(callSid)}`);
   const clients = clientIds.map(id => `<Client statusCallback="${child}" statusCallbackMethod="POST" statusCallbackEvent="initiated ringing answered completed">rep_${id.replace(/-/g,'')}</Client>`).join('');
   return `<?xml version="1.0" encoding="UTF-8"?><Response><Dial action="${escapeXml(actionUrl)}" method="POST" timeout="30" answerOnBridge="true" record="record-from-answer" recordingStatusCallback="${escapeXml(callbackUrl)}" recordingStatusCallbackMethod="POST" trim="trim-silence">${clients}</Dial></Response>`;
 }
-export function voicemailTwiml(callbackUrl: string): string {
-  return `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice">You've reached Hair Transplant Group. Our team is unavailable right now. Please leave your name and callback number after the tone and we'll return your call.</Say><Record maxLength="120" playBeep="true" trim="trim-silence" recordingStatusCallback="${escapeXml(callbackUrl)}" recordingStatusCallbackMethod="POST"/><Hangup/></Response>`;
+export function voicemailTwiml(callbackUrl: string, actionUrl: string): string {
+  // Record otherwise requests the current URL again and can re-ring the team.
+  const done = new URL(actionUrl);
+  done.searchParams.set('voicemail', 'done');
+  return `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice">You've reached Hair Transplant Group. Our team is unavailable right now. Please leave your name and callback number after the tone and we'll return your call.</Say><Record action="${escapeXml(done.toString())}" method="POST" maxLength="120" playBeep="true" trim="trim-silence" recordingStatusCallback="${escapeXml(callbackUrl)}" recordingStatusCallbackMethod="POST"/></Response>`;
 }
