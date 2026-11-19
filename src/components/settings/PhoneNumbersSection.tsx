@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { Phone, Plus, Loader2 } from "lucide-react";
 import { provisionNumber, listPhoneNumbers, retireNumber } from "@/utils/phone-pool.functions";
 
@@ -23,6 +24,16 @@ type ReplacementStatus = {
   max_monthly_cents: number; committed_cents: number; currency: string;
   checked_at: string | null; last_result: string | null; last_error: string | null;
 };
+
+// Keep the committed RPC contract typed while the managed migration is pending.
+type ReplacementDatabase = Database & {
+  public: {
+    Functions: {
+      voice_pool_status: { Args: Record<string, never>; Returns: ReplacementStatus };
+    };
+  };
+};
+const replacementClient = supabase as unknown as SupabaseClient<ReplacementDatabase>;
 
 export function PhoneNumbersSection() {
   const provisionNumberFn = useServerFn(provisionNumber);
@@ -51,7 +62,7 @@ export function PhoneNumbersSection() {
         const [result, pool, lifecycle] = await Promise.all([
           supabase.from("voice_number_health").select("*").order("number"),
           listPhoneNumbersFn(),
-          supabase.rpc("voice_pool_status"),
+          replacementClient.rpc("voice_pool_status"),
         ]);
         if (active) {
           setHealth(result.data || []); setHealthError(Boolean(result.error));
