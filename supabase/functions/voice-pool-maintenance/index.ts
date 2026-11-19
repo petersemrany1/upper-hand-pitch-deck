@@ -6,11 +6,9 @@ import { PoolProvider } from './twilio.ts';
 const json = (body: unknown, status=200) => new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 serve(async req => {
   if (req.method !== 'POST') return json({error:'Method not allowed'},405);
-  if (!isInternalCall({internalSecretHeader:req.headers.get('x-internal-secret'),bearerToken:req.headers.get('authorization')?.replace(/^Bearer /i,'') || null},
-    {internalSecret:Deno.env.get('INTERNAL_FUNCTION_SECRET'),serviceRoleKey:Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')})) return json({error:'Unauthorized'},401);
   let body: Record<string,unknown>;
   try { body=await req.json(); } catch { return json({error:'JSON body required'},400); }
-  if (Object.keys(body).some(k=>k!=='dry_run') || ('dry_run' in body && typeof body.dry_run !== 'boolean')) return json({error:'Only dry_run is supported'},400);
+  if (!body || Array.isArray(body) || typeof body!=='object' || Object.keys(body).some(k=>!['dry_run','job_id','job_token'].includes(k)) || ('dry_run' in body && typeof body.dry_run !== 'boolean')) return json({error:'Invalid maintenance request'},400);
   const dryRun = body.dry_run === true;
   const base = Deno.env.get('SUPABASE_URL')!, key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const account = Deno.env.get('TWILIO_ACCOUNT_SID'), token = Deno.env.get('TWILIO_AUTH_TOKEN');
@@ -22,6 +20,14 @@ serve(async req => {
     if(error) throw new Error(`${name}: ${error.message}`); return data;
   };
   const checked=async(query:any)=>{ const {data,error}=await query; if(error) throw new Error(error.message); return data; };
+  const internal=isInternalCall({internalSecretHeader:req.headers.get('x-internal-secret'),bearerToken:req.headers.get('authorization')?.replace(/^Bearer /i,'') || null},
+    {internalSecret:Deno.env.get('INTERNAL_FUNCTION_SECRET'),serviceRoleKey:key});
+  if(!internal) {
+    if(typeof body.job_id!=='string' || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(body.job_id) || typeof body.job_token!=='string' || !/^[0-9a-f]{64}$/.test(body.job_token)) return json({error:'Unauthorized'},401);
+    try {
+      if(!await rpc('consume_voice_pool_job',{p_id:body.job_id,p_token:body.job_token,p_dry_run:dryRun})) return json({error:'Unauthorized'},401);
+    } catch {return json({error:'Job authentication unavailable'},503);}
+  }
   let held=false;
   const report=async(result:{result:string;error?:string})=>{
     await checked(sb.from('voice_pool_settings').update({checked_at:new Date().toISOString(),last_result:result.result,last_error:result.error || null}).eq('singleton',true));
