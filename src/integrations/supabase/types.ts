@@ -4507,6 +4507,123 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_pool_jobs: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          dry_run: boolean
+          expires_at: string
+          id: string
+          token_hash: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          dry_run: boolean
+          expires_at: string
+          id?: string
+          token_hash: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          dry_run?: boolean
+          expires_at?: string
+          id?: string
+          token_hash?: string
+        }
+        Relationships: []
+      }
+      voice_pool_purchases: {
+        Row: {
+          created_at: string
+          currency: string
+          error: string | null
+          id: string
+          monthly_cents: number
+          phone: string
+          requested_at: string | null
+          state: string
+          twilio_sid: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency: string
+          error?: string | null
+          id?: string
+          monthly_cents: number
+          phone: string
+          requested_at?: string | null
+          state?: string
+          twilio_sid?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          error?: string | null
+          id?: string
+          monthly_cents?: number
+          phone?: string
+          requested_at?: string | null
+          state?: string
+          twilio_sid?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      voice_pool_settings: {
+        Row: {
+          approved_at: string | null
+          baseline_numbers: string[]
+          checked_at: string | null
+          currency: string
+          enabled: boolean
+          last_error: string | null
+          last_result: string | null
+          lease_token: string | null
+          lease_until: string | null
+          max_additional_numbers: number
+          max_monthly_cents: number
+          max_unit_cents: number
+          singleton: boolean
+          target_active: number
+        }
+        Insert: {
+          approved_at?: string | null
+          baseline_numbers?: string[]
+          checked_at?: string | null
+          currency?: string
+          enabled?: boolean
+          last_error?: string | null
+          last_result?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          max_additional_numbers?: number
+          max_monthly_cents?: number
+          max_unit_cents?: number
+          singleton?: boolean
+          target_active?: number
+        }
+        Update: {
+          approved_at?: string | null
+          baseline_numbers?: string[]
+          checked_at?: string | null
+          currency?: string
+          enabled?: boolean
+          last_error?: string | null
+          last_result?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          max_additional_numbers?: number
+          max_monthly_cents?: number
+          max_unit_cents?: number
+          singleton?: boolean
+          target_active?: number
+        }
+        Relationships: []
+      }
       voice_reputation_signals: {
         Row: {
           call_id: string
@@ -5013,6 +5130,10 @@ export type Database = {
           p_to: string
         }
         Returns: Json
+      }
+      consume_voice_pool_job: {
+        Args: { p_dry_run: boolean; p_id: string; p_token: string }
+        Returns: boolean
       }
       create_norwood_preview: {
         Args: {
@@ -5713,6 +5834,30 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      voice_pool_begin: {
+        Args: { p_id: string; p_token: string }
+        Returns: boolean
+      }
+      voice_pool_budget: { Args: never; Returns: Json }
+      voice_pool_finish: {
+        Args: { p_id: string; p_mms: boolean; p_sid: string }
+        Returns: undefined
+      }
+      voice_pool_lease: {
+        Args: { p_release?: boolean; p_token: string }
+        Returns: Json
+      }
+      voice_pool_reserve: {
+        Args: {
+          p_cents: number
+          p_currency: string
+          p_phone: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      voice_pool_status: { Args: never; Returns: Json }
+      voice_pool_tick: { Args: { p_dry_run?: boolean }; Returns: number }
     }
     Enums: {
       [_ in never]: never
