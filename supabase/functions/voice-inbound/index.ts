@@ -11,10 +11,14 @@ serve(async (req) => {
   const get = (key: string) => form.get(key)?.toString() || "";
   const base = Deno.env.get("SUPABASE_URL")!;
   const callback = `${base}/functions/v1/twilio-status`;
+  const action = `${base}/functions/v1/voice-inbound`;
   const xml = (body: string) => new Response(body, { headers: { "Content-Type": "text/xml" } });
+  if (new URL(req.url).searchParams.get("voicemail") === "done") {
+    return xml('<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>');
+  }
   const dialStatus = get("DialCallStatus");
   if (dialStatus) {
-    return xml(dialStatus === "completed" ? '<?xml version="1.0" encoding="UTF-8"?><Response/>' : voicemailTwiml(callback));
+    return xml(dialStatus === "completed" ? '<?xml version="1.0" encoding="UTF-8"?><Response/>' : voicemailTwiml(callback, action));
   }
   try {
     const sb = createClient(base, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -22,9 +26,9 @@ serve(async (req) => {
       p_phone: get("From"), p_call_sid: get("CallSid"), p_to: get("To"),
     }).abortSignal(AbortSignal.timeout(4500));
     if (error) throw error;
-    return xml(inboundTwiml(data?.rep_ids || [],callback,`${base}/functions/v1/voice-inbound`,get("CallSid")));
+    return xml(inboundTwiml(data?.rep_ids || [],callback,action,get("CallSid")));
   } catch {
     console.error("voice-inbound: routing lookup unavailable; using branded voicemail");
-    return xml(voicemailTwiml(callback));
+    return xml(voicemailTwiml(callback, action));
   }
 });
