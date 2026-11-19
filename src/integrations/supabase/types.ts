@@ -628,6 +628,10 @@ export type Database = {
           time_slot: string | null
           twilio_call_sid: string | null
           updated_at: string
+          voice_destination_sid: string | null
+          voice_error_code: string | null
+          voice_sip_response: string | null
+          voice_status_sequence: number | null
         }
         Insert: {
           analysis_stage?: string | null
@@ -655,6 +659,10 @@ export type Database = {
           time_slot?: string | null
           twilio_call_sid?: string | null
           updated_at?: string
+          voice_destination_sid?: string | null
+          voice_error_code?: string | null
+          voice_sip_response?: string | null
+          voice_status_sequence?: number | null
         }
         Update: {
           analysis_stage?: string | null
@@ -682,6 +690,10 @@ export type Database = {
           time_slot?: string | null
           twilio_call_sid?: string | null
           updated_at?: string
+          voice_destination_sid?: string | null
+          voice_error_code?: string | null
+          voice_sip_response?: string | null
+          voice_status_sequence?: number | null
         }
         Relationships: [
           {
@@ -3465,6 +3477,9 @@ export type Database = {
           last_used_at: string | null
           mms_enabled: boolean
           number: string
+          outbound_daily_limit: number
+          retired_at: string | null
+          retirement_reason: string | null
           status: string
           twilio_sid: string | null
         }
@@ -3476,6 +3491,9 @@ export type Database = {
           last_used_at?: string | null
           mms_enabled?: boolean
           number: string
+          outbound_daily_limit?: number
+          retired_at?: string | null
+          retirement_reason?: string | null
           status?: string
           twilio_sid?: string | null
         }
@@ -3487,6 +3505,9 @@ export type Database = {
           last_used_at?: string | null
           mms_enabled?: boolean
           number?: string
+          outbound_daily_limit?: number
+          retired_at?: string | null
+          retirement_reason?: string | null
           status?: string
           twilio_sid?: string | null
         }
@@ -4405,6 +4426,116 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_destination_routes: {
+        Row: {
+          caller_id: string
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          caller_id: string
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          caller_id?: string
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      voice_dial_decisions: {
+        Row: {
+          allowed: boolean
+          call_sid: string
+          caller_id: string | null
+          created_at: string
+          phone: string
+          reason: string
+          retry_at: string | null
+        }
+        Insert: {
+          allowed: boolean
+          call_sid: string
+          caller_id?: string | null
+          created_at?: string
+          phone: string
+          reason: string
+          retry_at?: string | null
+        }
+        Update: {
+          allowed?: boolean
+          call_sid?: string
+          caller_id?: string | null
+          created_at?: string
+          phone?: string
+          reason?: string
+          retry_at?: string | null
+        }
+        Relationships: []
+      }
+      voice_number_health: {
+        Row: {
+          alert: string | null
+          attempts_7d: number
+          baseline_connected_rate: number | null
+          checked_at: string
+          connected_15s_7d: number
+          failures_7d: number
+          number: string
+          transcript_signals: number
+        }
+        Insert: {
+          alert?: string | null
+          attempts_7d: number
+          baseline_connected_rate?: number | null
+          checked_at: string
+          connected_15s_7d: number
+          failures_7d: number
+          number: string
+          transcript_signals?: number
+        }
+        Update: {
+          alert?: string | null
+          attempts_7d?: number
+          baseline_connected_rate?: number | null
+          checked_at?: string
+          connected_15s_7d?: number
+          failures_7d?: number
+          number?: string
+          transcript_signals?: number
+        }
+        Relationships: []
+      }
+      voice_reputation_signals: {
+        Row: {
+          call_id: string
+          detected_at: string
+          from_number: string | null
+          reason: string
+        }
+        Insert: {
+          call_id: string
+          detected_at?: string
+          from_number?: string | null
+          reason: string
+        }
+        Update: {
+          call_id?: string
+          detected_at?: string
+          from_number?: string | null
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_reputation_signals_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: true
+            referencedRelation: "call_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       ad_lead_outcomes: {
@@ -4666,6 +4797,21 @@ export type Database = {
           upcoming: number
         }[]
       }
+      apply_voice_status: {
+        Args: {
+          p_answered_rep?: string
+          p_child_sid: string
+          p_duration: number
+          p_error: string
+          p_recording_sid: string
+          p_recording_url: string
+          p_sequence: number
+          p_sid: string
+          p_sip: string
+          p_status: string
+        }
+        Returns: Json
+      }
       booking_busy_times: {
         Args: { p_clinic: string }
         Returns: {
@@ -4709,6 +4855,16 @@ export type Database = {
           p_settings_version: string
         }
         Returns: string
+      }
+      claim_outbound_call: {
+        Args: {
+          p_call_sid: string
+          p_clinic_id?: string
+          p_lead_id?: string
+          p_phone: string
+          p_rep_id: string
+        }
+        Returns: Json
       }
       claim_refund_notification: {
         Args: { p_id: string }
@@ -5316,6 +5472,7 @@ export type Database = {
       }
       recover_refund_notifications: { Args: never; Returns: undefined }
       recover_stale_confirmation_deliveries: { Args: never; Returns: undefined }
+      refresh_voice_number_health: { Args: never; Returns: undefined }
       reminder_phone: { Args: { p_phone: string }; Returns: string }
       renew_failed_handover_email: {
         Args: {
@@ -5380,6 +5537,10 @@ export type Database = {
       reserve_norwood_preview_frame: {
         Args: { p_hash: string; p_view: string }
         Returns: boolean
+      }
+      resolve_inbound_voice: {
+        Args: { p_call_sid: string; p_phone: string; p_to: string }
+        Returns: Json
       }
       revenue_by_key: {
         Args: { p_from?: string; p_mode?: string; p_to?: string }
