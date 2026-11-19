@@ -109,16 +109,36 @@ REVOKE ALL ON FUNCTION public.voice_pool_budget(),public.voice_pool_lease(uuid,b
 GRANT EXECUTE ON FUNCTION public.voice_pool_budget(),public.voice_pool_lease(uuid,boolean),public.voice_pool_reserve(uuid,text,integer,text),public.voice_pool_begin(uuid,uuid),public.voice_pool_finish(uuid,text,boolean) TO service_role;
 GRANT EXECUTE ON FUNCTION public.voice_pool_status() TO authenticated;
 
--- Reuses the same existing internal credential as the appointment cron. No new secret.
+-- Single-use, purpose-bound tickets let pg_cron call only this worker without
+-- reading the credential vault. The plaintext ticket exists only for dispatch.
+CREATE TABLE public.voice_pool_jobs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), token_hash text NOT NULL,
+  dry_run boolean NOT NULL, expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(), consumed_at timestamptz
+);
+ALTER TABLE public.voice_pool_jobs ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.voice_pool_jobs FROM PUBLIC,anon,authenticated;
+GRANT ALL ON public.voice_pool_jobs TO service_role;
+CREATE FUNCTION public.consume_voice_pool_job(p_id uuid,p_token text,p_dry_run boolean) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+BEGIN
+  IF p_token IS NULL OR p_token !~ '^[0-9a-f]{64}$' THEN RETURN false; END IF;
+  UPDATE voice_pool_jobs SET consumed_at=now() WHERE id=p_id AND consumed_at IS NULL AND expires_at>now()
+    AND dry_run=p_dry_run AND token_hash=encode(sha256(convert_to(p_token,'UTF8')),'hex');
+  RETURN FOUND;
+END $$;
+REVOKE ALL ON FUNCTION public.consume_voice_pool_job(uuid,text,boolean) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.consume_voice_pool_job(uuid,text,boolean) TO service_role;
+
+-- Scheduler dispatch; no existing credentials are read or changed.
 CREATE FUNCTION public.voice_pool_tick(p_dry_run boolean DEFAULT false) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
-DECLARE token text; request_id bigint;
+DECLARE token text:=replace(gen_random_uuid()::text||gen_random_uuid()::text,'-',''); request_id bigint; job_id uuid;
 BEGIN
   IF NOT EXISTS(SELECT 1 FROM voice_pool_settings WHERE enabled AND approved_at IS NOT NULL) AND NOT p_dry_run THEN RETURN NULL; END IF;
-  SELECT decrypted_secret INTO token FROM vault.decrypted_secrets WHERE name='internal_function_secret' LIMIT 1;
-  IF token IS NULL THEN RAISE EXCEPTION 'Existing internal scheduler credential is unavailable'; END IF;
+  INSERT INTO voice_pool_jobs(token_hash,dry_run,expires_at) VALUES(encode(sha256(convert_to(token,'UTF8')),'hex'),p_dry_run,now()+interval '2 minutes') RETURNING id INTO job_id;
   SELECT net.http_post(url:='https://sfwokpeeffgrkxaptqji.supabase.co/functions/v1/voice-pool-maintenance',
-    headers:=jsonb_build_object('Content-Type','application/json','x-internal-secret',token),
-    body:=jsonb_build_object('dry_run',p_dry_run),timeout_milliseconds:=120000) INTO request_id;
+    headers:=jsonb_build_object('Content-Type','application/json'),
+    body:=jsonb_build_object('dry_run',p_dry_run,'job_id',job_id,'job_token',token),timeout_milliseconds:=120000) INTO request_id;
   RETURN request_id;
 END $$;
 REVOKE ALL ON FUNCTION public.voice_pool_tick(boolean) FROM PUBLIC,anon,authenticated;

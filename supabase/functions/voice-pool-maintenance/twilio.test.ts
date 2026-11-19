@@ -30,5 +30,6 @@ test('provider separates definite rejections from ambiguous responses',async()=>
   const reject=new PoolProvider(account,'test-token',base,async()=>new Response(JSON.stringify({code:21422}),{status:400}));
   await expect(reject.buy(quote,'id')).rejects.toBeInstanceOf(RejectedPurchase);
   const ambiguous=new PoolProvider(account,'test-token',base,async()=>new Response(JSON.stringify({code:20500}),{status:500}));
-  try {await ambiguous.buy(quote,'id');throw new Error('expected failure');} catch(e){expect(e).not.toBeInstanceOf(RejectedPurchase);}
+  let caught:unknown; try {await ambiguous.buy(quote,'id');} catch(e){caught=e;}
+  expect(caught).toBeInstanceOf(Error); expect(caught).not.toBeInstanceOf(RejectedPurchase);
 });
