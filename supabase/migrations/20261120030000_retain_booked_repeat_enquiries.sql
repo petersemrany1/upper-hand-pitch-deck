@@ -65,8 +65,7 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.retain_booked_repeat_enquiry() FROM PUBLIC;
 -- Runs after trg_meta_lead_set_class; keep the existing blacklist trigger.
-DROP TRIGGER IF EXISTS zzz_retain_booked_repeat_enquiry ON public.meta_leads;
-CREATE TRIGGER zzz_retain_booked_repeat_enquiry BEFORE INSERT ON public.meta_leads
+CREATE OR REPLACE TRIGGER zzz_retain_booked_repeat_enquiry BEFORE INSERT ON public.meta_leads
   FOR EACH ROW EXECUTE FUNCTION public.retain_booked_repeat_enquiry();
 
 -- Repair only verified, unpaid duplicate rows, preserving bookings/payments.
