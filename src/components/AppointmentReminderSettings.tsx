@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { CLINIC_TIMEZONES, REMINDER_MODE_LABELS, type ReminderMode } from "../../supabase/functions/_shared/appointment-confirmation";
+import { CLINIC_TIMEZONES, REMINDER_MODE_LABELS, confirmationAlertRecipients, type ReminderMode } from "../../supabase/functions/_shared/appointment-confirmation";
 import { saveClinicReminderSettings, type ClinicReminderSettings } from "@/lib/appointment-reminders-api";
 import "./appointment-reminders.css";
 
@@ -22,7 +22,7 @@ function ClinicSettings({ settings, onSaved }: { settings: ClinicReminderSetting
       const dates = closed.split(/[,\s]+/).filter(Boolean);
       if (dates.some(d => !/^\d{4}-\d{2}-\d{2}$/.test(d) || Number.isNaN(Date.parse(d)) || new Date(d).toISOString().slice(0, 10) !== d)) throw new Error("Enter closed dates as YYYY-MM-DD, separated by commas");
       if (!draft.call_days.length) throw new Error("Choose at least one day your team makes calls");
-      const saved = await saveClinicReminderSettings({ ...draft, closed_dates: dates }, mode);
+      const saved = await saveClinicReminderSettings({ ...draft, alert_email: confirmationAlertRecipients(draft.alert_email).join(","), closed_dates: dates }, mode);
       onSaved(saved);
       toast.success(`${settings.clinic_name}: ${REMINDER_MODE_LABELS[saved.mode]}`);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Could not save reminder settings"); }
@@ -35,12 +35,12 @@ function ClinicSettings({ settings, onSaved }: { settings: ClinicReminderSetting
         {Object.entries(REMINDER_MODE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select></label>
     </div>
-    <p className="appointment-reminder-description">{settings.mode === "off" ? "Reminders and confirmation follow-up emails are off. Booking and reschedule receipts are separate." : settings.mode === "reminders" ? `Three days before and the day before at ${settings.normal_send_time.slice(0, 5)}. No reply required.` : "9am: ask for YES · 1pm: ask again if needed · 3pm: email you to call. All times are local to this clinic."}</p>
+    <p className="appointment-reminder-description">{settings.mode === "off" ? "Reminders and confirmation follow-up emails are off. Booking and reschedule receipts are separate." : settings.mode === "reminders" ? `Three days before and the day before at ${settings.normal_send_time.slice(0, 5)}. No reply required.` : "9am and 1pm: confirmation texts in clinic time. 4:30pm Sydney: email the call list for people who haven't replied to the second text, allowing at least 30 minutes to respond."}</p>
     <details className="appointment-reminder-advanced"><summary>Timezone, email & call days</summary>
       <form onSubmit={e => { e.preventDefault(); void save(); }}>
         <div className="appointment-reminder-form-grid">
           <label>Clinic timezone<select value={draft.timezone} onChange={e => setDraft({ ...draft, timezone: e.target.value })}>{CLINIC_TIMEZONES.map(zone => <option key={zone} value={zone}>{zone.replace("Australia/", "")}</option>)}</select></label>
-          <label>Call-alert email<input required type="email" value={draft.alert_email} onChange={e => setDraft({ ...draft, alert_email: e.target.value })} /></label>
+          <label>Call-alert emails (separate with commas)<input required type="email" multiple value={draft.alert_email} onChange={e => setDraft({ ...draft, alert_email: e.target.value })} /></label>
           <label>Ordinary reminder time<input required type="time" min="09:00" max="18:00" value={draft.normal_send_time.slice(0, 5)} onChange={e => setDraft({ ...draft, normal_send_time: e.target.value })} /></label>
         </div>
         <fieldset><legend>Days your team makes confirmation calls</legend><div className="appointment-reminder-days">{[1, 2, 3, 4, 5, 6, 0].map(day => <label key={day}><input type="checkbox" checked={draft.call_days.includes(day)} onChange={e => setDraft({ ...draft, call_days: e.target.checked ? [...draft.call_days, day].sort() : draft.call_days.filter(d => d !== day) })} />{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day]}</label>)}</div></fieldset>

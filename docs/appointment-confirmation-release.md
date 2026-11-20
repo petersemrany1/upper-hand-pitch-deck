@@ -8,19 +8,19 @@ Open **Appointments → Clinic reminder settings**. Each clinic has one dropdown
 
 - **Off:** stops appointment reminders, confirmation requests and call-alert emails. Initial booking/reschedule receipts are separate.
 - **Text reminders:** ordinary three-day and day-before texts. Nitai starts here.
-- **YES confirmation reminders:** normal three-day text; 9am confirmation request; 1pm second request only while unconfirmed; 3pm email to call only while unconfirmed. Boss Clinic in Perth starts here.
+- **YES confirmation reminders:** normal three-day text; 9am confirmation request; 1pm second request only while unconfirmed; 4:30pm Sydney call-alert email only after an unanswered second request. Boss Clinic in Perth starts here.
 
 Use **Needs a call**, click **Call Now**, then **Confirmed by phone** or record **No answer / Left voicemail**. The booking status is labelled **Booked**; attendance confirmation is separate. A matched YES reply confirms attendance and clears the call flag without sending a thank-you text, including after a call-alert email has already been sent. An email links to the appointment; it cannot be retracted, so check the current status before calling. No response never cancels an appointment.
 
-Times and dates use the clinic timezone, including daylight saving. Current ordinary send times are retained as local wall-clock defaults at migration time (1pm Perth and 4pm Melbourne during the October rollout). Under **Timezone, email & call days**, administrators can edit ordinary send time, timezone, alert recipient, staffed weekdays and closure dates. Default call days are Monday–Friday. Closure dates must be maintained by the team; public holidays are not automatically imported.
+Patient text times and booking dates use the clinic timezone, including daylight saving. Call-alert emails use Australia/Sydney: 4:30pm on staffed days, with at least 30 minutes after the second text. The five-minute worker can catch up until 5pm; it never sends these alerts after the team’s shift. A first text alone, a patient reply, a recorded call, or a delivery problem does not qualify for this no-response email. Current ordinary send times are retained as local wall-clock defaults at migration time (1pm Perth and 4pm Melbourne during the October rollout). Under **Timezone, email & call days**, administrators can edit ordinary send time, timezone, comma-separated alert recipients, staffed weekdays and closure dates. Default call days are Monday–Friday. Closure dates must be maintained by the team; public holidays are not automatically imported.
 
-For Monday appointments, the YES sequence runs on Friday and includes the three-day reminder; Sunday still gets an ordinary reminder. A configured holiday moves the sequence to the previous staffed day. Late bookings wait at least ten minutes after creation/reschedule and keep at least two hours between confirmation contacts. If there is no useful confirmation window, they go to the call list/email instead of receiving several texts at once.
+For Monday appointments, the YES sequence runs on Friday and includes the three-day reminder; Sunday still gets an ordinary reminder. A configured holiday moves the sequence to the previous staffed day. Late bookings wait at least ten minutes after creation/reschedule and keep at least two hours between the two confirmation texts. Short-notice bookings, patient questions and failed texts remain available in Confirmation calls; they are excluded from the unanswered-second-text email.
 
 ## One-time release
 
 Deploy only these changes; the workspace also contains unrelated uncommitted work.
 
-1. Confirm the deployed project's Edge Function secrets include `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `RESEND_API_KEY`. If the Resend key is a Lovable managed connection, also configure `LOVABLE_API_KEY`; the sender uses the existing connector gateway in that case. A direct Resend key uses the Resend API. The sender is `admin@bold-patients.com`. The default alert recipient is `peter@gobold.com.au`, editable per clinic.
+1. Confirm the deployed project's Edge Function secrets include `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `RESEND_API_KEY`. If the Resend key is a Lovable managed connection, also configure `LOVABLE_API_KEY`; the sender uses the existing connector gateway in that case. A direct Resend key uses the Resend API. The sender is `admin@bold-patients.com`. The default alert recipients are `peter@gobold.com.au,nina@bold-marketing.com.au`, editable per clinic. The Sydney-alert migration adds Nina to existing Peter-only destinations without changing clinic modes or text times.
 2. Set `REMINDER_DATABASE_URL` and `SUPABASE_ACCESS_TOKEN` in the operator's environment. Install the PostgreSQL client and Supabase CLI. Run:
 
    ```sh
@@ -50,3 +50,7 @@ Browser verification uses the actual Appointments component with isolated exampl
 To stop the new confirmation workflow for a clinic, select **Text reminders** or **Off**. Existing patient requests remain visible. Do not restore the legacy reminder sender while keeping these controls live, because the legacy sender does not enforce the new modes.
 
 The production scheduler uses the existing Vault entry `internal_function_secret` and the `x-internal-secret` header. Do not replace it with missing uppercase Vault names. The existing Confirmation calls tab remains available; its phone confirmations stop automated chasing and automatic YES replies appear confirmed there.
+
+## 20 November 2026 alert update
+
+Apply `supabase/migrations/20261120050000_sydney_confirmation_call_alerts.sql` and deploy `send-appointment-reminders` from the same source, preserving all current imports and authentication. Publish the matching settings copy/input update. The migration retains atomic claims, idempotency and service-only permissions, and rechecks the latest reply/call at claim time. Existing sent alerts are not resent. No patient SMS schedule changes. Verify both recipients on the enabled clinics and the existing five-minute scheduler. Tests use isolated data and mocked providers; do not send test messages to patients.

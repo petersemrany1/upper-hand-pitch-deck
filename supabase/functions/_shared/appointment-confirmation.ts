@@ -1,4 +1,4 @@
-/** Calendar dates and scheduled times in this workflow always belong to the clinic. */
+/** Patient texts use clinic time; the team's call alerts use Sydney time. */
 export type ReminderMode = "off" | "reminders" | "confirmation";
 export type ReminderAction = "3day" | "24h" | "request" | "followup" | "call_email";
 // Historical delivery records may include a retired acknowledgement.
@@ -77,6 +77,25 @@ export function confirmationDay(bookingDate: string, settings: ReminderSettings)
 }
 const elapsed = (now: Date, timestamp: string | null) => timestamp ? (now.getTime() - Date.parse(timestamp)) / 60000 : Infinity;
 
+export function confirmationAlertRecipients(value: string): string[] {
+  const recipients = value.split(",").map(email => email.trim().toLowerCase());
+  if (!recipients.length || recipients.some(email => !/^[^\s,@]+@[^\s,@]+\.[^\s,@]+$/.test(email))) {
+    throw new Error("Enter valid call-alert email addresses separated by commas");
+  }
+  return [...new Set(recipients)];
+}
+
+/** Leave at least 30 minutes after text two, and never email after the team's shift. */
+export function confirmationCallAlertDue(row: ConfirmationFields, settings: ReminderSettings, now: Date): boolean {
+  const sydney = localClock(now, "Australia/Sydney");
+  return settings.mode === "confirmation" && isCallDay(sydney.date, settings)
+    && sydney.minute >= 16 * 60 + 30 && sydney.minute < 17 * 60
+    && (row.confirmation_state === "awaiting_reply" || (row.confirmation_state === "needs_call" && row.confirmation_reason === "no_reply"))
+    && Boolean(row.confirmation_requested_at && row.confirmation_followup_at)
+    && elapsed(now, row.confirmation_followup_at) >= 30
+    && !row.confirmation_email_at && !row.confirmation_last_reply_at && !row.confirmation_last_call_at;
+}
+
 /** One action per booking per tick: an outage or a late booking cannot cause a burst of texts. */
 export function nextReminderAction(row: WorkflowBooking, settings: ReminderSettings, now: Date): ReminderAction | null {
   if (settings.mode === "off" || row.status !== "confirmed" || !row.booking_date || !row.booking_time) return null;
@@ -92,19 +111,16 @@ export function nextReminderAction(row: WorkflowBooking, settings: ReminderSetti
     return null;
   }
   const requestDay = confirmationDay(row.booking_date, settings);
-  if (row.confirmation_state === "needs_call" && !row.confirmation_email_at) return "call_email";
+  if (confirmationCallAlertDue(row, settings, now)) return "call_email";
   if (!["confirmed", "needs_call"].includes(row.confirmation_state) && local.date >= requestDay) {
-    // Short-notice bookings outside a usable call window go straight to the call list.
-    if (!row.confirmation_requested_at && !recentlyChanged && (local.date === row.booking_date || local.date > requestDay || local.minute >= 15 * 60)) return "call_email";
-    if (local.date === requestDay && local.minute >= 9 * 60 && local.minute < 19 * 60) {
+    // Short-notice bookings are handled in Confirmation calls, not the unanswered-second-text alert.
+    if (local.date === requestDay && local.minute >= 9 * 60 && local.minute <= 15 * 60) {
+      if (!row.confirmation_requested_at && local.minute >= 15 * 60) return null;
       if (!row.confirmation_requested_at && !recentlyChanged) return "request";
       if (row.confirmation_requested_at) {
         if (!row.confirmation_followup_at && local.minute >= 13 * 60 && local.minute <= 15 * 60 && elapsed(now, row.confirmation_requested_at) >= 120) return "followup";
-        if (!row.confirmation_email_at && local.minute >= 15 * 60 && elapsed(now, row.confirmation_followup_at || row.confirmation_requested_at) >= 120) return "call_email";
       }
     }
-    // Recover a missed email on a later run, without re-sending old reminders.
-    if (row.confirmation_requested_at && local.date > requestDay && !row.confirmation_email_at) return "call_email";
   }
   if (recentlyChanged || local.minute >= 19 * 60) return null;
   if (local.date === threeDay && local.date !== requestDay && local.minute >= minutes(settings.normal_send_time) && !row.three_day_sms_sent && !row.three_day_sms_claim) return "3day";

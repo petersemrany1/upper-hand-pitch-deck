@@ -125,5 +125,40 @@ await manualEvent(nextManual,'confirmed');assert.equal((await reload(nextManual)
 await manualEvent(nextManual,'no_answer');assert.equal((await reload(nextManual)).confirmation_state,'confirmed');
 await db.query("update clinic_appointments set appointment_date=appointment_date+1,updated_at=clock_timestamp() where id=$1",[nextManual.appointment_id]);
 assert.equal((await reload(nextManual)).confirmation_state,'not_requested');
+// Sydney call alerts require an unanswered second text and retain claim/recipient safety.
+const alertMigration=readFileSync(new URL('../supabase/migrations/20261120050000_sydney_confirmation_call_alerts.sql',import.meta.url),'utf8');
+await db.exec(alertMigration);await db.exec(alertMigration);
+assert.equal((await setting(nitai)).alert_email,'peter@gobold.com.au,nina@bold-marketing.com.au');
+await db.query("update clinic_reminder_settings set alert_email='peter@gobold.com.au,nina@bold-marketing.com.au' where clinic_id=$1",[boss]);
+await assert.rejects(db.query("update clinic_reminder_settings set alert_email='peter@gobold.com.au,invalid' where clinic_id=$1",[boss]),/check constraint/);
+const alert=await make('0400000093');
+const due=async(now='2026-10-22T16:30:00+11:00')=>(await db.query('select confirmation_call_alert_due(r,s,$2::timestamptz) due from appointment_reminders r join clinic_appointments a on a.id=r.appointment_id join clinic_reminder_settings s on s.clinic_id=a.clinic_id where r.id=$1',[alert.id,now])).rows[0].due;
+assert.equal(await due(),false);
+assert.equal(await claim(alert,'call_email'),null,'A direct claim cannot bypass the second-text requirement');
+await db.query("update appointment_reminders set confirmation_state='awaiting_reply',confirmation_requested_at='2026-10-22T09:00:00+08:00',confirmation_followup_at='2026-10-22T13:00:00+08:00' where id=$1",[alert.id]);
+assert.equal(await due(),true);
+assert.equal(await due('2026-10-22T16:29:00+11:00'),false);
+assert.equal(await due('2026-10-22T17:00:00+11:00'),false);
+assert.equal(await due('2026-10-24T16:30:00+11:00'),false,'No weekend alerts on weekday call calendars');
+await db.query("update clinic_reminder_settings set closed_dates=ARRAY['2026-10-22'::date] where clinic_id=$1",[boss]);
+assert.equal(await due(),false);
+await db.query("update clinic_reminder_settings set closed_dates=ARRAY[]::date[] where clinic_id=$1",[boss]);
+await db.query("update appointment_reminders set confirmation_followup_at='2026-10-22T13:05:00+08:00' where id=$1",[alert.id]);
+assert.equal(await due(),false);assert.equal(await due('2026-10-22T16:35:00+11:00'),true);
+await db.query("update appointment_reminders set confirmation_followup_at='2026-07-23T13:00:00+08:00',confirmation_requested_at='2026-07-23T09:00:00+08:00' where id=$1",[alert.id]);
+assert.equal(await due('2026-07-23T16:29:00+10:00'),false);assert.equal(await due('2026-07-23T16:30:00+10:00'),true);
+for(const column of ['confirmation_last_reply_at','confirmation_last_call_at','confirmation_email_at']) {
+ await db.query(`update appointment_reminders set ${column}=now() where id=$1`,[alert.id]);
+ assert.equal(await due(),false,column+' suppresses the call alert');
+ assert.equal(await claim(alert,'call_email'),null,'Atomic claim rechecks '+column);
+ await db.query(`update appointment_reminders set ${column}=null where id=$1`,[alert.id]);
+}
+await db.query("update appointment_reminders set confirmation_state='needs_call',confirmation_reason='delivery_failed' where id=$1",[alert.id]);
+assert.equal(await due(),false);
+await db.query("update appointment_reminders set confirmation_reason='no_reply' where id=$1",[alert.id]);
+assert.equal(await due(),true,'A definitely failed email may be retried through the same claim');
+assert.equal((await db.query("select has_function_privilege('authenticated','confirmation_call_alert_due(appointment_reminders,clinic_reminder_settings,timestamptz)','EXECUTE') allowed")).rows[0].allowed,false);
+await db.exec("insert into partner_clinics values(gen_random_uuid(),'New Sydney clinic','NSW','Sydney')");
+assert.equal((await db.query("select alert_email from clinic_reminder_settings s join partner_clinics c on c.id=s.clinic_id where c.clinic_name='New Sydney clinic'")).rows[0].alert_email,'peter@gobold.com.au,nina@bold-marketing.com.au');
 await db.close();
-console.log('PASS: clinic modes/timezones, migration replay, atomic claims, YES routing, duplicate webhooks, rescheduling, ambiguous replies, opt-outs, phone confirmation, RLS, delivery failures and interrupted-send recovery.');
+console.log('PASS: clinic modes/timezones, migration replay, atomic claims, YES routing, duplicate webhooks, rescheduling, ambiguous replies, opt-outs, phone confirmation, RLS, delivery failures interrupted-send recovery, Sydney alert timing, second-text/reply/call guards and both recipients.');

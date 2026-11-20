@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { confirmationDay, localClock, nextReminderAction, type ReminderSettings } from "../_shared/appointment-confirmation.ts";
+import { confirmationDay, confirmationCallAlertDue, localClock, nextReminderAction, type ReminderSettings } from "../_shared/appointment-confirmation.ts";
 import { processConfirmationWorkflow, workflowSms, type ConfirmationBooking, type WorkflowDependencies } from "./confirmation-workflow.ts";
 import { sendConfirmationEmail } from "./email.ts";
 
@@ -11,7 +11,7 @@ function booking(patch: Partial<ConfirmationBooking> = {}): ConfirmationBooking 
     appointment:{id:"appointment",appointment_date:"2026-10-23",appointment_time:"10:30",doctor_id:"consultant",outcome:null,disqualified_at:null,clinic:{clinic_name:"Fixture Clinic",address:"1 Example St, Perth WA 6000",city:"Perth",state:"WA",phone:"0899999999",team:[{id:"consultant",name:"Consultant",is_active:true,conducts_consultations:true}]}},...patch };
 }
 const at = (time: string) => new Date(`2026-10-22T${time}:00+08:00`);
-test("Perth 9am request, 1pm second request, 3pm email, no premature messages", () => {
+test("Perth 9am request, 1pm second request, 4:30pm Sydney alert", () => {
   const row = booking();
   expect(nextReminderAction(row, settings, at("08:59"))).toBeNull();
   expect(nextReminderAction(row, settings, at("09:00"))).toBe("request");
@@ -19,9 +19,43 @@ test("Perth 9am request, 1pm second request, 3pm email, no premature messages", 
   expect(nextReminderAction(row, settings, at("12:59"))).toBeNull();
   expect(nextReminderAction(row, settings, at("13:00"))).toBe("followup");
   row.confirmation_followup_at=at("13:00").toISOString();
-  expect(nextReminderAction(row, settings, at("14:59"))).toBeNull();
-  expect(nextReminderAction(row, settings, at("15:00"))).toBe("call_email");
+  expect(nextReminderAction(row, settings, at("13:29"))).toBeNull();
+  expect(nextReminderAction(row, settings, at("13:30"))).toBe("call_email");
+  expect(nextReminderAction(row, settings, at("15:00"))).toBeNull();
 });
+test("Sydney alert time follows daylight saving independently of the clinic", () => {
+  for (const [day, offset] of [["2026-01-22", "+11:00"], ["2026-07-23", "+10:00"]]) {
+    for (const timezone of ["Australia/Perth", "Australia/Melbourne", "Australia/Sydney"]) {
+      const now = new Date(`${day}T16:30:00${offset}`);
+      const row = booking({ confirmation_state: "awaiting_reply", confirmation_requested_at: new Date(now.getTime() - 4 * 3600000).toISOString(), confirmation_followup_at: new Date(now.getTime() - 1800000).toISOString() });
+      expect(confirmationCallAlertDue(row, { ...settings, timezone }, now)).toBe(true);
+      expect(confirmationCallAlertDue(row, { ...settings, timezone }, new Date(now.getTime() - 60000))).toBe(false);
+      expect(confirmationCallAlertDue(row, { ...settings, timezone }, new Date(now.getTime() + 30 * 60000))).toBe(false);
+    }
+  }
+});
+
+test("only unanswered second texts are alerted; replies, calls, failures and closures suppress them", () => {
+  const row = booking({ confirmation_state: "awaiting_reply", confirmation_requested_at: at("09:00").toISOString(), confirmation_followup_at: at("13:00").toISOString() });
+  for (const patch of [
+    { confirmation_requested_at: null }, { confirmation_followup_at: null },
+    { confirmation_followup_at: at("13:05").toISOString() },
+    { confirmation_last_reply_at: at("13:15").toISOString() },
+    { confirmation_last_call_at: at("13:15").toISOString() },
+    { confirmation_email_at: at("13:30").toISOString() },
+    { confirmation_state: "confirmed" as const },
+    { confirmation_state: "needs_call" as const, confirmation_reason: "patient_reply" },
+    { confirmation_state: "needs_call" as const, confirmation_reason: "delivery_failed" },
+    { confirmation_state: "needs_call" as const, confirmation_reason: "opt_out" },
+  ]) expect(confirmationCallAlertDue({ ...row, ...patch }, settings, at("13:30"))).toBe(false);
+  expect(confirmationCallAlertDue(row, { ...settings, closed_dates: ["2026-10-22"] }, at("13:30"))).toBe(false);
+  expect(confirmationCallAlertDue(row, { ...settings, call_days: [1] }, at("13:30"))).toBe(false);
+  expect(confirmationCallAlertDue(row, { ...settings, mode: "off" }, at("13:30"))).toBe(false);
+  expect(confirmationCallAlertDue({ ...row, confirmation_state: "needs_call", confirmation_reason: "no_reply" }, settings, at("13:35"))).toBe(true);
+  expect(nextReminderAction({ ...row, status: "cancelled" }, settings, at("13:30"))).toBeNull();
+  expect(nextReminderAction({ ...row, booking_date: "2026-10-22", booking_time: "12:00" }, settings, at("13:30"))).toBeNull();
+});
+
 test("an SMS or phone confirmation stops all confirmation messages and the call alert", async () => {
   for (const method of ["sms", "phone"] as const) {
     const row = booking({ confirmation_state: "confirmed", confirmation_method: method, confirmation_requested_at: at("09:00").toISOString() });
@@ -64,13 +98,13 @@ test("late bookings and scheduler recovery do not send a burst or shorten reply 
   expect(nextReminderAction(row,settings,at("13:05"))).toBe("request");
   row.confirmation_requested_at=at("13:05").toISOString();row.confirmation_state="awaiting_reply";
   expect(nextReminderAction(row,settings,at("15:00"))).toBeNull();
-  expect(nextReminderAction(row,settings,at("15:05"))).toBe("call_email");
-  expect(nextReminderAction(booking(),settings,at("16:00"))).toBe("call_email");
+  expect(nextReminderAction(row,settings,at("15:05"))).toBeNull();
+  expect(nextReminderAction(booking(),settings,at("16:00"))).toBeNull();
 });
-test("cancelled/past appointments never send; failed delivery and patient questions request a call", () => {
+test("cancelled/past appointments never send; patient questions stay outside the no-reply alert", () => {
   expect(nextReminderAction(booking({status:"cancelled"}),settings,at("09:00"))).toBeNull();
   expect(nextReminderAction(booking(),settings,new Date("2026-10-23T10:30:00+08:00"))).toBeNull();
-  expect(nextReminderAction(booking({confirmation_state:"needs_call",confirmation_reason:"patient_reply"}),settings,at("10:00"))).toBe("call_email");
+  expect(nextReminderAction(booking({confirmation_state:"needs_call",confirmation_reason:"patient_reply"}),settings,at("10:00"))).toBeNull();
 });
 function effects() {
   const calls:string[]=[];
@@ -116,6 +150,19 @@ test("email transport has a stable idempotency key and distinguishes rejection f
   }) as unknown as typeof fetch;
   expect((await sendConfirmationEmail("fixture@example.test","subject","html","delivery",{apiKey:"fixture"},transport)).ok).toBe(true);
   expect((await sendConfirmationEmail("fixture@example.test","subject","html","delivery",{})).ok).toBe(false);
+});
+
+test("both Peter and Nina receive one provider request, with duplicate addresses removed", async () => {
+  let requests = 0;
+  const transport = (async (_url: unknown, init: RequestInit) => {
+    requests++;
+    expect(JSON.parse(init.body as string).to).toEqual(["peter@gobold.com.au", "nina@bold-marketing.com.au"]);
+    return new Response(JSON.stringify({ id: "message" }), { status: 200 });
+  }) as typeof fetch;
+  expect((await sendConfirmationEmail("peter@gobold.com.au, nina@bold-marketing.com.au, NINA@bold-marketing.com.au", "subject", "html", "delivery", { apiKey: "fixture" }, transport)).ok).toBe(true);
+  expect(requests).toBe(1);
+  expect((await sendConfirmationEmail("peter@gobold.com.au,invalid", "subject", "html", "delivery", { apiKey: "fixture" }, transport)).ok).toBe(false);
+  expect(requests).toBe(1);
 });
 
 test("orphan reminder rows are reported without sending; real missing clinic settings still fail",async()=>{
