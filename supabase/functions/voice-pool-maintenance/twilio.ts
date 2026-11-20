@@ -1,5 +1,7 @@
 import { RejectedPurchase, type OwnedNumber, type PoolNumber, type Quote } from './workflow.ts';
 type Json = Record<string, any>;
+// Twilio's raw resources have used both SMS/MMS and sms/mms keys.
+const capability = (n: Json, key: string): boolean => Object.entries(n.capabilities || {}).some(([name,value]) => name.toLowerCase() === key && value === true);
 export class PoolProvider {
   constructor(private sid: string, private token: string, private base: string, private request: typeof fetch = fetch) {}
   private api = 'https://api.twilio.com/2010-04-01';
@@ -21,7 +23,7 @@ export class PoolProvider {
   private number(n: Json): OwnedNumber {
     if (n.account_sid !== this.sid) throw new Error('Twilio account mismatch');
     return { sid: n.sid, phone: n.phone_number, friendly: n.friendly_name, voiceUrl: n.voice_url, smsUrl: n.sms_url,
-      voice: n.capabilities?.voice === true, sms: n.capabilities?.sms === true, mms: n.capabilities?.mms === true };
+      voice: capability(n,'voice'), sms: capability(n,'sms'), mms: capability(n,'mms') };
   }
   async owned(phone: string): Promise<OwnedNumber | null> {
     const data = await this.call(`${this.api}/Accounts/${this.sid}/IncomingPhoneNumbers.json?${new URLSearchParams({PhoneNumber:phone,PageSize:'50'})}`);
@@ -52,9 +54,11 @@ export class PoolProvider {
     let phone = reservedPhone;
     if (!phone) {
       const candidates = await this.call(`${this.api}/Accounts/${this.sid}/AvailablePhoneNumbers/AU/Mobile.json?${new URLSearchParams({VoiceEnabled:'true',SmsEnabled:'true',PageSize:'20'})}`);
-      const eligible = (candidates.available_phone_numbers || []).filter((n: Json) => /^\+614\d{8}$/.test(n.phone_number) && n.capabilities?.voice === true && n.capabilities?.sms === true && n.beta !== true && !pool.some(p => p.number === n.phone_number));
-      eligible.sort((a: Json,b: Json) => Number(b.capabilities?.mms === true) - Number(a.capabilities?.mms === true));
+      const available = candidates.available_phone_numbers || [];
+      const eligible = available.filter((n: Json) => /^\+614\d{8}$/.test(n.phone_number) && capability(n,'voice') && capability(n,'sms') && !pool.some(p => p.number === n.phone_number));
+      eligible.sort((a: Json,b: Json) => Number(capability(b,'mms')) - Number(capability(a,'mms')));
       phone = eligible[0]?.phone_number;
+      if (!phone) throw new Error(`No suitable Australian mobile number is available (${available.length} candidates returned; calls and texts required).`);
     }
     if (!phone) throw new Error('No suitable Australian mobile number is available');
     return { phone, cents, currency: prices.price_unit.toLowerCase(), bundle, address };
