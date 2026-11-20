@@ -36,6 +36,13 @@
       "when": 1795132609068,
       "tag": "0004_20261120010000_voice_pool_replacements",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795137006579,
+      "tag": "0005_20261120020000_phone_retirement_lifecycle",
+      "breakpoints": true
     }
   ]
 }

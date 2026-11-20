@@ -3478,6 +3478,10 @@ export type Database = {
           mms_enabled: boolean
           number: string
           outbound_daily_limit: number
+          release_due_at: string | null
+          release_error: string | null
+          release_started_at: string | null
+          released_at: string | null
           retired_at: string | null
           retirement_reason: string | null
           status: string
@@ -3492,6 +3496,10 @@ export type Database = {
           mms_enabled?: boolean
           number: string
           outbound_daily_limit?: number
+          release_due_at?: string | null
+          release_error?: string | null
+          release_started_at?: string | null
+          released_at?: string | null
           retired_at?: string | null
           retirement_reason?: string | null
           status?: string
@@ -3506,6 +3514,10 @@ export type Database = {
           mms_enabled?: boolean
           number?: string
           outbound_daily_limit?: number
+          release_due_at?: string | null
+          release_error?: string | null
+          release_started_at?: string | null
+          released_at?: string | null
           retired_at?: string | null
           retirement_reason?: string | null
           status?: string
@@ -3635,6 +3647,7 @@ export type Database = {
           next_attempt_at: string
           payload: Json
           sms_body: string | null
+          sms_from_number: string | null
           sms_sid: string | null
           status: string
           updated_at: string
@@ -3654,6 +3667,7 @@ export type Database = {
           next_attempt_at?: string
           payload: Json
           sms_body?: string | null
+          sms_from_number?: string | null
           sms_sid?: string | null
           status?: string
           updated_at?: string
@@ -3673,6 +3687,7 @@ export type Database = {
           next_attempt_at?: string
           payload?: Json
           sms_body?: string | null
+          sms_from_number?: string | null
           sms_sid?: string | null
           status?: string
           updated_at?: string
@@ -4480,6 +4495,7 @@ export type Database = {
           attempts_7d: number
           baseline_connected_rate: number | null
           checked_at: string
+          connected_10s_7d: number
           connected_15s_7d: number
           failures_7d: number
           number: string
@@ -4490,6 +4506,7 @@ export type Database = {
           attempts_7d: number
           baseline_connected_rate?: number | null
           checked_at: string
+          connected_10s_7d?: number
           connected_15s_7d: number
           failures_7d: number
           number: string
@@ -4500,6 +4517,7 @@ export type Database = {
           attempts_7d?: number
           baseline_connected_rate?: number | null
           checked_at?: string
+          connected_10s_7d?: number
           connected_15s_7d?: number
           failures_7d?: number
           number?: string
@@ -4587,6 +4605,8 @@ export type Database = {
           max_additional_numbers: number
           max_monthly_cents: number
           max_unit_cents: number
+          pickup_retirement_enabled: boolean
+          release_enabled: boolean
           singleton: boolean
           target_active: number
         }
@@ -4603,6 +4623,8 @@ export type Database = {
           max_additional_numbers?: number
           max_monthly_cents?: number
           max_unit_cents?: number
+          pickup_retirement_enabled?: boolean
+          release_enabled?: boolean
           singleton?: boolean
           target_active?: number
         }
@@ -4619,6 +4641,8 @@ export type Database = {
           max_additional_numbers?: number
           max_monthly_cents?: number
           max_unit_cents?: number
+          pickup_retirement_enabled?: boolean
+          release_enabled?: boolean
           singleton?: boolean
           target_active?: number
         }
@@ -4999,6 +5023,7 @@ export type Database = {
           next_attempt_at: string
           payload: Json
           sms_body: string | null
+          sms_from_number: string | null
           sms_sid: string | null
           status: string
           updated_at: string
@@ -5594,6 +5619,7 @@ export type Database = {
       recover_refund_notifications: { Args: never; Returns: undefined }
       recover_stale_confirmation_deliveries: { Args: never; Returns: undefined }
       refresh_voice_number_health: { Args: never; Returns: undefined }
+      refresh_voice_number_health_base: { Args: never; Returns: undefined }
       reminder_phone: { Args: { p_phone: string }; Returns: string }
       renew_failed_handover_email: {
         Args: {
@@ -5757,6 +5783,10 @@ export type Database = {
       }
       schedule_minute: { Args: { p_time: string }; Returns: number }
       schedule_state: { Args: { p_state: string }; Returns: string }
+      select_sms_sender: {
+        Args: { p_mms?: boolean; p_preferred?: string }
+        Returns: string
+      }
       spend_location: {
         Args: { p_campaign: string; p_location: string }
         Returns: string
@@ -5834,13 +5864,22 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      voice_pickup_rate: { Args: { p_since?: string }; Returns: Json }
       voice_pool_begin: {
         Args: { p_id: string; p_token: string }
+        Returns: boolean
+      }
+      voice_pool_begin_release: {
+        Args: { p_number: string; p_sid: string; p_token: string }
         Returns: boolean
       }
       voice_pool_budget: { Args: never; Returns: Json }
       voice_pool_finish: {
         Args: { p_id: string; p_mms: boolean; p_sid: string }
+        Returns: undefined
+      }
+      voice_pool_finish_release: {
+        Args: { p_error?: string; p_number: string; p_sid: string }
         Returns: undefined
       }
       voice_pool_lease: {
