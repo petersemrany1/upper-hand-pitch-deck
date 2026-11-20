@@ -12,7 +12,7 @@ test('quotes use the existing HTG compliance identity and purchases configure ca
     if(url.includes('pricing.twilio.com')) data={price_unit:'usd',phone_number_prices:[{number_type:'mobile',current_price:'8.25'}]};
     else if(url.endsWith(`${sid}.json`)) data={account_sid:account,phone_number:pool[0].number,bundle_sid:bundle,address_sid:address};
     else if(url.endsWith(`/Bundles/${bundle}`)) data={status:'twilio-approved'};
-    else if(url.includes('AvailablePhoneNumbers')) data={available_phone_numbers:[{phone_number:'+61485000001',capabilities:{voice:true,sms:true,mms:false}}]};
+    else if(url.includes('AvailablePhoneNumbers')) data={available_phone_numbers:[{phone_number:'+61485000001',beta:true,capabilities:{voice:true,SMS:true,MMS:false}}]};
     else if(init?.method==='POST') data={account_sid:account,sid,phone_number:'+61485000001',friendly_name:'HTG-Replacement-id',voice_url:base+'/functions/v1/voice-inbound',sms_url:base+'/functions/v1/sms-inbound',capabilities:{voice:true,sms:true,mms:false}};
     else throw new Error('Unexpected request');
     return new Response(JSON.stringify(data),{status:200});
