@@ -26,6 +26,8 @@ const normalizer=readFileSync(new URL('../supabase/migrations/20261010050000_cus
 await db.exec(normalizer);
 const sql=readFileSync(new URL('../supabase/migrations/20261119090000_voice_reputation_safeguards.sql',import.meta.url),'utf8').split('-- Deployment scheduling:')[0];
 await db.exec(sql); await db.exec(sql);
+const callbacks=readFileSync(new URL("../supabase/migrations/20261120040000_rep_callback_routing.sql",import.meta.url),"utf8");
+await db.exec(callbacks); await db.exec(callbacks);
 const claim=async(n,phone='0412000001',rep=1,clinic=null)=>(await db.query('SELECT claim_outbound_call($1,$2,$3,NULL,$4) r',[sid(n),phone,id(rep),clinic])).rows[0].r;
 const status=async(n,child,st,seq,duration=null,recording=null,rep=null)=>(await db.query('SELECT apply_voice_status($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) r',[sid(n),child ? sid(child):null,st,seq,duration,'','',recording,recording?'https://api.twilio.com/recording.mp3':null,rep?id(rep):null])).rows[0].r;
 const row=async n=>(await db.query('SELECT * FROM call_records WHERE twilio_call_sid=$1',[sid(n)])).rows[0];
@@ -70,7 +72,7 @@ for(let n=31;n<41;n++) await db.query("INSERT INTO call_records(twilio_call_sid,
 assert.equal((await claim(26,'0412000009')).reason,'no_eligible_number');
 await db.exec("UPDATE phone_numbers SET outbound_daily_limit=80");
 const route=(await db.query('SELECT resolve_inbound_voice($1,$2,$3) r',['+61412000001',sid(30),a.caller_id])).rows[0].r;
-assert.deepEqual(route.rep_ids,[id(1),id(2)],'last active rep plus active admins use real token identities');
+assert.deepEqual(route.rep_ids,[id(1)],'known callback rings the last rep only, never all admins');
 assert.equal((await row(30)).direction,'inbound');
 await status(30,301,'in-progress',2,null,null,1);
 await status(30,302,'canceled',3,0,null,2);
@@ -83,6 +85,31 @@ await claim(40,'0412000006'); await status(40,400,'no-answer',3,0);
 assert.equal((await row(40)).duration_seconds,0,'terminal zero duration is stored');
 await status(40,null,'completed',null,30);
 assert.equal((await row(40)).status,'no-answer','parent completion is never mistaken for pickup');
+// Busy rep and voicemail callbacks never count as a connected conversation.
+await db.query('SELECT resolve_inbound_voice($1,$2,$3)', ['0412000001',sid(41),a.caller_id]);
+await status(41,null,'completed',null,52); // parent/voicemail can arrive first
+assert.equal((await row(41)).status,'ringing');
+await status(41,410,'busy',3,0);
+await status(41,null,'completed',null,60);
+assert.equal((await row(41)).status,'busy');
+assert.equal((await row(41)).duration,0);
+assert.equal((await row(41)).rep_id,id(1));
+await status(41,410,'ringing',1);
+assert.equal((await row(41)).status,'busy','late ringing cannot remove the callback');
+// No rep is a reception call; an inactive known rep does not fall through to admins.
+const unknown=(await db.query('SELECT resolve_inbound_voice($1,$2,$3) r',['0412888888',sid(42),a.caller_id])).rows[0].r;
+assert.deepEqual(unknown.rep_ids,[id(2)]);
+await db.query("INSERT INTO call_records(twilio_call_sid,phone,rep_id,direction,status) VALUES($1,'0412777777',$2,'outbound','no-answer')",[sid(43),id(3)]);
+const inactive=(await db.query('SELECT resolve_inbound_voice($1,$2,$3) r',['0412777777',sid(44),a.caller_id])).rows[0].r;
+assert.deepEqual(inactive.rep_ids,[]);
+assert.equal((await row(44)).rep_id,id(3));
+assert.equal((await row(44)).status,'no-answer');
+const admin=(await db.query('SELECT resolve_inbound_voice($1,$2,$3) r',['0412999999',sid(45),a.caller_id])).rows[0].r;
+await status(45,450,'completed',3,0,null,2);
+assert.equal((await row(45)).status,'completed','even a zero-second accepted call is answered');
+assert.equal((await row(45)).voice_destination_sid,sid(450));
+await db.query('SELECT resolve_inbound_voice($1,$2,$3)',['0412000001',sid(41),a.caller_id]);
+assert.equal((await row(41)).status,'busy','webhook retry cannot reset settled callback');
 // Synthetic deterioration triggers once, then automatically clears after recovery.
 for(let n=100;n<140;n++) await db.query("INSERT INTO call_records(phone,from_number,called_at,duration_seconds,status,call_analysis) VALUES($1,'+61485000001',now()-interval '10 days',120,'completed',NULL)",['+61410000'+n]);
 for(let n=200;n<240;n++) await db.query("INSERT INTO call_records(phone,from_number,duration_seconds,status,call_analysis) VALUES($1,'+61485000001',0,'no-answer',$2)",['+61410000'+n,n===200?JSON.stringify({transcript:'The text message is showing as spam.'}):null]);

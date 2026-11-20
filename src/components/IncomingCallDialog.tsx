@@ -46,15 +46,9 @@ function statusColor(s: string | null): { bg: string; fg: string } {
 }
 
 export function IncomingCallDialog() {
-  const { status: deviceStatus, incomingFrom, waitingFrom, answer, reject } = useTwilioDevice();
-  // Banner is shown when the device is ringing OR when a call-waiting second
-  // call comes in while the user is already on a call.
-  const isRinging = deviceStatus === "ringing-incoming";
-  const isWaiting = !!waitingFrom && deviceStatus === "in-call";
-  const isActive = isRinging || isWaiting;
-  // Caller number we show in the banner — the waiting call takes priority
-  // when the user is already on another call.
-  const callerNumber = isWaiting ? waitingFrom : incomingFrom;
+  const { status: deviceStatus, incomingFrom, answer, reject } = useTwilioDevice();
+  const isActive = deviceStatus === "ringing-incoming";
+  const callerNumber = incomingFrom;
 
   const [matched, setMatched] = useState<MatchedLead | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
@@ -129,7 +123,7 @@ export function IncomingCallDialog() {
     return () => { cancelled = true; };
   }, [matched]);
 
-  // Banner stays visible for the entire ringing/waiting lifecycle. It is
+  // Banner stays visible for the entire ringing lifecycle. It is
   // cleared automatically when the device transitions out of the ringing
   // state (answered, rejected, or remote hangup) — never by a stray click
   // or a local timer.
@@ -257,7 +251,7 @@ export function IncomingCallDialog() {
                   fontWeight: 600,
                 }}
               >
-                {isWaiting ? "Call waiting" : "Incoming call"}
+                Incoming call
               </span>
               <span
                 style={{
