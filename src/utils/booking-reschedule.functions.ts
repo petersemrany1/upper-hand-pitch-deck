@@ -1,3 +1,4 @@
+import { getSmsSender } from "./sms-sender.server";
 import { clinicRescheduleCc, validateClinicEmailDraft, validClinicEmail } from "@/lib/clinic-reschedule-email";
 import { deliverRescheduleNotifications } from "@/lib/clinic-email-delivery";
 import { deliverClinicRescheduleEmail } from "./clinic-reschedule-email.server";
@@ -42,7 +43,7 @@ async function deliverReschedule(eventId:string) {
     }
     const account = process.env.TWILIO_ACCOUNT_SID, token = process.env.TWILIO_AUTH_TOKEN;
     if (!account || !token) return { ok: false, error: "SMS service is not configured" };
-    return sendSms(account, token, event.sms_phone, event.sms_body);
+    return sendSms(account, token, event.sms_phone, event.sms_body, await getSmsSender(PATIENT_SMS_FROM));
   },
   async finish(status,result){const {error}=await db.from("appointment_reschedules").update({sms_status:status,sms_sid:result.sid??null,sms_error:result.error??null}).eq("id",eventId);if(error)throw error;},
   async log(event,result){
@@ -50,7 +51,7 @@ async function deliverReschedule(eventId:string) {
    const {data:existing}=await db.from("sms_threads").select("id").eq("phone",event.sms_phone).maybeSingle();
    let threadId=existing?.id;
    if(!threadId){const {data:thread}=await db.from("sms_threads").insert({phone:event.sms_phone,display_name:a?.patient_name}).select("id").single();threadId=thread?.id;}
-   if(threadId)await db.from("sms_messages").insert({thread_id:threadId,direction:"outbound",body:event.sms_body,twilio_message_sid:result.sid,status:result.status??"queued",from_number:PATIENT_SMS_FROM,to_number:event.sms_phone,lead_id:a?.lead_id,sent_at:new Date().toISOString()});
+   if(threadId)await db.from("sms_messages").insert({thread_id:threadId,direction:"outbound",body:event.sms_body,twilio_message_sid:result.sid,status:result.status??"queued",from_number:result.from,to_number:event.sms_phone,lead_id:a?.lead_id,sent_at:new Date().toISOString()});
   }
  });
 }

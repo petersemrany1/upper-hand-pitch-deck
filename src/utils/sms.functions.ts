@@ -1,9 +1,9 @@
+import { getSmsSender } from "./sms-sender.server";
 import { createServerFn } from "@tanstack/react-start";
 
 import { createClient } from "@supabase/supabase-js";
 import { logError } from "./error-logger.functions";
 
-const TWILIO_FROM = "+61468031075";
 const MMS_STATUS_CALLBACK_PATH = "/api/public/hooks/twilio-message-status";
 
 function formatAUPhone(raw: string): string {
@@ -60,6 +60,7 @@ export const sendSms = createServerFn({ method: "POST" })
       return { success: false as const, error: "Message body or media is required" };
     }
 
+    const TWILIO_FROM = await getSmsSender(null, data.mediaUrls.length > 0);
     const formattedTo = formatAUPhone(data.to);
     const params = new URLSearchParams();
     params.set("To", formattedTo);

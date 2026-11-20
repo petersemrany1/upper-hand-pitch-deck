@@ -1,3 +1,4 @@
+import { resolveSmsSender } from "../../supabase/functions/_shared/sms-sender";
 import { createClient } from "@supabase/supabase-js";
 import { createStripeClient, resolveStripeEnv } from "@/lib/stripe.server";
 import { squareApiBase } from "@/lib/square.server";
@@ -50,13 +51,14 @@ export async function verifyRecordedRefund(e: RefundNotice) {
   return checkRefundObject(e.payload.processor, raw, { refundId, paymentId });
 }
 
-export async function sendRefundSms(id: string, to: string, body: string, transport: typeof fetch = fetch): Promise<SmsSendResult> {
+export async function sendRefundSms(id: string, to: string, body: string, transport: typeof fetch = fetch, resolveSender: () => Promise<string> = () => resolveSmsSender(refundDatabase(), PATIENT_SMS_FROM)): Promise<SmsSendResult> {
   const account = process.env.TWILIO_ACCOUNT_SID, token = process.env.TWILIO_AUTH_TOKEN;
   if (!account || !token) return { ok: false, error: "Twilio credentials are not configured" };
+  const from = await resolveSender();
   const response = await transport(`https://api.twilio.com/2010-04-01/Accounts/${account}/Messages.json`, {
     method: "POST", signal: timeout(),
     headers: { Authorization: `Basic ${btoa(`${account}:${token}`)}`, "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ To: to, From: PATIENT_SMS_FROM, Body: body, StatusCallback: `${REFUND_STATUS_CALLBACK}?refund_notification_id=${id}` }),
+    body: new URLSearchParams({ To: to, From: from, Body: body, StatusCallback: `${REFUND_STATUS_CALLBACK}?refund_notification_id=${id}` }),
   });
   if (response.status >= 500 || response.status === 408) throw new Error("Twilio result is uncertain");
   const data = await response.json();
@@ -70,7 +72,7 @@ export async function recordRefundSmsStatus(db: any, id: string, sid: string, st
 }
 
 async function logRefundSms(db: any, e: RefundNotice) {
-  checked(await db.rpc("log_refund_sms", { p_id: e.id, p_from: PATIENT_SMS_FROM }));
+  checked(await db.rpc("log_refund_sms", { p_id: e.id, p_from: e.sms_from_number || PATIENT_SMS_FROM }));
 }
 
 /** Called only after provider signature verification. Retrieve current state to handle out-of-order events. */
@@ -130,7 +132,12 @@ export async function processRefundNotifications(db: any, dryRun = false) {
             ...(state === "refunded" ? { refund_processed_at: new Date().toISOString() } : {}),
           }).eq("id", e.appointment_id).eq(field, e.payload.refund_id).neq("refund_status", state));
         },
-        send: (phone, body) => sendRefundSms(e.id, phone, body),
+        send: async (phone, body) => {
+          const from = await resolveSmsSender(db, PATIENT_SMS_FROM);
+          const saved = checked(await db.from("refund_notifications").update({ sms_from_number: from }).eq("id", e.id).eq("claim_token", e.claim_token).select("id"));
+          if (!saved?.length) throw new Error("Refund SMS claim changed before sender selection");
+          return sendRefundSms(e.id, phone, body, fetch, async () => from);
+        },
         recordSms: (sid, status, error) => recordRefundSmsStatus(db, e.id, sid, status, error),
         async queueEmail(content) { return checked(await db.rpc("enqueue_refund_alert", { p_id: e.id, p_claim: e.claim_token, p_subject: content.subject, p_html: content.html, p_text: content.text })); },
       });

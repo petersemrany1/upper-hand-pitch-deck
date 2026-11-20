@@ -77,19 +77,19 @@ describe("refund SMS transport", () => {
       expect(body.get("To")).toBe("+61400000000"); expect(body.get("From")).toBe(PATIENT_SMS_FROM);
       expect(body.get("Body")).toBe("Approved message"); expect(body.get("StatusCallback")).toBe(REFUND_STATUS_CALLBACK + "?refund_notification_id=notice-id");
       return Response.json({ sid, status: "queued" }, { status: 201 });
-    }) as typeof fetch);
+    }) as typeof fetch, async () => PATIENT_SMS_FROM);
     expect(result).toEqual({ ok: true, sid, status: "queued" }); expect(requests).toBe(1);
   });
   test("5xx and missing SID are uncertain; 429 is safely retryable", async () => {
     configure();
     for (const response of [new Response("Unavailable", { status: 503 }), Response.json({ status: "queued" }, { status: 201 })]) {
-      await expect(sendRefundSms("id", "+61400000000", "message", (async () => response) as typeof fetch)).rejects.toThrow();
+      await expect(sendRefundSms("id", "+61400000000", "message", (async () => response) as typeof fetch, async () => PATIENT_SMS_FROM)).rejects.toThrow();
     }
-    expect(await sendRefundSms("id", "+61400000000", "message", (async () => Response.json({ message: "Rate limited" }, { status: 429 })) as typeof fetch)).toEqual({ ok: false, error: "Rate limited", retryable: true });
+    expect(await sendRefundSms("id", "+61400000000", "message", (async () => Response.json({ message: "Rate limited" }, { status: 429 })) as typeof fetch, async () => PATIENT_SMS_FROM)).toEqual({ ok: false, error: "Rate limited", retryable: true });
   });
   test("missing credentials fail without contacting a provider", async () => {
     delete process.env.TWILIO_AUTH_TOKEN;
-    const result = await sendRefundSms("id", "+61400000000", "message", (async () => { throw new Error("Should never call"); }) as typeof fetch);
+    const result = await sendRefundSms("id", "+61400000000", "message", (async () => { throw new Error("Should never call"); }) as typeof fetch, async () => PATIENT_SMS_FROM);
     expect(result.ok).toBe(false);
   });
 });

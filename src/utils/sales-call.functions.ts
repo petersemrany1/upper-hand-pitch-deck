@@ -1,3 +1,4 @@
+import { getSmsSender } from "./sms-sender.server";
 import { saveSalesOutcome, stampLatestCallOutcome } from "./sales-outcome.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { salesCallCounts, dashboardMetrics, conversionPercent, isRankedRep } from "@/lib/leaderboard-metrics";
@@ -32,7 +33,6 @@ async function assertAdmin(userId: string): Promise<string> {
   return email;
 }
 
-const TWILIO_FROM = "+61468031075";
 const MMS_STATUS_CALLBACK_PATH = "/api/public/hooks/twilio-message-status";
 
 function formatAUPhone(raw: string): string {
@@ -124,6 +124,7 @@ export const sendLeadMms = createServerFn({ method: "POST" })
       .from("meta_leads").select("id, phone, first_name").eq("id", data.leadId).single();
     if (!lead?.phone) return { success: false as const, error: "Lead has no phone" };
 
+    const TWILIO_FROM = await getSmsSender(null, true);
     const to = formatAUPhone(lead.phone);
     const params = new URLSearchParams();
     params.set("To", to);

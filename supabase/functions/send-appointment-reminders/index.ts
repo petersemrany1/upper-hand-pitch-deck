@@ -1,3 +1,4 @@
+import { resolveSmsSender } from "../_shared/sms-sender.ts";
 // Every five minutes; each clinic’s local schedule determines what is due. Dry runs never write.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
@@ -14,7 +15,7 @@ const corsHeaders = {
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 // deno-lint-ignore no-explicit-any
-async function logToInbox(sb: any, opts: {
+async function logToInbox(sb: any, opts: { from?: string;
   to: string;
   body: string;
   sid?: string;
@@ -46,7 +47,7 @@ async function logToInbox(sb: any, opts: {
       body: opts.body,
       twilio_message_sid: opts.sid ?? null,
       status: opts.status ?? "queued",
-      from_number: PATIENT_SMS_FROM,
+      from_number: opts.from,
       to_number: opts.to,
       lead_id: opts.leadId ?? null,
       sent_at: new Date().toISOString(),
@@ -120,11 +121,11 @@ serve(async (req) => {
         const { error } = await sb.rpc("finish_confirmation_delivery", { p_delivery: id, p_status: status, p_provider: provider ?? null, p_error: errorMessage ?? null });
         if (error) throw error;
       },
-      sms: (to, message, deliveryId) => sendSms(accountSid!, authToken!, to, message, fetch, `${baseUrl}/api/public/hooks/twilio-message-status?reminder_delivery=${encodeURIComponent(deliveryId)}`),
+      sms: async (to, message, deliveryId) => sendSms(accountSid!, authToken!, to, message, await resolveSmsSender(sb, PATIENT_SMS_FROM), fetch, `${baseUrl}/api/public/hooks/twilio-message-status?reminder_delivery=${encodeURIComponent(deliveryId)}`),
       email: (to, subject, html, key) => sendConfirmationEmail(to, subject, html, key, { apiKey: Deno.env.get("RESEND_API_KEY"), gatewayKey: Deno.env.get("LOVABLE_API_KEY") }),
-      log: (row, to, message, result) => logToInbox(sb, { to, body: message, sid: result.sid, status: result.status, leadId: row.lead_id }),
+      log: (row, to, message, result) => logToInbox(sb, { to, body: message, sid: result.sid, status: result.status, from: result.from, leadId: row.lead_id }),
     }, baseUrl);
-    return json({ ok: !results.some(r => r.error), mode: dryRun ? "dry_run" : "send", sender: PATIENT_SMS_FROM, configuration: { sms: Boolean(accountSid && authToken), email: Boolean(Deno.env.get("RESEND_API_KEY")) }, scanned: rows.length, processed: results.length, results });
+    return json({ ok: !results.some(r => r.error), mode: dryRun ? "dry_run" : "send", sender: "Active phone pool (selected at send time)", configuration: { sms: Boolean(accountSid && authToken), email: Boolean(Deno.env.get("RESEND_API_KEY")) }, scanned: rows.length, processed: results.length, results });
   } catch (error) {
     console.error("[send-appointment-reminders] failed", error);
     return json({ error: error instanceof Error ? error.message : "Reminder database query failed" }, 500);
