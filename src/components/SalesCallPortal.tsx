@@ -32,6 +32,8 @@ import { CALLBACK_WINDOW_MS, buildQueue, dueCallbackIds, type HistoryMap } from 
 import { callAttemptsLabel, createCallHistoryLoader } from "./sales-call/call-history";
 import { finishSessionPosition, nextSessionIndexFromActive, reorderSessionQueue, sessionQueueIndex } from "./sales-call/session-queue";
 import { isReturningLead, normaliseStatus, requiresManualDial, type StatusKey } from "./sales-call/status";
+import { ringBackAction, type RingBackCall } from "./sales-call/ring-backs";
+import { useRingBackQueue } from "./sales-call/use-ring-back-queue";
 import { statusUpdateError } from "./sales-call/status-update";
 import { toast } from "sonner";
 import {
@@ -281,10 +283,6 @@ function placeLeadAfterCurrent(queue: string[], currentLeadId: string | null | u
 
 /** A callback or ring-back dialled by anyone this recently isn't served again. */
 const RECENT_DIAL_MS = 10 * 60 * 1000;
-/** Ring-backs survive a page refresh for this long. */
-const RING_BACK_STORE_KEY = "salesCall.ringBackQueue";
-const RING_BACK_TTL_MS = 2 * 60 * 60 * 1000;
-
 /**
  * Can a lead jump the queue because they rang us back? Closed-out leads never
  * do: booked (deposit or not), not interested, dropped, cancelled, no-show,
@@ -296,6 +294,7 @@ function isRingBackEligible(lead: Lead): boolean {
   return !(
     normStatus === "booked_deposit_paid" ||
     normStatus === "booked_no_deposit" ||
+    normStatus === "already_booked" ||
     normStatus === "on_hold" ||
     normStatus === "not_interested" ||
     normStatus === "had_convo_no_sale" ||
@@ -463,36 +462,12 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     if (!priorityLocation) return false;
     return leadLocationText(l).includes(priorityLocation);
   }, [priorityLocation]);
-  // Queue of lead ids that missed-called us and should be jumped-to on the
-  // next "Next Lead" click (both in and out of session mode). Excludes
-  // booked_deposit_paid / dropped / not_interested leads.
-  // Persisted for RING_BACK_TTL_MS so a page refresh doesn't lose ring-backs.
-  const readRingBackStore = (): { ids: string[]; ringBack: string[] } => {
-    if (typeof window === "undefined" || practiceMode) return { ids: [], ringBack: [] };
-    try {
-      const raw = window.localStorage.getItem(RING_BACK_STORE_KEY);
-      if (!raw) return { ids: [], ringBack: [] };
-      const parsed = JSON.parse(raw) as { at?: number; ids?: string[]; ringBack?: string[] };
-      if (!parsed?.at || !Array.isArray(parsed.ids)) return { ids: [], ringBack: [] };
-      if (Date.now() - parsed.at > RING_BACK_TTL_MS) return { ids: [], ringBack: [] };
-      const str = (a: unknown[]) => a.filter((id): id is string => typeof id === "string");
-      return { ids: str(parsed.ids), ringBack: str(Array.isArray(parsed.ringBack) ? parsed.ringBack : []) };
-    } catch { return { ids: [], ringBack: [] }; }
-  };
-  const [missedCallQueue, setMissedCallQueue] = useState<string[]>(() => readRingBackStore().ids);
-  // Subset of the queue that got there by actually ringing us back (as opposed
-  // to a scheduled callback coming due) — only these show the "called back" banner.
-  const [ringBackIds, setRingBackIds] = useState<string[]>(() => readRingBackStore().ringBack);
+  // Scheduled callbacks and this rep's ring-backs take priority on Next.
+  const { missedCallQueue, setMissedCallQueue, ringBackIds, setRingBackIds, queueOwner } =
+    useRingBackQueue(practiceMode || testLeadId ? null : user?.id ?? null);
   const missedCallQueueRef = useRef<string[]>([]);
   useEffect(() => { missedCallQueueRef.current = missedCallQueue; }, [missedCallQueue]);
-  useEffect(() => {
-    if (typeof window === "undefined" || practiceMode) return;
-    try {
-      if (missedCallQueue.length === 0) window.localStorage.removeItem(RING_BACK_STORE_KEY);
-      else window.localStorage.setItem(RING_BACK_STORE_KEY, JSON.stringify({ at: Date.now(), ids: missedCallQueue, ringBack: ringBackIds }));
-    } catch { /* storage unavailable — in-memory only */ }
-  }, [missedCallQueue, ringBackIds, practiceMode]);
-  
+
   const activeIdRef = useRef<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -515,7 +490,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     sessionStorage.setItem("salesCall.step", step);
   }, [step]);
   const [completed, setCompleted] = useState<Set<StepKey>>(new Set());
-  const [repId, setRepId] = useState<string | null>(null);
+  const [repIdentity, setRepIdentity] = useState<{ id: string; email: string } | null>(null);
+  const repId = repIdentity?.email === user?.email ? repIdentity?.id ?? null : null;
   const [repName, setRepName] = useState<string>("");
   const [mmsImages, setMmsImages] = useState<{ name: string; url: string }[]>([]);
   // Discovery notes + AI pre-fill, lifted so they persist across steps and feed amplification/audiobook
@@ -1013,7 +989,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     // rebuilt history doesn't trigger another callback query.
     // Re-run as soon as paused cities or clinic capacity change, so a callback
     // for a city that just filled up is withdrawn instead of surfacing.
-  }, [isLeadLocationPaused, isLeadClinicFull]);
+  }, [isLeadLocationPaused, isLeadClinicFull, capacityReadyRef, setMissedCallQueue]);
 
   useEffect(() => {
     const leadIds = loadedLeadIdsKey.split(",").filter((id) => id && id !== PRACTICE_LEAD_ID);
@@ -1107,17 +1083,20 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
 
   // Resolve rep from auth email
   useEffect(() => {
-    if (!user?.email) return;
-    void ensureRepForEmail({ data: { email: user.email, name: user.user_metadata?.name ?? "" } })
+    const email = user?.email;
+    if (!email) return;
+    let cancelled = false;
+    void ensureRepForEmail({ data: { email, name: user.user_metadata?.name ?? "" } })
       .then((r) => {
-        if (r.success && r.rep) {
-          setRepId(r.rep.id);
+        if (!cancelled && r.success && r.rep) {
+          setRepIdentity({ id: r.rep.id, email });
           // Always prefer first_name from sales_reps; fall back to "there" so the script reads naturally.
           const repAny = r.rep as { first_name?: string | null; name?: string | null };
           const firstOnly = (repAny.first_name?.trim()) || (repAny.name?.split(" ")[0]?.trim()) || "there";
           setRepName(firstOnly);
         }
       });
+    return () => { cancelled = true; };
   }, [user?.email, user?.user_metadata?.name]);
 
   // Load leads + realtime
@@ -1270,20 +1249,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // lead" jumps straight to them.
   useEffect(() => {
     // Practice/sandbox sessions never get jumped by real inbound calls.
-    if (practiceMode || testLeadId) return;
-    const seen = new Set<string>();
-    // Twilio writes the inbound row as "ringing" first, then updates it. We
-    // must wait for a settled state: acting on "ringing" would queue someone
-    // the rep is about to pick up and talk to.
-    const TERMINAL = new Set(["completed", "no-answer", "noanswer", "busy", "failed", "canceled", "cancelled"]);
-    const handle = async (row: { id?: string; direction?: string; status?: string | null; duration?: number | null; phone?: string | null; lead_id?: string | null } | null) => {
-      if (!row || row.direction !== "inbound" || !row.id) return;
-      const s = (row.status || "").toLowerCase();
-      // Talk time, or live right now = the rep is speaking to them. Not a
-      // ring-back to serve later — and if we queued them from an earlier
-      // update, take them back out.
-      const answered = (row.duration && row.duration > 0) || s === "in-progress";
-      if (answered) {
+    if (practiceMode || testLeadId || !repId || !queueOwner) return;
+    let cancelled = false;
+    const seen = new Map<string, "queue" | "answered">();
+    const handle = async (row: RingBackCall | null) => {
+      if (cancelled || !row?.id) return;
+      const action = ringBackAction(row, repId);
+      if (!action) return;
+      if (action === "answered") {
         const answeredLeadId = row.lead_id
           || leadsRef.current.find((l) => {
             const t = (row.phone || "").replace(/[^0-9]/g, "").slice(-9);
@@ -1293,17 +1266,19 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           setMissedCallQueue((prev) => prev.filter((id) => id !== answeredLeadId));
           setRingBackIds((prev) => prev.filter((id) => id !== answeredLeadId));
         }
-        seen.add(row.id);
+        seen.set(row.id, "answered");
         return;
       }
-      // Still in flight (ringing/queued/initiated) — wait for the final state.
-      if (!TERMINAL.has(s)) return;
+      // Duplicate or late missed statuses must not resurrect an answered call.
       if (seen.has(row.id)) return;
-      seen.add(row.id);
+      seen.set(row.id, "queue");
       const tail = (row.phone || "").replace(/[^0-9]/g, "").slice(-9);
-      let lead = tail.length >= 6
-        ? leadsRef.current.find((l) => (l.phone || "").replace(/[^0-9]/g, "").slice(-9) === tail)
-        : undefined;
+      // Prefer the actual enquiry called over another same-phone enquiry.
+      let lead = row.lead_id
+        ? leadsRef.current.find((l) => l.id === row.lead_id)
+        : tail.length >= 6
+          ? leadsRef.current.find((l) => (l.phone || "").replace(/[^0-9]/g, "").slice(-9) === tail)
+          : undefined;
       // Not on the loaded list (older enquiry, other group): the inbound call
       // record already knows which lead it is, so pull that one lead in.
       if (!lead && row.lead_id) {
@@ -1316,7 +1291,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             .select(SALES_CALL_LEAD_SELECT)
             .eq("id", row.lead_id)
             .maybeSingle();
-          if (!data) return;
+          if (cancelled || seen.get(row.id) !== "queue" || !data) return;
           lead = data as Lead;
           const fetched = lead;
           if (!isRingBackEligible(fetched)) return;
@@ -1358,29 +1333,31 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         toast.success(`📞 ${name} called back — queued next`);
       }
     };
-    const ch = supabase.channel("sales-call-missed-callbacks")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_records" }, (p) => void handle(p.new as Parameters<typeof handle>[0]))
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "call_records" }, (p) => void handle(p.new as Parameters<typeof handle>[0]))
+    const ch = supabase.channel(`sales-call-missed-callbacks-${repId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_records", filter: `rep_id=eq.${repId}` }, (p) => void handle(p.new as Parameters<typeof handle>[0]))
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "call_records", filter: `rep_id=eq.${repId}` }, (p) => void handle(p.new as Parameters<typeof handle>[0]))
       .subscribe();
-    return () => { void supabase.removeChannel(ch); };
-  }, [practiceMode, testLeadId]);
+    return () => { cancelled = true; void supabase.removeChannel(ch); };
+  }, [practiceMode, testLeadId, repId, queueOwner, setMissedCallQueue, setRingBackIds]);
 
   // Ring-backs restored from localStorage after a refresh may point at leads
   // that aren't in the loaded list. Pull them in so the banner and "Next"
   // can actually serve them (and drop any that no longer qualify).
-  const ringBackHydratedRef = useRef(false);
+  const ringBackHydratedRef = useRef<string | null>(null);
   useEffect(() => {
     if (practiceMode || testLeadId) return;
-    if (ringBackHydratedRef.current) return;
+    if (!queueOwner || ringBackHydratedRef.current === queueOwner) return;
     if (leads.length === 0) return;
     const missing = missedCallQueueRef.current.filter((id) => !leads.some((l) => l.id === id));
-    ringBackHydratedRef.current = true;
+    ringBackHydratedRef.current = queueOwner;
     if (missing.length === 0) return;
+    let cancelled = false;
     void (async () => {
       const { data } = await supabase
         .from("meta_leads")
         .select(SALES_CALL_LEAD_SELECT)
         .in("id", missing);
+      if (cancelled) return;
       const rows = ((data ?? []) as unknown as Lead[]).filter(
         (l) => !HIDDEN_TEST_LEAD_IDS.has(l.id) && isRingBackEligible(l),
       );
@@ -1390,7 +1367,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         setLeads((prev) => [...rows.filter((r) => !prev.some((p) => p.id === r.id)), ...prev]);
       }
     })();
-  }, [leads, practiceMode, testLeadId]);
+    return () => { cancelled = true; ringBackHydratedRef.current = null; };
+  }, [leads, practiceMode, testLeadId, queueOwner, setMissedCallQueue]);
 
 
 
@@ -1569,7 +1547,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const next = prev.filter(keep);
       return next.length === prev.length ? prev : next;
     });
-  }, [isLeadUnavailable, leads, liveCallLeadId, queueCallStatus]);
+  }, [isLeadUnavailable, leads, liveCallLeadId, queueCallStatus, setMissedCallQueue]);
   const dueLeadIds = dueQueue.order;
   const dueSet = useMemo(() => new Set(dueLeadIds), [dueLeadIds]);
   const dueSetRef = useRef(dueSet);
@@ -1638,7 +1616,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     };
     void load();
     return () => { controller.abort(); clearTimeout(retry); };
-  }, [missingLeadId, queuePosition]);
+  }, [missingLeadId, queuePosition, setMissedCallQueue, setRingBackIds]);
 
   // All automatic exits converge here. The database check is authoritative;
   // failed reads retain the session, and cleanup cancels stale async results.
