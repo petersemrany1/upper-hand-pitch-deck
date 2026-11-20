@@ -15,7 +15,7 @@ export function workflowSms(row: ConfirmationBooking, kind: Exclude<ReminderActi
 const escape = (s: string) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 export function confirmationEmail(row: ConfirmationBooking, settings: ReminderSettings, baseUrl: string) {
   const clinic = row.appointment?.clinic?.clinic_name || "Clinic";
-  const reason = row.confirmation_reason === "patient_reply" ? "The patient replied and needs your help." : row.confirmation_reason === "delivery_failed" ? "Their reminder could not be delivered reliably." : row.confirmation_reason === "opt_out" ? "The patient has opted out of SMS." : row.confirmation_requested_at ? "They have not confirmed that they will attend." : "This booking needs a call because there was not enough time for the usual confirmation sequence.";
+  const reason = row.confirmation_reason === "patient_reply" ? "The patient replied and needs your help." : row.confirmation_reason === "delivery_failed" ? "Their reminder could not be delivered reliably." : row.confirmation_reason === "opt_out" ? "The patient has opted out of SMS." : row.confirmation_followup_at ? "They have not replied to the second confirmation text. Please call to check they are still attending." : "This booking needs a call because there was not enough time for the usual confirmation sequence.";
   const name = [row.patient_first_name, row.patient_last_name].filter(Boolean).join(" ") || "Patient";
   const link = `${baseUrl.replace(/\/$/, "")}/booked-appointments?appointment=${encodeURIComponent(row.appointment_id!)}`;
   const date = row.booking_date ? new Date(row.booking_date + "T12:00:00Z").toLocaleDateString("en-AU", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }) : "";
@@ -40,7 +40,7 @@ export async function processConfirmationWorkflow(rows: ConfirmationBooking[], s
       const kind = nextReminderAction(row, config, now);
       if (!kind) continue;
       const to = kind === "call_email" ? config.alert_email : formatAUPhone(row.patient_phone);
-      // Even a missing phone must produce a call-list entry/email instead of vanishing.
+      // Only unanswered second requests produce the scheduled team email.
       const email = confirmationEmail(row, config, baseUrl);
       let body = email.html;
       let validationError: string | undefined;

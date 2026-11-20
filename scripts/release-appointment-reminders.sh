@@ -29,6 +29,7 @@ reminder_vault_count="$(reminder_psql -Atc "SELECT count(DISTINCT name) FROM vau
 [[ "$reminder_vault_count" == '1' ]] || { echo 'The existing internal_function_secret must be present in database Vault.'; exit 1; }
 reminder_psql -1 -f supabase/migrations/20261023010000_clinic_reminder_confirmation.sql -c "INSERT INTO supabase_migrations.schema_migrations(version,name) VALUES('20261023010000','clinic_reminder_confirmation') ON CONFLICT(version) DO NOTHING;"
 reminder_psql -1 -f supabase/migrations/20261023015000_sync_manual_appointment_confirmations.sql -c "INSERT INTO supabase_migrations.schema_migrations(version,name) VALUES('20261023015000','sync_manual_appointment_confirmations') ON CONFLICT(version) DO NOTHING;"
+reminder_psql -1 -f supabase/migrations/20261120050000_sydney_confirmation_call_alerts.sql -c "INSERT INTO supabase_migrations.schema_migrations(version,name) VALUES('20261120050000','sydney_confirmation_call_alerts') ON CONFLICT(version) DO NOTHING;"
 supabase functions deploy send-appointment-reminders --project-ref "$reminder_project_ref"
 supabase functions deploy sms-inbound --project-ref "$reminder_project_ref"
 # A dry run sends no texts/emails. Never print the authorization header or patient payload.
