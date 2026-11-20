@@ -1,6 +1,6 @@
 export type Purchase = { id: string; phone: string; state: string; monthly_cents: number; currency: string };
 export type PoolNumber = { number: string; twilio_sid: string | null; status: string; mms_enabled: boolean };
-export type Settings = { enabled: boolean; target_active: number; max_additional_numbers: number; max_monthly_cents: number; max_unit_cents: number; currency: string };
+export type Settings = { enabled: boolean; release_enabled?: boolean; target_active: number; max_additional_numbers: number; max_monthly_cents: number; max_unit_cents: number; currency: string };
 export type Quote = { phone: string; cents: number; currency: string; bundle: string; address: string };
 export type OwnedNumber = { sid: string; phone: string; friendly: string; voiceUrl: string; smsUrl: string; voice: boolean; sms: boolean; mms: boolean };
 export class RejectedPurchase extends Error {}

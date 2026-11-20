@@ -1,3 +1,4 @@
+import { getSmsSender } from "./sms-sender.server";
 import { loadPatientConfirmation } from "./patient-confirmation.server";
 import { assertExistingBookingAccess } from "./booking-access.server";
 import { PATIENT_SMS_FROM } from "@/lib/booking-confirmation-sms";
@@ -659,7 +660,7 @@ export const sendContractSMS = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const fromNumber = process.env.TWILIO_FROM_NUMBER ?? "+61483938205";
+    const fromNumber = await getSmsSender(process.env.TWILIO_FROM_NUMBER ?? null);
 
     if (!accountSid || !authToken) {
       const msg = "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN must be configured";
@@ -1326,7 +1327,7 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const TWILIO_FROM = PATIENT_SMS_FROM;
+    const TWILIO_FROM = await getSmsSender(PATIENT_SMS_FROM);
 
     if (!accountSid || !authToken) {
       return { success: false as const, error: "Twilio credentials not configured" };
@@ -1436,7 +1437,7 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const TWILIO_FROM = PATIENT_SMS_FROM;
+    const TWILIO_FROM = await getSmsSender(PATIENT_SMS_FROM);
 
     if (!accountSid || !authToken) {
       return { success: false as const, error: "Twilio credentials not configured" };
@@ -1511,7 +1512,7 @@ export const sendManualSms = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const TWILIO_FROM = PATIENT_SMS_FROM;
+    const TWILIO_FROM = await getSmsSender(PATIENT_SMS_FROM);
     if (!accountSid || !authToken) {
       return { success: false as const, error: "Twilio not configured" };
     }
@@ -1735,7 +1736,7 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const TWILIO_FROM = PATIENT_SMS_FROM;
+    const TWILIO_FROM = await getSmsSender(PATIENT_SMS_FROM);
 
     if (!accountSid || !authToken) {
       return { success: false as const, error: "Twilio credentials not configured" };

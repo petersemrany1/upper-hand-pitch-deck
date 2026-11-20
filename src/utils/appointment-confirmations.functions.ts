@@ -1,3 +1,4 @@
+import { getSmsSender } from "./sms-sender.server";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -133,7 +134,7 @@ export const sendConfirmationText = createServerFn({ method: "POST" }).middlewar
         return { status: saved.sms_status, error: saved.sms_error };
       },
       async send(e) {
-        return sendSms(account, token, e.sms_phone, e.sms_body, async (url, init) => {
+        return sendSms(account, token, e.sms_phone, e.sms_body, await getSmsSender(PATIENT_SMS_FROM), async (url, init) => {
           const body = new URLSearchParams(init?.body as URLSearchParams);
           body.set("StatusCallback", "https://hairtransplantgroup.lovable.app/api/public/hooks/twilio-message-status");
           return fetch(url, { ...init, body, signal: AbortSignal.timeout(15000) });
@@ -153,7 +154,7 @@ export const sendConfirmationText = createServerFn({ method: "POST" }).middlewar
             if (error) throw error;
             threadId = thread.id;
           }
-          const { error } = await db.from("sms_messages").insert({ thread_id: threadId, direction: "outbound", body: e.sms_body, twilio_message_sid: result.sid, status: result.status ?? "queued", from_number: PATIENT_SMS_FROM, to_number: e.sms_phone, lead_id: booking.lead_id, sent_at: new Date().toISOString() });
+          const { error } = await db.from("sms_messages").insert({ thread_id: threadId, direction: "outbound", body: e.sms_body, twilio_message_sid: result.sid, status: result.status ?? "queued", from_number: result.from, to_number: e.sms_phone, lead_id: booking.lead_id, sent_at: new Date().toISOString() });
           if (error) throw error;
         } catch (error) { console.warn("Confirmation text accepted but inbox logging failed", error); }
       },

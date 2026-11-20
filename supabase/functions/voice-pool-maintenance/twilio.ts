@@ -5,6 +5,19 @@ const capability = (n: Json, key: string): boolean => Object.entries(n.capabilit
 export class PoolProvider {
   constructor(private sid: string, private token: string, private base: string, private request: typeof fetch = fetch) {}
   private api = 'https://api.twilio.com/2010-04-01';
+  async release(number: { number: string; twilio_sid: string | null }): Promise<void> {
+    if (!/^PN[0-9a-f]{32}$/i.test(number.twilio_sid || '')) throw new Error('Missing valid Twilio number identity');
+    const url = `${this.api}/Accounts/${this.sid}/IncomingPhoneNumbers/${number.twilio_sid}.json`;
+    const headers = { Authorization: `Basic ${btoa(`${this.sid}:${this.token}`)}` };
+    const existing = await this.request(url, { headers, signal: AbortSignal.timeout(12_000) });
+    const data = await existing.json();
+    // A prior successful DELETE whose database write failed is safe to reconcile.
+    if (existing.status === 404 && data.code === 20404) return;
+    if (!existing.ok) throw new Error(`Could not verify number before release (HTTP ${existing.status})`);
+    if (data.account_sid !== this.sid || data.sid !== number.twilio_sid || data.phone_number !== number.number) throw new Error('Release identity mismatch');
+    const deleted = await this.request(url, { method: 'DELETE', headers, signal: AbortSignal.timeout(12_000) });
+    if (deleted.status !== 204) throw new Error(`Twilio release unconfirmed (HTTP ${deleted.status}); will reconcile on the next check`);
+  }
   private async call(url: string, body?: URLSearchParams): Promise<Json> {
     const response = await this.request(url, {
       method: body ? 'POST' : 'GET',

@@ -1,4 +1,5 @@
 export type RefundNotice = {
+  sms_from_number?: string | null;
   id: string;
   kind: "patient_sms" | "ops_email";
   appointment_id: string | null;

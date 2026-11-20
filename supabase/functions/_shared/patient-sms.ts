@@ -1,4 +1,4 @@
-/** Shared by the web confirmation sender and scheduled Edge Function. */
+/** Historical preference only; senders resolve an active pool number before sending. */
 export const PATIENT_SMS_FROM = "+61468031075";
 
 export type PatientSmsDetails = {

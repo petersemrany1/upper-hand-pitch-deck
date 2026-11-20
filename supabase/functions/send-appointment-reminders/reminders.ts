@@ -49,7 +49,7 @@ export function reminderCopy(row: Reminder, kind: PatientReminderKind, anonymize
     consultantName: consultationName(appointment), clinicName: clinic.clinic_name,
     clinicAddress: clinicSmsAddress(clinic), clinicPhone: clinic.phone }, kind);
 }
-export type SendResult = { ok: boolean; error?: string; sid?: string; status?: string };
+export type SendResult = { ok: boolean; error?: string; sid?: string; status?: string; from?: string };
 export type Dependencies = {
   claim(row: Reminder, kind: Kind, token: string): Promise<boolean>;
   send(to: string, body: string): Promise<SendResult>;

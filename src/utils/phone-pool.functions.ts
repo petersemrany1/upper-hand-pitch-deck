@@ -1,3 +1,4 @@
+import { getSmsSender } from "./sms-sender.server";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -155,7 +156,6 @@ export const provisionNumber = createServerFn({ method: "POST" })
 // for voice, not SMS/MMS. Filtering by MMS concentrates all voice traffic
 // on the single MMS-enabled DID, which gets it spam-flagged fast.
 export const getNextNumber = createServerFn({ method: "POST" }).handler(async () => {
-  const fallback = process.env.TWILIO_FROM_NUMBER ?? "+61480844159";
   const { data, error } = await supabaseAdmin
     .from("phone_numbers")
     .select("id, number, call_count")
@@ -165,7 +165,7 @@ export const getNextNumber = createServerFn({ method: "POST" }).handler(async ()
     .maybeSingle();
 
   if (error || !data) {
-    return { number: fallback };
+    throw new Error("No active outbound number is available");
   }
 
   await supabaseAdmin
@@ -177,19 +177,9 @@ export const getNextNumber = createServerFn({ method: "POST" }).handler(async ()
 });
 
 // SMS/MMS sender selection: needs MMS capability (e.g. patient confirmation
-// SMS that may include media). Falls back to the platform TWILIO_FROM.
+// SMS that may include media). Only active owned numbers are eligible.
 export const getNextMmsNumber = createServerFn({ method: "POST" }).handler(async () => {
-  const fallback = process.env.TWILIO_FROM_NUMBER ?? "+61483938205";
-  const { data, error } = await supabaseAdmin
-    .from("phone_numbers")
-    .select("id, number")
-    .eq("status", "active")
-    .eq("mms_enabled", true)
-    .order("last_used_at", { ascending: true, nullsFirst: true })
-    .limit(1)
-    .maybeSingle();
-  if (error || !data) return { number: fallback };
-  return { number: data.number };
+  return { number: await getSmsSender(process.env.TWILIO_FROM_NUMBER ?? null, true) };
 });
 
 export const listPhoneNumbers = createServerFn({ method: "GET" }).handler(async () => {
@@ -204,7 +194,10 @@ export const listPhoneNumbers = createServerFn({ method: "GET" }).handler(async 
 export const retireNumber = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { id: string; release?: boolean }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { data: isAdmin, error: adminError } = await context.supabase.rpc("is_admin_user");
+    const { data: salesAdmin, error: roleError } = await context.supabase.rpc("has_sales_role", { _roles: ["admin"] });
+    if ((adminError || !isAdmin) && (roleError || !salesAdmin)) return { success: false as const, error: "Administrator required" };
     const { data: row, error: fetchErr } = await supabaseAdmin
       .from("phone_numbers")
       .select("id, twilio_sid")
@@ -214,26 +207,9 @@ export const retireNumber = createServerFn({ method: "POST" })
       return { success: false as const, error: fetchErr?.message || "Number not found" };
     }
 
-    // Release from Twilio (stops billing) when requested.
-    if (data.release && row.twilio_sid) {
-      const accountSid = process.env.TWILIO_ACCOUNT_SID;
-      const authToken = process.env.TWILIO_AUTH_TOKEN;
-      if (!accountSid || !authToken) {
-        return { success: false as const, error: "Twilio credentials not configured" };
-      }
-      const authHeader = "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64");
-      const releaseUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/IncomingPhoneNumbers/${row.twilio_sid}.json`;
-      const res = await fetch(releaseUrl, { method: "DELETE", headers: { Authorization: authHeader } });
-      if (!res.ok && res.status !== 404) {
-        const body = await res.text();
-        await logError("retireNumber", `Twilio release failed: ${res.status}`, { body });
-        return { success: false as const, error: `Failed to release from Twilio: ${body}` };
-      }
-      // Remove the row entirely once released.
-      const { error: delErr } = await supabaseAdmin.from("phone_numbers").delete().eq("id", data.id);
-      if (delErr) return { success: false as const, error: delErr.message };
-      return { success: true as const, released: true };
-    }
+    // Retired leases are released by the authenticated worker after 60 days.
+    // Old clients must not bypass the retention period with release:true.
+    if (data.release) return { success: false as const, error: "Numbers are released automatically 60 days after retirement." };
 
     // Soft retire: keep the number in Twilio, just stop using it in rotation.
     const { error } = await supabaseAdmin

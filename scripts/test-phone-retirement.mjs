@@ -1,0 +1,81 @@
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+const { PGlite } = await import(process.env.PGLITE_MODULE || '@electric-sql/pglite');
+const db = new PGlite();
+const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const sid = n => 'CA'+String(n).padStart(32,'0');
+await db.exec(`
+CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;
+GRANT USAGE ON SCHEMA public TO authenticated,service_role;
+CREATE FUNCTION is_admin_user() RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT current_setting('test.admin',true)='yes' $$;
+CREATE FUNCTION has_sales_role(text[]) RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT current_setting('test.admin',true)='yes' $$;
+CREATE TABLE sales_reps(id uuid PRIMARY KEY,name text,role text,is_active boolean);
+CREATE TABLE phone_numbers(number text PRIMARY KEY,status text,call_count integer DEFAULT 0,last_used_at timestamptz);
+CREATE TABLE clinics(id uuid PRIMARY KEY,phone text);
+CREATE TABLE meta_leads(id uuid PRIMARY KEY,phone text,email text,status text,updated_at timestamptz DEFAULT now());
+CREATE TABLE lead_blacklist(id uuid DEFAULT gen_random_uuid(),phone text,email text);
+CREATE TABLE call_records(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),twilio_call_sid text UNIQUE,phone text,from_number text,
+rep_id uuid,lead_id uuid,clinic_id uuid,direction text DEFAULT 'outbound',status text DEFAULT 'initiated',called_at timestamptz DEFAULT now(),
+duration integer,duration_seconds integer,recording_sid text,recording_url text,analysis_stage text,call_analysis jsonb);
+CREATE TABLE error_logs(id uuid DEFAULT gen_random_uuid(),function_name text,error_message text,context jsonb,resolved boolean DEFAULT false);
+INSERT INTO sales_reps VALUES('${id(1)}','Rep One','rep',true),('${id(2)}','Administrator','admin',true),('${id(3)}','Former Rep','rep',false);
+INSERT INTO phone_numbers(number,status) VALUES('+61485000001','active'),('+61485000002','active'),('+61485000003','retired');
+INSERT INTO meta_leads(id,phone,status) VALUES('${id(10)}','0412 000 001','new');
+`);
+const normalizer=readFileSync(new URL('../supabase/migrations/20261010050000_customer_journey_history.sql',import.meta.url),'utf8').split('-- Invoker rights')[0];
+await db.exec(normalizer);
+const sql=readFileSync(new URL('../supabase/migrations/20261119090000_voice_reputation_safeguards.sql',import.meta.url),'utf8').split('-- Deployment scheduling:')[0];
+await db.exec(sql); await db.exec(sql);
+
+await db.exec(`ALTER TABLE phone_numbers ADD COLUMN twilio_sid text; ALTER TABLE phone_numbers ADD COLUMN friendly_name text;
+ALTER TABLE phone_numbers ADD COLUMN mms_enabled boolean NOT NULL DEFAULT false; ALTER TABLE phone_numbers ADD COLUMN created_at timestamptz NOT NULL DEFAULT now();
+CREATE TABLE refund_notifications(id uuid PRIMARY KEY);
+UPDATE phone_numbers SET twilio_sid='PN'||lpad(right(number,1),32,'0'),mms_enabled=true;
+UPDATE phone_numbers SET retired_at=now()-interval '59 days' WHERE number='+61485000003';
+INSERT INTO phone_numbers(number,status,twilio_sid,retired_at) VALUES
+('+61485000004','retired','PN'||repeat('4',32),NULL),
+('+61485000005','retired','PN'||repeat('5',32),now()-interval '60 days'),
+('+61485000006','active','PN'||repeat('6',32),NULL);
+`);
+await db.exec(readFileSync(new URL('../supabase/migrations/20261120010000_voice_pool_replacements.sql',import.meta.url),'utf8').split('-- Scheduler dispatch')[0]);
+await db.exec(readFileSync(new URL('../supabase/migrations/20261120020000_phone_retirement_lifecycle.sql',import.meta.url),'utf8'));
+const q=async(sql,args=[])=>(await db.query(sql,args)).rows[0]?.r;
+const token=id(700), phone=n=>'+6148500000'+n, pn=n=>'PN'+String(n).repeat(32);
+const number=async n=>(await db.query('SELECT * FROM phone_numbers WHERE number=$1',[phone(n)])).rows[0];
+const begin=n=>q('SELECT voice_pool_begin_release($1,$2,$3) r',[token,phone(n),n===3?'PN'+String(3).padStart(32,'0'):pn(n)]);
+const finish=(n,error=null)=>q('SELECT voice_pool_finish_release($1,$2,$3) r',[phone(n),pn(n),error]);
+assert.ok(Date.parse((await number(4)).release_due_at)-Date.now()>59.99*86400000,'legacy unknown dates get full 60 days');
+await db.exec("UPDATE voice_pool_settings SET release_enabled=true");
+assert.ok(await q('SELECT voice_pool_lease($1) r',[token]),'releases run even when purchases disabled');
+assert.equal(await begin(3),false,'59 days is too early');
+assert.equal(await begin(4),false,'missing historical date never releases immediately');
+assert.equal(await begin(5),true,'60-day boundary releases');
+await finish(5,'timeout'); assert.equal((await number(5)).released_at,null,'failure stays billed/unconfirmed');
+assert.equal(await begin(5),true,'retry can reconcile provider state'); await finish(5); await finish(5);
+assert.ok((await number(5)).released_at,'idempotent confirmed release is recorded');
+await assert.rejects(db.exec("UPDATE phone_numbers SET status='active' WHERE number='+61485000005'"),/cannot be reactivated/);
+await assert.rejects(db.exec("UPDATE phone_numbers SET twilio_sid='PNnew' WHERE number='+61485000005'"),/cannot be reactivated/);
+assert.equal(await q('SELECT select_sms_sender($1,true) r',[phone(5)]),phone(1),'released preferred sender moves to active MMS number');
+await db.exec("UPDATE phone_numbers SET status='retired' WHERE number='+61485000002'");
+const before=(await number(2)).retired_at;
+await db.exec("UPDATE phone_numbers SET retired_at=now()-interval '90 days' WHERE number='+61485000002'");
+assert.equal((await number(2)).retired_at.toISOString(),before.toISOString(),'repeated retirement cannot reset or backdate clock');
+await db.exec("UPDATE phone_numbers SET status='active' WHERE number='+61485000002'");
+assert.equal((await number(2)).release_due_at,null,'reactivation before release cancels due date');
+await db.exec("UPDATE voice_pool_settings SET enabled=true,approved_at=now(),baseline_numbers=ARRAY(SELECT number FROM phone_numbers),target_active=3,lease_token=NULL,lease_until=NULL");
+await db.exec(`INSERT INTO call_records(from_number,duration_seconds,status) SELECT '+61485000001',CASE WHEN g<=6 THEN 10 ELSE 0 END,'completed' FROM generate_series(1,30) g;
+INSERT INTO call_records(from_number,duration_seconds,status) SELECT '+61485000002',CASE WHEN g<=8 THEN 10 ELSE 0 END,'completed' FROM generate_series(1,32) g;
+INSERT INTO call_records(from_number,duration_seconds,status) SELECT '+61485000006',0,'completed' FROM generate_series(1,29) g;`);
+await q('SELECT refresh_voice_number_health() r'); assert.equal((await number(1)).status,'active','performance policy awaits activation');
+await db.exec('UPDATE voice_pool_settings SET pickup_retirement_enabled=true');
+await q('SELECT refresh_voice_number_health() r'); assert.equal((await number(1)).status,'retired','20% at 30 attempts retires');
+assert.equal((await number(2)).status,'active','exactly 25% remains eligible'); assert.equal((await number(6)).status,'active','29 attempts is insufficient');
+await q('SELECT refresh_voice_number_health() r'); assert.equal((await number(6)).status,'active','no second retirement before replacement');
+assert.equal((await q('SELECT voice_pickup_rate(NULL) r')).total,91);
+await db.exec("INSERT INTO call_records(from_number,duration_seconds,status) SELECT '+61485000001',15,'blocked' FROM generate_series(1,1100)");
+assert.equal((await q('SELECT voice_pickup_rate(NULL) r')).total,91,'blocked calls excluded without row-cap truncation');
+await db.exec("INSERT INTO phone_numbers(number,status,twilio_sid) VALUES('+61485000007','active','PN'||repeat('7',32)); INSERT INTO call_records(from_number,duration_seconds,status) VALUES('+61485000006',0,'completed'); UPDATE voice_pool_settings SET max_additional_numbers=1");
+await q('SELECT refresh_voice_number_health() r'); assert.equal((await number(6)).status,'active','spent allowance blocks performance retirement');
+await db.exec('SET ROLE authenticated'); await assert.rejects(begin(3),/permission denied/); await assert.rejects(q('SELECT select_sms_sender(NULL,false) r'),/permission denied/);
+await db.exec('RESET ROLE'); await db.close();
+console.log('PASS: 60-day boundary, legacy clock, retries, identity lock, active SMS selection, 25%/30-call floor, one-at-a-time and spending gates, aggregate counts, role isolation.');

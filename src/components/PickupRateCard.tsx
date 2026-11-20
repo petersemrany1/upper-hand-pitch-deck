@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 const FONT = `"DM Sans", system-ui, -apple-system, sans-serif`;
-// A call is "answered" if it lasted at least this many seconds.
-// Matches how SalesCallPortal treats <=10s outbound calls as voicemail.
-const ANSWERED_MIN_SECONDS = 10;
+// The database aggregate uses the same 10-second proxy as number health.
 
 type Period = "today" | "week" | "month" | "all";
 
@@ -54,6 +52,7 @@ const PERIOD_LABELS: Record<Period, string> = {
 
 export function PickupRateCard() {
   const [period, setPeriod] = useState<Period>("today");
+  const [loadError, setLoadError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [answered, setAnswered] = useState(0);
@@ -62,27 +61,18 @@ export function PickupRateCard() {
     let cancelled = false;
     const load = async () => {
       setLoading(true);
+      setLoadError(false);
       const sinceIso = periodStartISO(period);
-      // Only count real dial attempts — direction='outbound', not test calls.
-      let q = supabase
-        .from("call_records")
-        .select("duration, duration_seconds", { count: "exact" })
-        .eq("direction", "outbound");
-      if (sinceIso) q = q.gte("called_at", sinceIso);
-      const { data, error } = await q.limit(50000);
+      const { data, error } = await (supabase as any).rpc("voice_pickup_rate", { p_since: sinceIso });
       if (cancelled) return;
       if (error) {
         console.error("PickupRateCard load failed", error);
+        setLoadError(true);
         setLoading(false);
         return;
       }
-      const rows = data ?? [];
-      const answeredCount = rows.reduce((acc, r) => {
-        const secs = (r.duration_seconds ?? r.duration ?? 0) as number;
-        return acc + (secs >= ANSWERED_MIN_SECONDS ? 1 : 0);
-      }, 0);
-      setTotal(rows.length);
-      setAnswered(answeredCount);
+      setTotal(data?.total ?? 0);
+      setAnswered(data?.answered ?? 0);
       setLoading(false);
     };
     void load();
@@ -130,10 +120,10 @@ export function PickupRateCard() {
       </div>
       <div style={{ padding: "4px 20px 16px", display: "flex", alignItems: "baseline", gap: 12 }}>
         <div style={{ fontSize: 34, fontWeight: 700, color: pctColor, letterSpacing: "-0.02em", lineHeight: 1 }}>
-          {loading ? "—" : `${pct}%`}
+          {loading || loadError ? "—" : `${pct}%`}
         </div>
         <div style={{ fontSize: 12, color: "#999" }}>
-          {loading ? "loading" : `${answered} answered of ${total} calls`}
+          {loadError ? "Pickup rate unavailable" : loading ? "loading" : `${answered} of ${total} calls lasted 10s+ · minimum 25%`}
         </div>
       </div>
     </div>
