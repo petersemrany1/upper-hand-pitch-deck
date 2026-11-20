@@ -32,6 +32,7 @@ import { CALLBACK_WINDOW_MS, buildQueue, dueCallbackIds, type HistoryMap } from 
 import { callAttemptsLabel, createCallHistoryLoader } from "./sales-call/call-history";
 import { finishSessionPosition, nextSessionIndexFromActive, reorderSessionQueue, sessionQueueIndex } from "./sales-call/session-queue";
 import { isReturningLead, normaliseStatus, requiresManualDial, type StatusKey } from "./sales-call/status";
+import { statusUpdateError } from "./sales-call/status-update";
 import { toast } from "sonner";
 import {
   sendLeadMms, listMmsImages, saveFinanceCheck,
@@ -78,6 +79,7 @@ type Lead = {
   stripe_payment_intent_id?: string | null; stripe_checkout_session_id?: string | null;
   handover_sent_at?: string | null;
   previous_lead_id?: string | null;
+  superseded_by_lead_id?: string | null;
   lead_class?: string | null;
   lead_class_reason?: string | null;
   norwood_level?: number | null;
@@ -115,7 +117,7 @@ const SALES_CALL_LEAD_SELECT = `
   booking_time, clinic_id, rep_id, raw_payload, pipeline_summary,
   pipeline_summary_updated_at,
   deposit_paid_at, deposit_amount, stripe_payment_intent_id, stripe_checkout_session_id,
-  handover_sent_at, previous_lead_id, lead_class, lead_class_reason,
+  handover_sent_at, previous_lead_id, superseded_by_lead_id, lead_class, lead_class_reason,
   norwood_level, expectations_set
 `;
 
@@ -5660,6 +5662,7 @@ const STATUS_OPTIONS: { key: StatusKey; label: string; emoji: string; color: str
   { key: "had_convo_no_sale",    label: "Had Convo — No Sale",  emoji: "🩷", color: "#be185d", bg: "#fce7f3" },
   { key: "not_interested",       label: "Not Interested",       emoji: "🔴", color: "#b91c1c", bg: "#fee2e2" },
   { key: "booked_no_deposit",    label: "Booked — No Deposit",  emoji: "🟣", color: "#7e22ce", bg: "#f3e8ff" },
+  { key: "already_booked",       label: "Already booked",       emoji: "🟢", color: "#15803d", bg: "#dcfce7" },
   { key: "booked_deposit_paid",  label: "Booked — Deposit Paid",emoji: "🟢", color: "#15803d", bg: "#dcfce7" },
   { key: "dropped",              label: "Dropped",              emoji: "⚫", color: "#374151", bg: "#e5e7eb" },
 ];
@@ -5667,7 +5670,24 @@ const STATUS_OPTIONS: { key: StatusKey; label: string; emoji: string; color: str
 /* Statuses a rep is allowed to pick on a call. "Booked — No Deposit" is NOT
  * one of them: a booking only exists once the $75 deposit is taken. It stays in
  * STATUS_OPTIONS purely so historic leads still render with the right label. */
-const SELECTABLE_STATUS_OPTIONS = STATUS_OPTIONS.filter((o) => o.key !== "booked_no_deposit" && o.key !== "on_hold");
+const SELECTABLE_STATUS_OPTIONS = STATUS_OPTIONS.filter((o) => o.key !== "booked_no_deposit" && o.key !== "on_hold" && o.key !== "already_booked");
+
+function BookedEnquiryNotice({ lead }: { lead: Lead }) {
+  const bookedId = lead.superseded_by_lead_id || lead.previous_lead_id;
+  return (
+    <span style={{ display: "inline-block", marginLeft: 8, fontSize: 12, color: "#15803d" }}>
+      <strong>Already booked</strong>
+      {bookedId && bookedId !== lead.id && (
+        <Link to="/sales-call" search={{ leadId: bookedId }}
+          onClick={(event) => event.stopPropagation()}
+          style={{ display: "block", textDecoration: "underline" }}>
+          Open original enquiry
+        </Link>
+      )}
+      <span style={{ display: "block", fontSize: 11 }}>Repeat enquiry — booking kept on original record.</span>
+    </span>
+  );
+}
 
 /* A call record's outcome/status now carries the outcome the rep logged
  * (no_answer, had_convo_no_sale, not_interested, …) as well as the raw Twilio
@@ -6124,6 +6144,7 @@ function LeadChooser({
   // Mutators
   const changeStatus = async (leadId: string, key: StatusKey) => {
     const lead = leads.find((l) => l.id === leadId);
+    if (lead?.lead_class === "booked_active" || key === "already_booked") return;
     const patch: Partial<Lead> = {
       status: key,
       ...(key !== "callback_scheduled" ? { callback_scheduled_at: null } : {}),
@@ -6138,18 +6159,19 @@ function LeadChooser({
       const dbPatch = key !== "callback_scheduled"
         ? { status: key, callback_scheduled_at: null, updated_at: nowIso }
         : { status: key, updated_at: nowIso };
-      const { error } = await supabase
+      const { data: saved, error } = await supabase
         .from("meta_leads")
         .update(dbPatch)
-        .eq("id", leadId);
+        .eq("id", leadId).select("status, callback_scheduled_at").single();
       if (error) throw error;
+      onLocalLeadUpdate?.(leadId, saved);
       toast.success("Status updated");
-    } catch {
+    } catch (error) {
       onLocalLeadUpdate?.(leadId, {
         status: lead?.status ?? null,
         callback_scheduled_at: lead?.callback_scheduled_at ?? null,
       });
-      toast.error("Couldn't update status");
+      toast.error(statusUpdateError(error));
     } finally {
       setSavingStatus(null);
     }
@@ -6236,6 +6258,7 @@ function LeadChooser({
   };
 
   const renderStatusBadge = (l: Lead) => {
+    if (l.lead_class === "booked_active") return <BookedEnquiryNotice lead={l} />;
     const meta = statusMeta(l.status, l);
     const showTime = meta.key === "callback_scheduled" && l.callback_scheduled_at;
     const cb = l.callback_scheduled_at ? new Date(l.callback_scheduled_at) : null;
@@ -7877,6 +7900,7 @@ function RightPanel({
             !practiceMode ? <span style={{ fontSize: 12, color: "#111", opacity: 0.5 }}>Funding unknown</span> : null
           )}
           {(() => {
+            if (active.lead_class === "booked_active") return <BookedEnquiryNotice lead={active} />;
             const meta = statusMeta(active.status, active);
             return (
               <span style={{ position: "relative", display: "inline-block", marginLeft: 8 }}>
@@ -7884,7 +7908,7 @@ function RightPanel({
                   value={meta.key}
                   onChange={async (e) => {
                     const key = e.target.value as StatusKey;
-                    const prev = active.status;
+                    const prev = { status: active.status, callback_scheduled_at: active.callback_scheduled_at };
                     onLocalLeadUpdate?.(active.id, {
                       status: key,
                       ...(key !== "callback_scheduled" ? { callback_scheduled_at: null } : {}),
@@ -7894,12 +7918,14 @@ function RightPanel({
                       const dbPatch = key !== "callback_scheduled"
                         ? { status: key, callback_scheduled_at: null, updated_at: nowIso }
                         : { status: key, updated_at: nowIso };
-                      const { error } = await supabase.from("meta_leads").update(dbPatch).eq("id", active.id);
+                      const { data: saved, error } = await supabase.from("meta_leads").update(dbPatch).eq("id", active.id)
+                        .select("status, callback_scheduled_at").single();
                       if (error) throw error;
+                      onLocalLeadUpdate?.(active.id, saved);
                       toast.success("Status updated");
-                    } catch {
-                      onLocalLeadUpdate?.(active.id, { status: prev });
-                      toast.error("Couldn't update status");
+                    } catch (error) {
+                      onLocalLeadUpdate?.(active.id, prev);
+                      toast.error(statusUpdateError(error));
                     }
                   }}
                   style={{

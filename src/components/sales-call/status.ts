@@ -10,6 +10,7 @@ export type StatusKey =
   | "had_convo_chase_up"
   | "had_convo_no_sale"
   | "not_interested"
+  | "already_booked"
   | "booked_no_deposit"
   | "booked_deposit_paid"
   | "dropped";
@@ -18,6 +19,7 @@ export type StatusLead = {
   status: string | null;
   booking_date?: string | null;
   callback_scheduled_at?: string | null;
+  lead_class?: string | null;
 };
 
 export function normaliseStatus(s: string | null | undefined, l?: StatusLead): StatusKey {
@@ -25,6 +27,9 @@ export function normaliseStatus(s: string | null | undefined, l?: StatusLead): S
   if (raw === "on_hold") return "on_hold";
   if (raw.includes("deposit_paid")) return "booked_deposit_paid";
   if (raw.includes("booked")) return "booked_no_deposit";
+  // A repeat enquiry owns no appointment or deposit. Never represent it as a
+  // second sale, or let its stale raw `new` status put it back in the dialler.
+  if (l?.lead_class === "booked_active") return "already_booked";
   if (raw.includes("callback")) return "callback_scheduled";
   if (raw.includes("no_sale") || raw.includes("did_not_get_the_sale") || raw.includes("did_not_sale")) return "had_convo_no_sale";
   if (raw.includes("chase") || raw.includes("had_convo")) return "had_convo_chase_up";
