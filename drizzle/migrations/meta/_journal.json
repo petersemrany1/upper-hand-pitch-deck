@@ -43,6 +43,13 @@
       "when": 1795137006579,
       "tag": "0005_20261120020000_phone_retirement_lifecycle",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795152131380,
+      "tag": "0006_20261120050000_sydney_confirmation_call_alerts",
+      "breakpoints": true
     }
   ]
 }

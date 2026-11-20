@@ -5103,6 +5103,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      confirmation_call_alert_due: {
+        Args: {
+          p_now: string
+          r: Database["public"]["Tables"]["appointment_reminders"]["Row"]
+          s: Database["public"]["Tables"]["clinic_reminder_settings"]["Row"]
+        }
+        Returns: boolean
+      }
       consent_norwood_preview_camera: {
         Args: { p_hash: string }
         Returns: {
