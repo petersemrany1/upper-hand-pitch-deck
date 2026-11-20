@@ -60,6 +60,7 @@ const NEVER_CALLED: ReadonlySet<StatusKey> = new Set<StatusKey>([
   "not_interested",
   "booked_deposit_paid",
   "booked_no_deposit",
+  "already_booked",
   "had_convo_no_sale",
   "dropped",
 ]);

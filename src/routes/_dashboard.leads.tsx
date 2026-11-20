@@ -5,7 +5,6 @@ import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus, UserCheck, C
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { deleteBookedDuplicateLeads } from "@/lib/lead-dedupe.functions";
 
 
 export const Route = createFileRoute("/_dashboard/leads")({
@@ -223,7 +222,6 @@ function LeadsPage() {
 
   // Duplicate enquiries from patients who already have an active booking are
   // deleted automatically — the booked lead row stays, the extra one goes.
-  const purgingRef = useRef<Set<string>>(new Set());
 
 
   const [collapsedStatuses, setCollapsedStatuses] = useState<Set<string>>(new Set(["On hold"]));
@@ -311,25 +309,11 @@ function LeadsPage() {
   ]);
   const queueRows = rows.filter((r) => !HIDDEN_STATUSES.has((r.status ?? "").trim()));
 
-  // A re-enquiry from a patient who already has an upcoming appointment is an
-  // extra duplicate row — delete it automatically and keep the booked lead.
-  const bookedDuplicates = queueRows.filter((r) => r.lead_class === "booked_active");
+  // Retain repeat enquiries and their history; an ordinary page read must
+  // never delete patient records. Their booking lives on the original lead.
   // Returning / post-consult people are never shown as leads (see status.ts).
   const visibleRows = queueRows.filter((r) => r.lead_class !== "booked_active" && !isReturningLead(r.lead_class));
 
-  useEffect(() => {
-    const ids = bookedDuplicates.map((r) => r.id).filter((id) => !purgingRef.current.has(id));
-    if (ids.length === 0) return;
-    ids.forEach((id) => purgingRef.current.add(id));
-    void (async () => {
-      try {
-        await deleteBookedDuplicateLeads({ data: { ids } });
-        await load();
-      } catch {
-        ids.forEach((id) => purgingRef.current.delete(id));
-      }
-    })();
-  }, [bookedDuplicates.map((r) => r.id).join(",")]);
 
 
 

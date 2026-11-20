@@ -56,8 +56,24 @@ describe("exclusions", () => {
   test("post-consult leads never queue; a re-enquiry that never booked does", () => {
     expect(isExcluded(lead({ id: "p", status: "no_answer", lead_class: "post_consult" }))).toBe(true);
     expect(isExcluded(lead({ id: "r", status: "new", lead_class: "returning" }))).toBe(false);
-    expect(isExcluded(lead({ id: "b", status: "new", lead_class: "booked_active" }))).toBe(false);
+    expect(isExcluded(lead({ id: "b", status: "new", lead_class: "booked_active" }))).toBe(true);
     expect(isExcluded(lead({ id: "f", status: "new", lead_class: "new" }))).toBe(false);
+  });
+});
+
+describe("already-booked repeat enquiries", () => {
+  test("a stale new status is displayed as already booked without inventing a paid sale", () => {
+    for (const status of ["new", "no_answer", "dropped", "callback_scheduled", null]) {
+      expect(normaliseStatus(status, { status, lead_class: "booked_active" })).toBe("already_booked");
+    }
+    expect(normaliseStatus("new", { status: "new", lead_class: "returning" })).toBe("new");
+    expect(normaliseStatus("booked_deposit_paid")).toBe("booked_deposit_paid");
+  });
+  test("duplicates cannot enter either the general queue or a due callback queue", () => {
+    const duplicate = lead({ id: "duplicate", status: "new", lead_class: "booked_active" });
+    const fresh = lead({ id: "fresh", status: "new" });
+    expect(buildQueue({ leads: [duplicate, fresh], history: {}, now: MORNING }).order).toEqual(["fresh"]);
+    expect(dueCallbackIds([{ ...duplicate, callback_scheduled_at: iso(TODAY, "09:00") }], {}, MORNING)).toEqual([]);
   });
 });
 
