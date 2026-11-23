@@ -5,7 +5,7 @@
 //   1) Find or create the sms_thread for the From number (auto-links to clinic via DB trigger)
 //   2) Download any MMS media into the sms-media bucket so it persists
 //   3) Insert sms_messages row (which triggers thread preview update)
-//   4) Reply with empty TwiML (no auto-reply)
+//   4) Apply appointment confirmations, then reply with empty TwiML (no auto-reply)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
@@ -106,7 +106,7 @@ serve(async (req) => {
         .single();
       if (createErr || !created) {
         console.error("sms-inbound: thread create failed", createErr);
-        return new Response("<Response/>", { status: 200, headers: { "Content-Type": "text/xml" } });
+        return new Response("Message storage failed", { status: 500 });
       }
       threadId = created.id;
     }
@@ -165,6 +165,7 @@ serve(async (req) => {
     });
   } catch (e) {
     console.error("sms-inbound error", e);
-    return new Response("<Response/>", { status: 200, headers: { "Content-Type": "text/xml" } });
+    // Let Twilio retry; a stored message is independently recovered by the worker.
+    return new Response("Message processing failed", { status: 500 });
   }
 });
