@@ -5111,6 +5111,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      confirmation_reply_matches: {
+        Args: {
+          p_from: string
+          p_received_at: string
+          p_to: string
+          r: Database["public"]["Tables"]["appointment_reminders"]["Row"]
+        }
+        Returns: boolean
+      }
       consent_norwood_preview_camera: {
         Args: { p_hash: string }
         Returns: {
@@ -5567,6 +5576,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      reconcile_appointment_confirmation_replies: {
+        Args: { p_limit?: number }
+        Returns: Json
       }
       record_appointment_confirmation: {
         Args: {
