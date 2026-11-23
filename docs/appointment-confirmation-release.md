@@ -54,3 +54,49 @@ The production scheduler uses the existing Vault entry `internal_function_secret
 ## 20 November 2026 alert update
 
 Apply `supabase/migrations/20261120050000_sydney_confirmation_call_alerts.sql` and deploy `send-appointment-reminders` from the same source, preserving all current imports and authentication. Publish the matching settings copy/input update. The migration retains atomic claims, idempotency and service-only permissions, and rechecks the latest reply/call at claim time. Existing sent alerts are not resent. No patient SMS schedule changes. Verify both recipients on the enabled clinics and the existing five-minute scheduler. Tests use isolated data and mocked providers; do not send test messages to patients.
+
+
+## 23 November 2026 replacement-number reply repair
+
+Retiring the preferred SMS number exposed an old fixed receiving-number check in
+`consume_appointment_confirmation_reply`: replies to replacement senders reached
+the inbox but never updated attendance. Apply
+`supabase/migrations/20261123010000_confirmation_reply_sender_matching.sql` before
+deploying `send-appointment-reminders` and `sms-inbound` from the same revision.
+No website publish is required for this backend change.
+
+Matching now proves both SMS endpoints from the actual outbound provider message
+and the current booking revision. It works after sender replacement or retirement,
+including when request and follow-up use different numbers. Unrelated destinations,
+shared phones and unrelated conversations cannot silently confirm a booking.
+
+The worker reconciles stored replies before loading its queue. A recovery error
+aborts the run, and the atomic send claim independently suppresses chasing whenever
+a matching reply is already in the inbox. Storage/processing exceptions in the
+inbound webhook return HTTP 500 rather than acknowledging a failed operation.
+
+For existing missed replies, inspect the current upcoming bookings and run only
+`SELECT public.reconcile_appointment_confirmation_replies(500);` (repeat if the
+batch is full). This processes existing messages and sends no SMS or email.
+Recovery uses original receipt times and current booking revisions, preserves newer
+staff/reply decisions, and does not change completed/cancelled/rescheduled bookings.
+Check resulting attendance, method, original confirmation timestamp, and repeat the
+call to verify no remaining eligible replies. Previously sent call emails remain in
+history; the confirmed booking leaves the call list.
+
+Run the existing reminder suite and PostgreSQL suite plus the new routing suite:
+
+```sh
+bun test supabase/functions/send-appointment-reminders/reminders.test.ts supabase/functions/send-appointment-reminders/confirmation-workflow.test.ts supabase/functions/send-appointment-reminders/twilio.test.ts
+bun test supabase/functions/send-appointment-reminders/reply-recovery.test.ts
+bun test supabase/functions/sms-inbound/reply-processing.test.ts
+PGLITE_MODULE=/path/to/@electric-sql/pglite/dist/index.js node scripts/test-appointment-confirmation.mjs
+PGLITE_MODULE=/path/to/@electric-sql/pglite/dist/index.js node scripts/test-confirmation-reply-routing.mjs
+```
+
+The routing suite reproduces the original failure before applying the migration,
+then verifies both YES replies recover, current/legacy/rotated sender matching,
+inbox chase suppression before processing, replay/race safety, original timestamps,
+reschedules, unrelated conversations, shared phones, opt-outs and service-only
+permissions. Keep the new migration last in the one-time release script so re-running
+that script cannot restore the obsolete fixed-number check.

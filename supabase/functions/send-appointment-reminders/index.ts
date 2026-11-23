@@ -78,6 +78,10 @@ serve(async (req) => {
     if (!dryRun) {
       const { error } = await sb.rpc("recover_stale_confirmation_deliveries");
       if (error) throw error;
+      // Recover stored replies before loading the queue. If matching fails, stop
+      // this run; atomic claims also check the inbox before any no-reply chase.
+      const { error: replyError } = await sb.rpc("reconcile_appointment_confirmation_replies", { p_limit: 500 });
+      if (replyError) throw replyError;
     }
     const allSettings: ReminderSettings[] = [];
     for (let offset = 0; ; offset += 500) {
