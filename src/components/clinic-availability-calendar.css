@@ -157,6 +157,7 @@
 .availability-history-list { list-style:none; padding:0; margin:16px 0 0; }
 .availability-history-list li { padding:14px 0; border-top:1px solid #dce2e9; }
 .availability-history-summary { margin:0 0 5px; font-size:14px; font-weight:500; overflow-wrap:anywhere; }
+.availability-history-actor { margin:0 0 5px; color:#596b80; font-size:12px; overflow-wrap:anywhere; }
 .availability-history-list time { color:#596b80; font-size:12px; font-variant-numeric:tabular-nums; }
 .availability-history-empty { padding:20px 0; color:#596b80; }
 

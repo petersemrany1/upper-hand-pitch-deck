@@ -46,6 +46,7 @@ export function CalendarHistory({ load, clinicName, dialogProps, onOpenChange }:
       {!loading && !error && !changes.length && <p role="status" className="availability-history-empty">No recorded changes{date ? " for this date" : " yet"}.</p>}
       <ol className="availability-history-list">{changes.map(entry => <li key={entry.id}>
         <p className="availability-history-summary">{historySummary(entry)}</p>
+        <p className="availability-history-actor">Changed by: {entry.actor_name?.trim() || (entry.actor_role === "system" ? "System / integration" : "Unknown account")}</p>
         <time dateTime={entry.recorded_at}>{historyTimestamp(entry.recorded_at)}</time>
       </li>)}</ol>
       {loading && <p role="status">Loading history…</p>}
