@@ -1,3 +1,4 @@
+import { normalizeSmsPhone, INVALID_SMS_PHONE } from "./sms-phone";
 import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import { logError } from "./error-logger.functions";
@@ -60,6 +61,9 @@ async function persistOutboundSms(params: {
 export const sendPaymentLinkSMS = createServerFn({ method: "POST" })
   .inputValidator((data: { to: string; firstName: string; stripeLink: string }) => data)
   .handler(async ({ data }) => {
+    const formattedPhone = normalizeSmsPhone(data.to);
+    if (!formattedPhone) return { success: false as const, error: INVALID_SMS_PHONE };
+
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     const { number: from } = await getNextNumber();
@@ -72,13 +76,6 @@ export const sendPaymentLinkSMS = createServerFn({ method: "POST" })
         stepsToReproduce: "Server env vars missing for Twilio SMS",
       });
       return { success: false as const, error: msg };
-    }
-
-    let formattedPhone = data.to.replace(/[\s\-()]/g, "");
-    if (formattedPhone.startsWith("0")) {
-      formattedPhone = "+61" + formattedPhone.slice(1);
-    } else if (!formattedPhone.startsWith("+")) {
-      formattedPhone = "+61" + formattedPhone;
     }
 
     const message = `Hi ${data.firstName}, here's your secure payment link to get started with Bold: ${data.stripeLink}. Any questions? Just reply to this message.`;

@@ -1,3 +1,4 @@
+import { normalizeSmsPhone, INVALID_SMS_PHONE } from "./sms-phone";
 import { getSmsSender } from "./sms-sender.server";
 import { loadPatientConfirmation } from "./patient-confirmation.server";
 import { assertExistingBookingAccess } from "./booking-access.server";
@@ -1326,6 +1327,9 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async ({ data }) => {
+    const formatted = normalizeSmsPhone(data.phone);
+    if (!formatted) return { success: false as const, error: INVALID_SMS_PHONE };
+
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     const TWILIO_FROM = await getSmsSender(PATIENT_SMS_FROM);
@@ -1363,13 +1367,6 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
     const doctorDisplay = data.doctorName ?? "your specialist";
 
     const message = `Hi ${data.firstName}, to book your consultation with ${doctorDisplay} at ${snapshot.clinicName} for ${bookingDisplay}, pay your $75 refundable consultation deposit here: ${depositUrl}\n\n${patientDepositTerms(snapshot.clinicPhone)}`;
-
-    const raw = data.phone.replace(/[\s\-()]/g, "");
-    const formatted = raw.startsWith("+")
-      ? raw
-      : raw.startsWith("0")
-      ? "+61" + raw.slice(1)
-      : "+61" + raw;
 
     try {
       const response = await fetch(
@@ -1735,6 +1732,9 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
     }
   )
   .handler(async ({ data }) => {
+    const formatted = normalizeSmsPhone(data.phone);
+    if (!formatted) return { success: false as const, error: INVALID_SMS_PHONE };
+
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     const TWILIO_FROM = await getSmsSender(PATIENT_SMS_FROM);
@@ -1757,13 +1757,6 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
     const depositUrl = await depositPayUrl(data.leadId, data.clinicId);
     const message = `Hi ${data.firstName}, to book your consultation at ${snapshot.clinicName}, pay your $75 refundable consultation deposit here: ${depositUrl}\n\n${patientDepositTerms(snapshot.clinicPhone)}`;
 
-
-    const raw = data.phone.replace(/[\s\-()]/g, "");
-    const formatted = raw.startsWith("+")
-      ? raw
-      : raw.startsWith("0")
-      ? "+61" + raw.slice(1)
-      : "+61" + raw;
 
     try {
       const response = await fetch(
