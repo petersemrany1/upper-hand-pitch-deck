@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { callAttemptsLabel, createCallHistoryLoader } from "./call-history";
 import { buildQueue, dueCallbackIds } from "./queue";
+import { retryAssignmentsFor } from "./retry-assignments";
 
 const iso = (day: string, time: string) => new Date(`${day}T${time}:00`).toISOString();
 const now = new Date("2026-10-13T11:30:00");
@@ -40,6 +41,27 @@ function fixture(initial: ReturnType<typeof call>[]) {
 }
 
 describe("sales call history", () => {
+  test("Nina's retry progress is merged without changing team counts or consuming Bec's calls", async () => {
+    const requestedAt = iso("2026-10-13", "08:00");
+    const leads = [id(1), id(2)].map(leadId => ({ ...lead(leadId), raw_payload: {
+      sales_retry: { batch_id: "nina-retry", rep_id: id(501), requested_at: requestedAt },
+    } }));
+    const { db } = fixture([
+      call(10, id(1), iso("2026-10-01", "09:00")), call(11, id(1)),
+      { ...call(12, id(1), iso("2026-10-13", "10:00")), rep_id: id(501) },
+      call(13, id(2)),
+    ]);
+    const snapshot = await createCallHistoryLoader(db, [id(1), id(2)], new AbortController().signal, {
+      repId: id(501), assignments: retryAssignmentsFor(leads, id(501)),
+    })(now);
+    expect(snapshot.history[id(1)]?.retry?.calledAt).toBe(iso("2026-10-13", "10:00"));
+    expect(snapshot.history[id(2)]?.retry?.calledAt).toBeNull();
+    expect(snapshot.counts).toEqual({ [id(1)]: 2, [id(2)]: 1 });
+    expect(snapshot.history[id(1)]?.attempts).toBe(3);
+    expect(snapshot.firsts[id(1)]).toBe(iso("2026-10-01", "09:00"));
+    expect(buildQueue({ leads, history: snapshot.history, now, repId: id(501) }).order).toEqual([id(2)]);
+  });
+
   test("an older lead shows both Bec's and Nina's calls instead of capping the label at one", async () => {
     const { db, state } = fixture([
       call(10, id(1), iso("2026-10-01", "09:00")),

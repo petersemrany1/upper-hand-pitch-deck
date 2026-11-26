@@ -29,8 +29,9 @@ import type { Json } from "@/integrations/supabase/types";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
-import { CALLBACK_WINDOW_MS, buildQueue, dueCallbackIds, type HistoryMap } from "./sales-call/queue";
+import { CALLBACK_WINDOW_MS, buildQueue, callbackWindow, dueCallbackIds, type HistoryMap } from "./sales-call/queue";
 import { callAttemptsLabel, createCallHistoryLoader } from "./sales-call/call-history";
+import { retryAssignment, retryAssignmentsFor, type RetryAssignment } from "./sales-call/retry-assignments";
 import { finishSessionPosition, nextSessionIndexFromActive, reorderSessionQueue, sessionQueueIndex } from "./sales-call/session-queue";
 import { isReturningLead, normaliseStatus, requiresManualDial, type StatusKey } from "./sales-call/status";
 import { ringBackAction, type RingBackCall } from "./sales-call/ring-backs";
@@ -510,8 +511,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const [historyLoadedKey, setHistoryLoadedKey] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState(false);
   const retryHistoryRef = useRef<(() => void) | null>(null);
-  const callHistoryReady = historyLoadedKey === loadedLeadIdsKey && !historyError;
-  const queueDataReady = callHistoryReady && leadStatus === "ready" && settingsStatus === "ready";
+  const retryAssignmentsKey = useMemo(() => JSON.stringify(retryAssignmentsFor(leads, repId)), [leads, repId]);
+  const historyRequestKey = `${loadedLeadIdsKey}|${repId ?? ""}|${retryAssignmentsKey}`;
+  const callHistoryReady = historyLoadedKey === historyRequestKey && !historyError;
+  const queueDataReady = Boolean(repId) && callHistoryReady && leadStatus === "ready" && settingsStatus === "ready";
   const queueDataReadyRef = useRef(false);
   queueDataReadyRef.current = queueDataReady;
   // Read inside timers/effects that must NOT re-run (and refetch) every time
@@ -999,14 +1002,16 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       setAttemptsByDay({});
       setFirstCallByLead({});
       setCallHistory({});
-      setHistoryLoadedKey(loadedLeadIdsKey);
+      setHistoryLoadedKey(historyRequestKey);
       setHistoryError(false);
       return;
     }
 
     let cancelled = false;
     const controller = new AbortController();
-    const fetchHistory = createCallHistoryLoader(supabase, leadIds, controller.signal);
+    const fetchHistory = createCallHistoryLoader(supabase, leadIds, controller.signal, {
+      repId, assignments: JSON.parse(retryAssignmentsKey) as RetryAssignment[],
+    });
     let loading = false;
     let reloadRequested = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1025,7 +1030,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         setFirstCallByLead(snapshot.firsts);
         setCallHistory(snapshot.history);
         callHistoryRef.current = snapshot.history;
-        setHistoryLoadedKey(loadedLeadIdsKey);
+        setHistoryLoadedKey(historyRequestKey);
         setHistoryError(false);
       } catch (error) {
         if (cancelled) return;
@@ -1080,7 +1085,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       document.removeEventListener("visibilitychange", refreshVisible);
       void supabase.removeChannel(ch);
     };
-  }, [loadedLeadIdsKey]);
+  }, [loadedLeadIdsKey, historyRequestKey, repId, retryAssignmentsKey]);
 
   // Resolve rep from auth email
   useEffect(() => {
@@ -1139,6 +1144,16 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         const byId = new Map<string, Lead>();
         for (const l of (recent ?? []) as Lead[]) byId.set(l.id, l);
         for (const l of (actionable ?? []) as Lead[]) if (!byId.has(l.id)) byId.set(l.id, l);
+        // Explicit retries remain available even after newer arrivals push them
+        // beyond the normal recency cap. The assignment has no age cutoff.
+        if (repId) for (let offset = 0; ; offset += 1000) {
+          const { data, error } = await supabase.from("meta_leads").select(SALES_CALL_LEAD_SELECT)
+            .contains("raw_payload", { sales_retry: { rep_id: repId } })
+            .order("id").range(offset, offset + 999).abortSignal(signal);
+          if (error) throw error;
+          for (const l of (data ?? []) as Lead[]) byId.set(l.id, l);
+          if ((data?.length ?? 0) < 1000) break;
+        }
         fetched = Array.from(byId.values());
       }
       // A live call can change an old lead to a terminal status outside both
@@ -1242,7 +1257,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       document.removeEventListener("visibilitychange", refreshVisible);
       void supabase.removeChannel(ch);
     };
-  }, [authReady, user?.id]);
+  }, [authReady, user?.id, repId]);
 
   // Missed-call jump-the-queue: if an inbound missed call comes in from a lead
   // that's already in the current session queue (e.g. someone marked "no answer"
@@ -1508,16 +1523,27 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     );
   }, [leads, isLeadUnavailable]);
 
+  // Remove the temporary callback shortcut from a restored browser queue.
+  // Real ring-backs and live scheduled callbacks retain their normal priority.
+  useEffect(() => {
+    const retired = new Set(leads.filter(l => retryAssignment(l) && callbackWindow(l, new Date()) !== "live")
+      .map(l => l.id));
+    setMissedCallQueue(previous => {
+      const next = previous.filter(id => !retired.has(id) || ringBackIds.includes(id));
+      return next.length === previous.length ? previous : next;
+    });
+  }, [leads, ringBackIds, setMissedCallQueue]);
+
   // Build the ordered session queue. The rules live in ./sales-call/queue.ts
   // (pure, unit tested): new → newest no-answers → the rest. Afternoon
   // second turns follow everyone's first turn today. Scheduled callbacks are
   // served separately at their time — see the callback watcher below.
   const buildSessionQueue = useCallback(
     (): string[] =>
-      buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadUnavailable, isPriority: isPriorityLead, requireHistory: true }).order,
+      buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadUnavailable, isPriority: isPriorityLead, requireHistory: true, repId }).order,
     // clockTick re-evaluates noon / callback windows once a minute.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [leads, callHistory, isLeadUnavailable, isPriorityLead, clockTick],
+    [leads, callHistory, isLeadUnavailable, isPriorityLead, clockTick, repId],
   );
 
   const currentBuildQueue = useRef(buildSessionQueue);
@@ -1526,9 +1552,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // Keep the waiting list current, including fresh leads already present in
   // a restored queue. The active call stays in place.
   const dueQueue = useMemo(
-    () => buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadUnavailable, isPriority: isPriorityLead, requireHistory: true }),
+    () => buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadUnavailable, isPriority: isPriorityLead, requireHistory: true, repId }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [leads, callHistory, isLeadUnavailable, isPriorityLead, clockTick],
+    [leads, callHistory, isLeadUnavailable, isPriorityLead, clockTick, repId],
   );
 
   // Prune unavailable callbacks too. The session waiting list is filtered by
@@ -1570,11 +1596,27 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     if (skipped > 0) toast(`Passed ${skipped} lead${skipped === 1 ? "" : "s"} already handled or deferred`);
     return i;
   }, []);
+  const pendingRetryKeys = useMemo(() => new Map(dueLeadIds.filter(id => dueQueue.group[id] === "retry")
+    .map(id => [id, JSON.stringify(callHistory[id]?.retry)])), [dueLeadIds, dueQueue.group, callHistory]);
+  const pendingRetryKeysRef = useRef(pendingRetryKeys);
+  pendingRetryKeysRef.current = pendingRetryKeys;
+  const offeredRetriesRef = useRef(new Set<string>());
+  // Once offered in this session, do not replay it while call history catches up.
+  // A retry newly assigned after an earlier queue position still gets one turn.
+  useEffect(() => {
+    const position = sessionQueueIndex(sessionQueue, activeId, sessionIndex);
+    for (const id of sessionQueue.slice(position)) {
+      const key = pendingRetryKeys.get(id);
+      if (key) offeredRetriesRef.current.add(key);
+    }
+    const activeKey = activeId ? pendingRetryKeys.get(activeId) : undefined;
+    if (activeKey) offeredRetriesRef.current.add(activeKey);
+  }, [sessionQueue, sessionIndex, activeId, pendingRetryKeys]);
   const orderedDueRef = useRef(dueLeadIds);
   orderedDueRef.current = dueLeadIds;
   const refreshWaitingQueue = useCallback((queue: string[], index: number, currentId: string | null) =>
     reorderSessionQueue({ queue, index, activeId: currentId, orderedIds: orderedDueRef.current,
-      priorityIds: missedCallQueueRef.current, skipped: sessionSkipsRef.current }), []);
+      priorityIds: missedCallQueueRef.current, skipped: sessionSkipsRef.current, retryIds: new Set([...pendingRetryKeysRef.current].filter(([, key]) => !offeredRetriesRef.current.has(key)).map(([id]) => id)) }), []);
   useEffect(() => {
     if (!sessionActive || !queueDataReady || practiceMode || testLeadIds.length) return;
     setSessionQueue(q => refreshWaitingQueue(q, sessionIndex, activeId));

@@ -1,4 +1,5 @@
 import { type StatusKey, isRetiredRawStatus, isReturningLead, normaliseStatus } from "./status";
+import { retryAssignment, type RetryProgress } from "./retry-assignments";
 
 // ---------------------------------------------------------------------------
 // Session queue rules (pure — no React, no Supabase — so they can be tested).
@@ -21,6 +22,7 @@ export type QueueLead = {
   callback_scheduled_at: string | null;
   booking_date?: string | null;
   lead_class?: string | null;
+  raw_payload?: unknown;
 };
 
 export type CallHistory = {
@@ -32,6 +34,7 @@ export type CallHistory = {
   todayAttempts: number;
   todayFirstAttemptAt: string | null;
   todayLastAttemptAt: string | null;
+  retry?: RetryProgress;
 };
 
 export type HistoryMap = Record<string, CallHistory | undefined>;
@@ -129,7 +132,7 @@ export function dueCallbackIds<L extends QueueLead>(leads: L[], history: History
     .map((l) => l.id);
 }
 
-export type QueueGroup = "new" | "no_answer" | "rest";
+export type QueueGroup = "new" | "retry" | "no_answer" | "rest";
 
 export type BuiltQueue = {
   /** Ordered lead ids to serve. */
@@ -144,6 +147,14 @@ export function groupFor(l: QueueLead, h: CallHistory): QueueGroup {
   return "rest";
 }
 
+export function hasPendingRetry(l: QueueLead, h: CallHistory, repId?: string | null): boolean {
+  const r = retryAssignment(l);
+  const s = normaliseStatus(l.status, l);
+  return Boolean(r && r.repId === repId && (s === "new" || s === "no_answer")
+    && h.retry?.batchId === r.batchId && h.retry.repId === repId
+    && h.retry.requestedAt === r.requestedAt && h.retry.calledAt === null);
+}
+
 export function buildQueue<L extends QueueLead>(input: {
   leads: L[];
   history: HistoryMap;
@@ -152,6 +163,7 @@ export function buildQueue<L extends QueueLead>(input: {
   isPriority?: (l: L) => boolean;
   /** Unknown history is not evidence that a lead has never been called. */
   requireHistory?: boolean;
+  repId?: string | null;
 }): BuiltQueue {
   const { leads, history, now } = input;
   const isPaused: (l: L) => boolean = input.isPaused ?? (() => false);
@@ -163,7 +175,7 @@ export function buildQueue<L extends QueueLead>(input: {
     // A scheduled callback that hasn't expired is served by dueCallbackIds().
     const w = callbackWindow(l, now);
     if (w === "future" || w === "live") return false;
-    return isDueToday(historyFor(history, l.id), now);
+    return hasPendingRetry(l, historyFor(history, l.id), input.repId) || isDueToday(historyFor(history, l.id), now);
   });
 
   const created = (l: L) => ms(l.created_at) || 0;
@@ -171,20 +183,22 @@ export function buildQueue<L extends QueueLead>(input: {
   const newest = (a: L, b: L) => created(b) - created(a)
     || Number(isPriority(b)) - Number(isPriority(a)) || a.id.localeCompare(b.id);
 
-  const groups: Record<QueueGroup, L[]> = { new: [], no_answer: [], rest: [] };
+  const groups: Record<QueueGroup, L[]> = { new: [], retry: [], no_answer: [], rest: [] };
   const group: Record<string, QueueGroup> = {};
   for (const l of eligible) {
-    const g = groupFor(l, historyFor(history, l.id));
+    const h = historyFor(history, l.id);
+    const g = hasPendingRetry(l, h, input.repId) ? "retry" : groupFor(l, h);
     groups[g].push(l);
     group[l.id] = g;
   }
 
   groups.new.sort(newest);
+  groups.retry.sort(newest);
   groups.no_answer.sort(newest);
   groups.rest.sort(newest);
 
-  const ordered = [...groups.new, ...groups.no_answer, ...groups.rest];
-  const firstTurn = (l: L) => historyFor(history, l.id).todayAttempts === 0;
+  const ordered = [...groups.new, ...groups.retry, ...groups.no_answer, ...groups.rest];
+  const firstTurn = (l: L) => group[l.id] === "retry" || historyFor(history, l.id).todayAttempts === 0;
   const order = [...ordered.filter(firstTurn), ...ordered.filter(l => !firstTurn(l))].map(l => l.id);
   return { order, group };
 }
