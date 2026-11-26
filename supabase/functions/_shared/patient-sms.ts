@@ -20,17 +20,17 @@ function appointmentDetails(input: PatientSmsDetails, opening: string): string {
     + (address ? ` Address: ${address}.` : "");
 }
 
-function rescheduleContact(input: PatientSmsDetails): string {
-  const phone = input.clinicPhone?.trim();
-  return phone ? ` For changes, call ${phone}.` : "";
+/** Shared rescheduling policy for patient booking and payment texts. */
+export function patientRescheduleNotice(clinicPhone?: string | null): string {
+  const phone = clinicPhone?.trim();
+  const contact = phone ? `call ${phone}` : "call the clinic";
+  return `If you need to reschedule, ${contact} at least 24 hours before your appointment to keep your deposit.`;
 }
 
 /** Patient confirmation copy shared by the SMS sender and its preview. */
 export function bookingConfirmationSms(input: PatientSmsDetails): string {
-  const phone = input.clinicPhone?.trim();
-  const contact = phone ? `call ${phone}` : "call the clinic";
   return appointmentDetails(input, `your hair transplant consultation is confirmed for ${input.date}`)
-    + ` If you need to cancel or reschedule, ${contact} at least 24 hours before your appointment to keep your deposit.`;
+    + ` ${patientRescheduleNotice(input.clinicPhone)}`;
 }
 
 export type PatientReminderKind = "3day" | "24h" | "request" | "followup";
@@ -44,7 +44,7 @@ export function appointmentReminderSms(input: PatientSmsDetails, kind: PatientRe
     : kind === "followup" ? `we haven't heard back about your consultation on ${input.date}`
     : `your consultation is on ${input.date}`;
   const confirm = kind === "request" || kind === "followup" ? " Please reply YES to confirm you'll attend." : "";
-  return appointmentDetails(input, opening) + rescheduleContact(input) + confirm;
+  return appointmentDetails(input, opening) + ` ${patientRescheduleNotice(input.clinicPhone)}` + confirm;
 }
 
 /** Some clinic addresses contain the suburb/state already; others store them separately. */
@@ -58,5 +58,5 @@ export function clinicSmsAddress(clinic: { address: string | null; city: string 
 }
 
 export function rescheduleConfirmationSms(input: PatientSmsDetails): string {
-  return appointmentDetails(input, `your hair transplant consultation has been rescheduled to ${input.date}`) + rescheduleContact(input);
+  return appointmentDetails(input, `your hair transplant consultation has been rescheduled to ${input.date}`) + ` ${patientRescheduleNotice(input.clinicPhone)}`;
 }

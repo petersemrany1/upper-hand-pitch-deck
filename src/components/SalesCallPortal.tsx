@@ -1,3 +1,4 @@
+import { patientRescheduleNotice } from "@/lib/booking-confirmation-sms";
 import { createAttendanceCheck } from "./sales-call/attended-phones";
 import { ForcedOutcomeModal } from "./sales-call/ForcedOutcomeModal";
 import { useClinicCapacity } from "./sales-call/use-clinic-capacity";
@@ -8711,7 +8712,7 @@ function RightPanel({
               {[
                 { label: "Following up", text: `Hi ${active.first_name ?? "there"}, I'm following up on your hair transplant enquiry. Call 0414 999 999 if you'd like to talk it through.` },
                 { label: "Callback confirm", text: `Hi ${active.first_name ?? "there"}, I'll call you shortly about your consultation enquiry.` },
-                { label: "Booking reminder", text: `Hi ${active.first_name ?? "there"}, a reminder about your upcoming consultation. Your booking confirmation has the time and address. For changes, call the clinic.` },
+                { label: "Booking reminder", text: `Hi ${active.first_name ?? "there"}, a reminder about your upcoming consultation. Your booking confirmation has the time and address. ${patientRescheduleNotice(panelClinics.find(c => c.id === active.clinic_id)?.phone)}` },
                 { label: "Deposit reminder", text: `Hi ${active.first_name ?? "there"}, a reminder to pay your $75 deposit to book your consultation. It's refundable when you attend.` },
               ].map((t) => (
                 <button

@@ -1,7 +1,7 @@
 import { getSmsSender } from "./sms-sender.server";
 import { loadPatientConfirmation } from "./patient-confirmation.server";
 import { assertExistingBookingAccess } from "./booking-access.server";
-import { PATIENT_SMS_FROM } from "@/lib/booking-confirmation-sms";
+import { patientRescheduleNotice, PATIENT_SMS_FROM } from "@/lib/booking-confirmation-sms";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
@@ -39,7 +39,8 @@ function publicOrigin(requestUrl: string): string {
 }
 
 
-const PATIENT_DEPOSIT_TERMS = "Your deposit is refunded after you attend. If you need to cancel or reschedule, call the clinic at least 24 hours before your appointment to keep your deposit.";
+const patientDepositTerms = (clinicPhone?: string | null) =>
+  `Your deposit is refunded after you attend. ${patientRescheduleNotice(clinicPhone)}`;
 
 async function depositPayUrl(leadId: string, clinicId?: string): Promise<string> {
   const { getRequest } = await import("@tanstack/react-start/server");
@@ -75,7 +76,7 @@ async function requireClinicSnapshot(
   fnName: string,
   leadId: string,
   clinicId: string | null | undefined,
-): Promise<{ ok: true; clinicName: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; clinicName: string; clinicPhone: string | null } | { ok: false; error: string }> {
   if (!clinicId) {
     return { ok: false, error: "Select a clinic before sending the payment link" };
   }
@@ -83,7 +84,7 @@ async function requireClinicSnapshot(
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: clinic, error: clinicError } = await supabaseAdmin
       .from("partner_clinics")
-      .select("id, clinic_name")
+      .select("id, clinic_name, phone")
       .eq("id", clinicId)
       .maybeSingle();
     if (clinicError) throw clinicError;
@@ -100,7 +101,7 @@ async function requireClinicSnapshot(
     if (clinicSaveError || savedLead?.clinic_id !== clinicId) {
       throw clinicSaveError ?? new Error("The selected clinic did not save");
     }
-    return { ok: true, clinicName: clinic.clinic_name };
+    return { ok: true, clinicName: clinic.clinic_name, clinicPhone: clinic.phone };
   } catch (e) {
     await logError(`${fnName}.clinic`, e instanceof Error ? e.message : String(e), {
       leadId,
@@ -1361,7 +1362,7 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
 
     const doctorDisplay = data.doctorName ?? "your specialist";
 
-    const message = `Hi ${data.firstName}, to book your consultation with ${doctorDisplay} at ${snapshot.clinicName} for ${bookingDisplay}, pay your $75 refundable consultation deposit here: ${depositUrl}\n\n${PATIENT_DEPOSIT_TERMS}`;
+    const message = `Hi ${data.firstName}, to book your consultation with ${doctorDisplay} at ${snapshot.clinicName} for ${bookingDisplay}, pay your $75 refundable consultation deposit here: ${depositUrl}\n\n${patientDepositTerms(snapshot.clinicPhone)}`;
 
     const raw = data.phone.replace(/[\s\-()]/g, "");
     const formatted = raw.startsWith("+")
@@ -1754,7 +1755,7 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
     // Snapshot the selected clinic into this URL as well as the lead. This makes
     // the checkout deterministic even if the lead is later reassigned.
     const depositUrl = await depositPayUrl(data.leadId, data.clinicId);
-    const message = `Hi ${data.firstName}, to book your consultation at ${snapshot.clinicName}, pay your $75 refundable consultation deposit here: ${depositUrl}\n\n${PATIENT_DEPOSIT_TERMS}`;
+    const message = `Hi ${data.firstName}, to book your consultation at ${snapshot.clinicName}, pay your $75 refundable consultation deposit here: ${depositUrl}\n\n${patientDepositTerms(snapshot.clinicPhone)}`;
 
 
     const raw = data.phone.replace(/[\s\-()]/g, "");
