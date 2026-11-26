@@ -4,14 +4,14 @@ import { bookingConfirmationSms, clinicSmsAddress } from "./booking-confirmation
 const appointment = { firstName: "Peter", date: "Monday, 5 October", time: "10:00 AM", clinicName: "Boss Clinic", clinicAddress: "3/28 Hood St Subiaco WA 6008", clinicPhone: "(08) 1234 5678" };
 test("Boss confirmation prefers Debra over the surgeon and uses Boss contact details", () => {
   const message = bookingConfirmationSms({ ...appointment, consultantName: "Debra Best — Hair Regrowth Specialist", doctorName: "Dr Jai" });
-  expect(message).toBe("Hi Peter, your hair transplant consultation is confirmed for Monday, 5 October at 10:00 AM with Debra Best at Boss Clinic. Address: 3/28 Hood St Subiaco WA 6008. If you need to cancel or reschedule, call (08) 1234 5678 at least 24 hours before your appointment to keep your deposit.");
+  expect(message).toBe("Hi Peter, your hair transplant consultation is confirmed for Monday, 5 October at 10:00 AM with Debra Best at Boss Clinic. Address: 3/28 Hood St Subiaco WA 6008. If you need to reschedule, call (08) 1234 5678 at least 24 hours before your appointment to keep your deposit.");
 });
 test("uses the doctor's recorded name when no consultant is supplied", () => {
   expect(bookingConfirmationSms({ ...appointment, consultantName: " ", doctorName: "Dr. Shobhna Singh — Hair Transplant Specialist", clinicName: "Nitai Medical & Cosmetic Centre", clinicPhone: "(03) 9300 1244" })).toContain("with Dr. Shobhna Singh at Nitai Medical & Cosmetic Centre.");
 });
 test("does not add another clinic's phone number when the selected clinic has none", () => {
   const message = bookingConfirmationSms({ ...appointment, consultantName: "Debra Best", clinicPhone: null });
-  expect(message).toContain("If you need to cancel or reschedule, call the clinic at least 24 hours before your appointment to keep your deposit.");
+  expect(message).toContain("If you need to reschedule, call the clinic at least 24 hours before your appointment to keep your deposit.");
   expect(message).not.toContain("Call ");
   expect(message).not.toContain("Hair Transplant Group");
   expect(message).not.toContain("Hair Regrowth Specialist");

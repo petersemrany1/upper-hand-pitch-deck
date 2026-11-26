@@ -126,7 +126,7 @@ test("staff-day requests use the actual date, not tomorrow; copy has a clear YES
   expect(workflowSms(booking(),"request")).not.toContain("tomorrow");
   for (const kind of ["request", "followup"] as const) {
     const text = workflowSms(booking(), kind);
-    expect(text).toContain("For changes, call 0899999999.");
+    expect(text).toContain("If you need to reschedule, call 0899999999 at least 24 hours before your appointment to keep your deposit.");
     expect(text).toEndWith("Please reply YES to confirm you'll attend.");
     expect(text).not.toMatch(/\bCHANGE\b|Hair Transplant Group/);
   }
