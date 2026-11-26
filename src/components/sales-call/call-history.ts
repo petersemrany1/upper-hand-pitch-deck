@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { buildHistory, type HistoryMap } from "./queue";
+import { loadRetryProgress, type RetryAssignment } from "./retry-assignments";
 
 type CallRow = {
   id: string;
@@ -109,7 +110,7 @@ const historyRow = z.object({
 });
 const historyResponse = z.record(historyRow);
 
-export function createCallHistoryLoader(db: Pick<SupabaseClient<Database>, "from" | "rpc">, leadIds: string[], signal: AbortSignal) {
+function createTeamCallHistoryLoader(db: Pick<SupabaseClient<Database>, "from" | "rpc">, leadIds: string[], signal: AbortSignal) {
   const legacy = createPagedHistoryLoader(db, leadIds, signal);
   const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   return async (now = new Date()) => {
@@ -136,5 +137,23 @@ export function createCallHistoryLoader(db: Pick<SupabaseClient<Database>, "from
       if (Object.keys(days).length) byDay[id] = days;
     }
     return { history, counts, firsts, byDay };
+  };
+}
+
+export function createCallHistoryLoader(
+  db: Pick<SupabaseClient<Database>, "from" | "rpc">, leadIds: string[], signal: AbortSignal,
+  retry?: { repId: string | null; assignments: RetryAssignment[] },
+) {
+  const loadTeam = createTeamCallHistoryLoader(db, leadIds, signal);
+  return async (now = new Date()) => {
+    const [snapshot, progress] = await Promise.all([
+      loadTeam(now),
+      loadRetryProgress(db, retry?.assignments ?? [], retry?.repId ?? null, signal),
+    ]);
+    signal.throwIfAborted();
+    for (const [id, value] of Object.entries(progress)) {
+      if (snapshot.history[id]) snapshot.history[id] = { ...snapshot.history[id]!, retry: value };
+    }
+    return snapshot;
   };
 }

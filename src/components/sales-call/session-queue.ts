@@ -8,8 +8,10 @@ export function reorderSessionQueue(input: {
   orderedIds: string[];
   priorityIds?: string[];
   skipped?: ReadonlySet<string>;
+  /** A new, still-unfulfilled operator retry may revisit an earlier position. */
+  retryIds?: ReadonlySet<string>;
 }): string[] {
-  const { queue, index, activeId, orderedIds, priorityIds = [], skipped = new Set() } = input;
+  const { queue, index, activeId, orderedIds, priorityIds = [], skipped = new Set(), retryIds = new Set() } = input;
   // A previously saved cursor can drift when an older client removes entries
   // before/currently at that cursor. Anchor to the actual current lead before
   // deciding which entries have been completed.
@@ -21,7 +23,7 @@ export function reorderSessionQueue(input: {
   const pending = new Set(queue.slice(cut));
   const known = new Set(queue);
   const tail = [...new Set([...priorityIds, ...orderedIds])].filter(id =>
-    id !== activeId && !skipped.has(id) && (pending.has(id) || !known.has(id)),
+    id !== activeId && !skipped.has(id) && (pending.has(id) || !known.has(id) || retryIds.has(id)),
   );
   const next = [...prefix, ...tail];
   return next.length === queue.length && next.every((id, i) => id === queue[i]) ? queue : next;
