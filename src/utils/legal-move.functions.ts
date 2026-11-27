@@ -153,3 +153,74 @@ export const legalCopyCountsFn = createServerFn({ method: "POST" })
     }
     return counts;
   });
+
+const LEGAL_BUCKET_SETTINGS: Record<string, { fileSizeLimit?: number }> = {
+  "firm-contracts": { fileSizeLimit: 26214400 },
+  "firm-offers": {},
+  "practice-call-recordings": {},
+  "training-media": {},
+};
+
+/**
+ * Creates the private legal- storage buckets here (if missing) and hands back
+ * one-time upload links, so the browser can copy each Legal file straight
+ * across. Existing files are replaced.
+ */
+export const legalStorageUploadLinksFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { files: { bucket: string; name: string }[] }) =>
+    z
+      .object({
+        files: z
+          .array(z.object({ bucket: z.string().refine((b) => b in LEGAL_BUCKET_SETTINGS), name: z.string().min(1).max(1024) }))
+          .max(500),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as never);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: existing, error } = await supabaseAdmin.storage.listBuckets();
+    if (error) throw new Error(error.message);
+    const have = new Set(existing.map((b) => b.id));
+    for (const [bucket, opts] of Object.entries(LEGAL_BUCKET_SETTINGS)) {
+      if (have.has(`legal-${bucket}`)) continue;
+      const { error: e } = await supabaseAdmin.storage.createBucket(`legal-${bucket}`, { public: false, ...opts });
+      if (e) throw new Error(`legal-${bucket}: ${e.message}`);
+    }
+    const links: { bucket: string; name: string; path: string; token: string }[] = [];
+    for (const f of data.files) {
+      const { data: link, error: e } = await supabaseAdmin.storage
+        .from(`legal-${f.bucket}`)
+        .createSignedUploadUrl(f.name, { upsert: true });
+      if (e) throw new Error(`${f.bucket}/${f.name}: ${e.message}`);
+      links.push({ bucket: f.bucket, name: f.name, path: link.path, token: link.token });
+    }
+    return { links };
+  });
+
+/** Files in each legal- bucket here, to compare with the Legal app. */
+export const legalStorageCountsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase as never);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const out: Record<string, string[]> = {};
+    for (const bucket of Object.keys(LEGAL_BUCKET_SETTINGS)) out[bucket] = await listAll(supabaseAdmin.storage.from(`legal-${bucket}`), "");
+    return out;
+  });
+
+type Lister = { list: (path: string, opts: { limit: number }) => PromiseLike<{ data: { name: string; id: string | null }[] | null; error: { message: string } | null }> };
+
+/** Every file path in a bucket (folders have no id and are walked). */
+export async function listAll(bucket: Lister, prefix: string): Promise<string[]> {
+  const { data, error } = await bucket.list(prefix, { limit: 1000 });
+  if (error) return [];
+  const out: string[] = [];
+  for (const item of data ?? []) {
+    const path = prefix ? `${prefix}/${item.name}` : item.name;
+    if (item.id) out.push(path);
+    else out.push(...(await listAll(bucket, path)));
+  }
+  return out;
+}

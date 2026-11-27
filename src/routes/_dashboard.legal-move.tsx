@@ -5,7 +5,15 @@ import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { RequireLegal } from "@/components/business/LegalConnect";
 import { legalDb } from "@/lib/legal/client";
 import { LEGAL_TABLES } from "@/legal/move/manifest";
-import { importLegalRowsFn, legalCopyCountsFn, legalUserMapFn } from "@/utils/legal-move.functions";
+import {
+  importLegalRowsFn,
+  legalCopyCountsFn,
+  legalStorageCountsFn,
+  legalStorageUploadLinksFn,
+  legalUserMapFn,
+  listAll,
+} from "@/utils/legal-move.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 // Admin tool for the Legal move (docs/legal-move-plan.md): copies every Legal
 // record into this database's legal_ tables and compares the counts. Safe to
@@ -50,6 +58,9 @@ function LegalMovePage() {
   const importRows = useServerFn(importLegalRowsFn);
   const counts = useServerFn(legalCopyCountsFn);
   const userMap = useServerFn(legalUserMapFn);
+  const uploadLinks = useServerFn(legalStorageUploadLinksFn);
+  const storageCounts = useServerFn(legalStorageCountsFn);
+  const [files, setFiles] = useState<string | null>(null);
   const [people, setPeople] = useState<{ matched: string[]; unmatched: string[] } | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
   const [running, setRunning] = useState(false);
@@ -130,6 +141,38 @@ function LegalMovePage() {
     setRunning(false);
   }
 
+  // Stored files (training media, firm offers, practice recordings): read from
+  // Legal with the admin's Legal sign-in, uploaded here through one-time links.
+  async function copyFiles() {
+    setFiles("Copying stored files…");
+    try {
+      const buckets = ["firm-contracts", "firm-offers", "practice-call-recordings", "training-media"];
+      const found: { bucket: string; name: string }[] = [];
+      for (const bucket of buckets)
+        for (const name of await listAll(legalDb().storage.from(bucket) as never, "")) found.push({ bucket, name });
+      const { links } = await uploadLinks({ data: { files: found } });
+      const problems: string[] = [];
+      for (const l of links) {
+        const { data: blob, error } = await legalDb().storage.from(l.bucket).download(l.name);
+        if (error || !blob) {
+          problems.push(`${l.bucket}/${l.name}: ${error?.message ?? "no file"}`);
+          continue;
+        }
+        const { error: up } = await supabase.storage.from(`legal-${l.bucket}`).uploadToSignedUrl(l.path, l.token, blob, {
+          contentType: blob.type || undefined,
+        });
+        if (up) problems.push(`${l.bucket}/${l.name}: ${up.message}`);
+      }
+      const here = await storageCounts();
+      const summary = buckets
+        .map((b) => `${b}: Legal ${found.filter((f) => f.bucket === b).length}, here ${here[b]?.length ?? 0}`)
+        .join(" · ");
+      setFiles(`${summary}${problems.length ? ` — problems: ${problems.join("; ")}` : ""}`);
+    } catch (e) {
+      setFiles(`Couldn't copy stored files: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 p-6">
       <div>
@@ -150,8 +193,17 @@ function LegalMovePage() {
           >
             {running ? "Copying…" : "Copy all Legal records"}
           </button>
+          <button
+            type="button"
+            onClick={copyFiles}
+            disabled={running}
+            className="rounded-md border px-4 py-2 text-sm font-medium disabled:opacity-60"
+          >
+            Copy stored files
+          </button>
           {summary && <span className="text-sm font-medium">{summary}</span>}
         </div>
+        {files && <p className="mt-3 text-sm">{files}</p>}
         {people && (
           <p className="mt-3 text-sm">
             Matched {people.matched.length} Legal staff to their portal logins
