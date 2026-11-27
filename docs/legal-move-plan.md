@@ -93,7 +93,17 @@ We move it in stages. Each stage is checked before the next one starts.
   screens match the Legal app on the copied records: Leads (228), Leaderboard
   (This month, every rep's numbers), Transcripts (Tim Chigwidden's calls and
   transcript), Pitch deck. The test switch now carries across Legal links.
-- Next: bring the remaining Legal screens (sales call, booked appointments,
-  inbox, firms, numbers, settings, training…) in as native pages; mount Legal's
-  API routes under `/api/public/legal/…` (disabled); apply the `legal-` storage
-  rules; copy the 2 firm-offer files; Stage 3 (accounts) with Peter.
+- **2026-11-28 (afternoon) — every Legal staff screen runs on the copied
+  records.** With `?legalData=portal` the portal opens natively: sales call,
+  messages, appointments, numbers, all training modules, and the Legal-only
+  screens under `/legal/…` (dashboard, firms, firm cold calling, ad briefing,
+  handover check, settings). Without the switch everyone still gets the Legal
+  app. Every figure matched the live Legal app (boldfamilylaw.com.au) on
+  dashboard, firms, appointments, inbox, numbers, cold calling, settings and
+  training; the only difference is a dashboard chart that is in the Legal
+  repo but not yet published there. File access rules for `legal-` buckets
+  applied (Lovable); training videos open from the portal.
+- Not yet: the firm portal and public pages (marketing, firm offers,
+  deposits); Legal's 23 API routes ("doorbells") under `/api/public/legal/…`
+  (disabled); the 2 firm-offer files; anything that phones, texts, charges or
+  emails (needs the `LEGAL_` keys, Stage 3, and stays off until switch-over).
