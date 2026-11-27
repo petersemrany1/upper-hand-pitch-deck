@@ -24,24 +24,40 @@ for (const f of fks) {
   }
   deps.get(f.table)?.add(f.ref);
 }
-const order = [];
-const state = new Map();
-function visit(t, stack) {
-  if (state.get(t) === 2) return;
-  if (state.get(t) === 1) {
-    // Cycle: defer the link from the last table on the stack back to t.
-    const from = stack[stack.length - 1];
-    const f = fks.find((x) => x.table === from && x.ref === t);
-    deferred.set(from, [...(deferred.get(from) ?? []), ...f.cols]);
-    deps.get(from).delete(t);
-    return;
+// Break cycles first (deferring a link whose columns may be empty), then sort.
+const nullable = (f) => f.cols.every((c) => !tables.get(f.table).columns.find((x) => x.name === c)?.not_null);
+function findCycle() {
+  const state = new Map();
+  let found = null;
+  function dfs(t, stack) {
+    if (found || state.get(t) === 2) return;
+    if (state.get(t) === 1) {
+      found = [...stack.slice(stack.indexOf(t)), t];
+      return;
+    }
+    state.set(t, 1);
+    for (const d of deps.get(t)) if (tables.has(d)) dfs(d, [...stack, t]);
+    state.set(t, 2);
   }
-  state.set(t, 1);
-  for (const d of [...deps.get(t)]) if (tables.has(d)) visit(d, [...stack, t]);
-  state.set(t, 2);
+  for (const t of [...tables.keys()].sort()) dfs(t, []);
+  return found;
+}
+for (let cycle = findCycle(); cycle; cycle = findCycle()) {
+  const links = cycle.slice(0, -1).map((from, i) => fks.find((x) => x.table === from && x.ref === cycle[i + 1]));
+  const f = links.find(nullable);
+  if (!f) throw new Error(`No nullable link to break cycle ${cycle.join(" > ")}`);
+  deferred.set(f.table, [...(deferred.get(f.table) ?? []), ...f.cols]);
+  deps.get(f.table).delete(f.ref);
+}
+const order = [];
+const done = new Set();
+function visit(t) {
+  if (done.has(t)) return;
+  done.add(t);
+  for (const d of deps.get(t)) if (tables.has(d)) visit(d);
   order.push(t);
 }
-for (const t of [...tables.keys()].sort()) visit(t, []);
+for (const t of [...tables.keys()].sort()) visit(t);
 
 const pk = new Map();
 for (const c of schema.constraints.filter((c) => c.type === "p")) {

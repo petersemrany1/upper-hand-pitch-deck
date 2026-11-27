@@ -246,23 +246,14 @@ export const LEGAL_TABLES: LegalTable[] = [
     "rows": 4
   },
   {
-    "name": "prospect_contacts",
-    "key": [
-      "id"
-    ],
-    "skip": [],
-    "deferred": [
-      "prospect_firm_id"
-    ],
-    "rows": 336
-  },
-  {
     "name": "prospect_firms",
     "key": [
       "id"
     ],
     "skip": [],
-    "deferred": [],
+    "deferred": [
+      "primary_contact_id"
+    ],
     "rows": 1086
   },
   {
@@ -592,6 +583,15 @@ export const LEGAL_TABLES: LegalTable[] = [
     "skip": [],
     "deferred": [],
     "rows": 12
+  },
+  {
+    "name": "prospect_contacts",
+    "key": [
+      "id"
+    ],
+    "skip": [],
+    "deferred": [],
+    "rows": 336
   },
   {
     "name": "prospect_call_attempts",
