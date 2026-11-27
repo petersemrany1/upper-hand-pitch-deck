@@ -32,8 +32,13 @@ function remap(value: unknown, users: Record<string, string>): unknown {
  */
 export const legalUserMapFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { users: { id: string; email: string | null }[] }) =>
-    z.object({ users: z.array(z.object({ id: z.string().uuid(), email: z.string().nullable() })).max(5000) }).parse(input),
+  .inputValidator((input: { users: { id: string; email: string | null }[]; me?: string }) =>
+    z
+      .object({
+        users: z.array(z.object({ id: z.string().uuid(), email: z.string().nullable() })).max(5000),
+        me: z.string().uuid().optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase as never);
@@ -48,7 +53,15 @@ export const legalUserMapFn = createServerFn({ method: "POST" })
     const map: Record<string, string> = {};
     const matched: string[] = [];
     const unmatched: string[] = [];
+    // The admin running the copy is signed in to both apps: their Legal login is
+    // them, even when the two logins use different emails.
+    const self = (context as { userId?: string }).userId;
     for (const u of data.users) {
+      if (u.id === data.me && self) {
+        map[u.id] = self;
+        matched.push(u.email ?? u.id);
+        continue;
+      }
       const id = u.email ? portal.get(u.email.trim().toLowerCase()) : undefined;
       if (id) {
         map[u.id] = id;

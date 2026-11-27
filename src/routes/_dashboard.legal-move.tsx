@@ -78,7 +78,8 @@ function LegalMovePage() {
     // Legal staff are matched to their portal logins by email; the copy points at those.
     let users: Record<string, string> = {};
     try {
-      const res = await userMap({ data: { users: await legalStaffLogins() } });
+      const { data: me } = await legalDb().auth.getUser();
+      const res = await userMap({ data: { users: await legalStaffLogins(), me: me.user?.id } });
       users = res.map;
       setPeople({ matched: res.matched, unmatched: res.unmatched });
     } catch (e) {
@@ -206,7 +207,7 @@ function LegalMovePage() {
         {files && <p className="mt-3 text-sm">{files}</p>}
         {people && (
           <p className="mt-3 text-sm">
-            Matched {people.matched.length} Legal staff to their portal logins
+            Matched {people.matched.length} Legal staff to their portal logins ({people.matched.join(", ")})
             {people.unmatched.length ? `; no portal login yet: ${people.unmatched.join(", ")}` : "."}
           </p>
         )}
