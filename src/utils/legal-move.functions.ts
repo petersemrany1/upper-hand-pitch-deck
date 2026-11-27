@@ -117,8 +117,7 @@ export const importLegalRowsFn = createServerFn({ method: "POST" })
       }
       return { written: removed };
     }
-    const rows = data.rows.map((original) => {
-      const row = Object.fromEntries(Object.entries(original).map(([k, v]) => [k, remap(v, users)]));
+    const shape = (row: Record<string, unknown>) => {
       const out: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(row)) {
         if (spec.skip.includes(k)) continue;
@@ -127,7 +126,11 @@ export const importLegalRowsFn = createServerFn({ method: "POST" })
         else out[k] = v;
       }
       return out;
-    });
+    };
+    const rows = data.rows.map((original) =>
+      shape(Object.fromEntries(Object.entries(original).map(([k, v]) => [k, remap(v, users)]))),
+    );
+    const stripped = data.rows.map(shape);
     const target = supabaseAdmin.from(`legal_${data.table}` as never) as unknown as {
       upsert: (rows: unknown[], opts: { onConflict: string }) => PromiseLike<{ error: { message: string } | null }>;
     };
@@ -144,10 +147,20 @@ export const importLegalRowsFn = createServerFn({ method: "POST" })
       }
       return { written: linked.length };
     }
-    const { error } = renumbered
-      ? await (target as unknown as { insert: (r: unknown[]) => PromiseLike<{ error: { message: string } | null }> }).insert(rows)
-      : await target.upsert(rows, { onConflict: spec.key.join(",") });
-    if (error) throw new Error(`${data.table}: ${error.message}`);
+    if (renumbered) {
+      const { error } = await (target as unknown as { insert: (r: unknown[]) => PromiseLike<{ error: { message: string } | null }> }).insert(rows);
+      if (error) throw new Error(`${data.table}: ${error.message}`);
+      return { written: rows.length };
+    }
+    // Rows that keep their Legal values go first, so a portal login id an earlier
+    // copy gave the wrong row is freed before the right row takes it.
+    const swapped = (i: number) => JSON.stringify(rows[i]) !== JSON.stringify(stripped[i]);
+    const groups = [rows.filter((_, i) => !swapped(i)), rows.filter((_, i) => swapped(i))];
+    for (const group of groups) {
+      if (!group.length) continue;
+      const { error } = await target.upsert(group, { onConflict: spec.key.join(",") });
+      if (error) throw new Error(`${data.table}: ${error.message}`);
+    }
     return { written: rows.length };
   });
 
