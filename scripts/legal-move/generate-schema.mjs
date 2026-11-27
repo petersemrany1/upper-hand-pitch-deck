@@ -16,6 +16,19 @@ export const BUCKET_PREFIX = "legal-";
 /** Names that are also column names: only rename them where they're called as functions. */
 const CALL_ONLY = new Set(["can_manage_firm_pipeline", "can_view_team_clients"]);
 
+/** Helpers added to the Legal database only for this move; never copied. */
+export const MOVE_HELPERS = new Set([
+  "portal_schema_export",
+  "portal_table_export",
+  "portal_auth_users_export",
+  "portal_leaderboard_source",
+]);
+
+/** The snapshot minus the move helpers. */
+export function withoutHelpers(schema) {
+  return { ...schema, functions: schema.functions.filter((f) => !MOVE_HELPERS.has(f.name)) };
+}
+
 export function makeRewriter(schema) {
   const names = new Set([
     ...schema.tables.map((t) => t.name),
@@ -199,6 +212,12 @@ export function generate(schema) {
   const cons = [...schema.constraints].sort((a, b) => order[a.type] - order[b.type]);
   for (const c of cons) {
     if (c.type === "n" || c.type === "t") continue; // constraint triggers come with the triggers
+    // Lovable Cloud forbids new foreign keys to auth.users. Legal rows keep their
+    // Legal user ids; people are matched to Upper Hand accounts at switch-over.
+    if (c.type === "f" && /REFERENCES auth\./.test(c.def)) {
+      emit(`-- skipped (Cloud rule): ${c.table} ${c.name} ${c.def}`);
+      continue;
+    }
     const table = c.table.replace(/^public\./, "");
     emit(`ALTER TABLE public.${P(table)} ADD CONSTRAINT ${q(P(c.name))} ${rewrite(c.def)};`);
   }
@@ -283,5 +302,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   const storage = args.includes("--storage");
   const schema = JSON.parse(readFileSync(args.find((a) => !a.startsWith("--")) ?? ".legal-move/schema.json", "utf8"));
-  process.stdout.write(storage ? generateStorage(schema) : generate(schema));
+  const clean = withoutHelpers(schema);
+  process.stdout.write(storage ? generateStorage(clean) : generate(clean));
 }

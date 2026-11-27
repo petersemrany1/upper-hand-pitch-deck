@@ -6,7 +6,8 @@ import assert from "node:assert/strict";
 import { replay } from "./replay.mjs";
 
 const file = process.argv[2] ?? ".legal-move/legal_schema.sql";
-const schema = JSON.parse(await readFile(process.argv[3] ?? ".legal-move/schema.json", "utf8"));
+import { withoutHelpers } from "./generate-schema.mjs";
+const schema = withoutHelpers(JSON.parse(await readFile(process.argv[3] ?? ".legal-move/schema.json", "utf8")));
 import { readdir } from "node:fs/promises";
 const hairOnly = (await readdir("supabase/migrations")).filter((f) => f.endsWith(".sql") && !/_legal_/.test(f)).sort().map((f) => "supabase/migrations/" + f);
 const r = await replay(hairOnly, { quiet: true, keepGoing: true });

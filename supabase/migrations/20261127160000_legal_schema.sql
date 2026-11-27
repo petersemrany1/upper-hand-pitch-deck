@@ -2221,34 +2221,6 @@ BEGIN
  RETURN jsonb_build_object('id',oid,'pack_id',pid,'quantity',p_quantity,'payment_status','manual_pending');
 END $function$;
 
-CREATE OR REPLACE FUNCTION public.legal_portal_auth_users_export(p_offset integer DEFAULT 0)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public', 'pg_catalog'
-AS $function$ DECLARE result jsonb; BEGIN IF NOT coalesce(public.legal_is_admin_user(), false) THEN RAISE EXCEPTION 'Admins only' USING ERRCODE = '42501'; END IF; SELECT coalesce(jsonb_agg(jsonb_build_object( 'id', u.id, 'email', u.email, 'phone', u.phone, 'user_metadata', u.raw_user_meta_data, 'created_at', u.created_at, 'last_sign_in_at', u.last_sign_in_at, 'email_confirmed_at', u.email_confirmed_at, 'banned_until', u.banned_until ) ORDER BY u.created_at, u.id), '[]'::jsonb) INTO result FROM (SELECT * FROM auth.users ORDER BY created_at, id OFFSET greatest(coalesce(p_offset, 0), 0) LIMIT 1000) u; RETURN result; END; $function$;
-
-CREATE OR REPLACE FUNCTION public.legal_portal_leaderboard_source(p_from timestamp with time zone, p_to timestamp with time zone)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$ DECLARE result jsonb; BEGIN IF NOT ( public.legal_is_admin_user() OR EXISTS ( SELECT 1 FROM public.legal_sales_reps r WHERE r.user_id = auth.uid() AND r.is_active AND r.role IN ('admin', 'rep') ) ) THEN RAISE EXCEPTION 'Staff only' USING ERRCODE = '42501'; END IF; IF p_from IS NULL OR p_to IS NULL OR p_to < p_from OR p_to - p_from > interval '400 days' THEN RAISE EXCEPTION 'Invalid range' USING ERRCODE = '22023'; END IF; WITH calls AS ( SELECT c.id, c.rep_id, c.lead_id, c.direction, c.call_status, c.duration_seconds, c.created_at FROM public.legal_call_records c WHERE c.created_at >= p_from AND c.created_at <= p_to AND coalesce(c.direction, 'outbound') <> 'inbound' ), appts AS ( SELECT a.id, a.lead_id, a.status, a.created_at FROM public.legal_firm_appointments a WHERE a.status <> 'cancelled' AND a.created_at >= p_from AND a.created_at <= p_to ), deposits AS ( SELECT l.id, l.rep_id, l.deposit_paid_at FROM public.legal_client_leads l WHERE l.deposit_paid_at >= p_from AND l.deposit_paid_at <= p_to ), lead_ids AS ( SELECT lead_id AS id FROM calls WHERE lead_id IS NOT NULL UNION SELECT lead_id FROM appts WHERE lead_id IS NOT NULL UNION SELECT id FROM deposits ) SELECT jsonb_build_object( 'reps', (SELECT coalesce(jsonb_agg(to_jsonb(r)), '[]'::jsonb) FROM ( SELECT id, name, email, role, is_active, created_at FROM public.legal_sales_reps WHERE is_active ) r), 'calls', (SELECT coalesce(jsonb_agg(to_jsonb(c) ORDER BY c.created_at), '[]'::jsonb) FROM calls c), 'appts', (SELECT coalesce(jsonb_agg(to_jsonb(a)), '[]'::jsonb) FROM appts a), 'deposits', (SELECT coalesce(jsonb_agg(to_jsonb(d)), '[]'::jsonb) FROM deposits d), 'leads', (SELECT coalesce(jsonb_agg(to_jsonb(l)), '[]'::jsonb) FROM ( SELECT cl.id, cl.rep_id, cl.first_name, cl.last_name FROM public.legal_client_leads cl JOIN lead_ids i ON i.id = cl.id ) l) ) INTO result; RETURN result; END; $function$;
-
-CREATE OR REPLACE FUNCTION public.legal_portal_schema_export()
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public', 'pg_catalog'
-AS $function$ DECLARE result jsonb; BEGIN IF NOT coalesce(public.legal_is_admin_user(), false) THEN RAISE EXCEPTION 'Admins only' USING ERRCODE = '42501'; END IF; SELECT jsonb_build_object( 'tables', ( SELECT coalesce(jsonb_agg(jsonb_build_object( 'name', c.relname, 'kind', c.relkind, 'rls', c.relrowsecurity, 'force_rls', c.relforcerowsecurity, 'acl', c.relacl::text[], 'columns', ( SELECT coalesce(jsonb_agg(jsonb_build_object( 'name', a.attname, 'type', format_type(a.atttypid, a.atttypmod), 'not_null', a.attnotnull, 'default', pg_get_expr(d.adbin, d.adrelid), 'identity', a.attidentity, 'generated', a.attgenerated ) ORDER BY a.attnum), '[]'::jsonb) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum WHERE a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped ) ) ORDER BY c.relname), '[]'::jsonb) FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p') ), 'constraints', ( SELECT coalesce(jsonb_agg(jsonb_build_object( 'table', c.conrelid::regclass::text, 'name', c.conname, 'type', c.contype, 'def', pg_get_constraintdef(c.oid) ) ORDER BY c.conrelid::regclass::text, c.contype, c.conname), '[]'::jsonb) FROM pg_constraint c WHERE c.connamespace = 'public'::regnamespace AND c.conrelid <> 0 ), 'indexes', ( SELECT coalesce(jsonb_agg(jsonb_build_object( 'table', i.tablename, 'name', i.indexname, 'def', i.indexdef ) ORDER BY i.tablename, i.indexname), '[]'::jsonb) FROM pg_indexes i WHERE i.schemaname = 'public' AND NOT EXISTS (SELECT 1 FROM pg_constraint k WHERE k.conname = i.indexname AND k.connamespace = 'public'::regnamespace) ), 'views', ( SELECT coalesce(jsonb_agg(jsonb_build_object( 'name', c.relname, 'kind', c.relkind, 'def', pg_get_viewdef(c.oid, true), 'options', c.reloptions, 'acl', c.relacl::text[] ) ORDER BY c.relname), '[]'::jsonb) FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('v', 'm') ), 'sequences', ( SELECT coalesce(jsonb_agg(c.relname ORDER BY c.relname), '[]'::jsonb) FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'S' ), 'types', ( SELECT coalesce(jsonb_agg(jsonb_build_object( 'name', t.typname, 'kind', t.typtype, 'labels', (SELECT jsonb_agg(e.enumlabel ORDER BY e.enumsortorder) FROM pg_enum e WHERE e.enumtypid = t.oid), 'domain_type', CASE WHEN t.typtype = 'd' THEN format_type(t.typbasetype, t.typtypmod) END ) ORDER BY t.typname), '[]'::jsonb) FROM pg_type t WHERE t.typnamespace = 'public'::regnamespace AND t.typtype IN ('e', 'd') ), 'functions', ( SELECT coalesce(jsonb_agg(jsonb_build_object( 'name', p.proname, 'args', pg_get_function_identity_arguments(p.oid), 'kind', p.prokind, 'def', pg_get_functiondef(p.oid), 'acl', p.proacl::text[] ) ORDER BY p.proname, pg_get_function_identity_arguments(p.oid)), '[]'::jsonb) FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace AND p.prokind IN ('f', 'p') AND NOT EXISTS (SELECT 1 FROM pg_depend dep WHERE dep.objid = p.oid AND dep.deptype = 'e') ), 'triggers', ( SELECT coalesce(jsonb_agg(jsonb_build_object( 'table', t.tgrelid::regclass::text, 'name', t.tgname, 'def', pg_get_triggerdef(t.oid), 'enabled', t.tgenabled ) ORDER BY t.tgrelid::regclass::text, t.tgname), '[]'::jsonb) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid WHERE NOT t.tgisinternal AND c.relnamespace IN ('public'::regnamespace, 'auth'::regnamespace) ), 'policies', ( SELECT coalesce(jsonb_agg(to_jsonb(p) ORDER BY p.schemaname, p.tablename, p.policyname), '[]'::jsonb) FROM pg_policies p WHERE p.schemaname IN ('public', 'storage') ), 'buckets', ( SELECT coalesce(jsonb_agg(jsonb_build_object( 'id', b.id, 'name', b.name, 'public', b.public, 'file_size_limit', b.file_size_limit, 'allowed_mime_types', b.allowed_mime_types ) ORDER BY b.id), '[]'::jsonb) FROM storage.buckets b ), 'cron', ( SELECT coalesce(jsonb_agg(jsonb_build_object( 'name', j.jobname, 'schedule', j.schedule, 'command', j.command, 'active', j.active ) ORDER BY j.jobname), '[]'::jsonb) FROM cron.job j ), 'row_counts', ( SELECT coalesce(jsonb_object_agg(s.relname, s.n_live_tup), '{}'::jsonb) FROM pg_stat_user_tables s WHERE s.schemaname = 'public' ), 'storage_objects', ( SELECT coalesce(jsonb_object_agg(o.bucket_id, o.n), '{}'::jsonb) FROM (SELECT bucket_id, count(*) AS n FROM storage.objects GROUP BY bucket_id) o ), 'auth_users', (SELECT count(*) FROM auth.users) ) INTO result; RETURN result; END; $function$;
-
-CREATE OR REPLACE FUNCTION public.legal_portal_table_export(p_table text, p_offset integer DEFAULT 0, p_limit integer DEFAULT 1000)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public', 'pg_catalog'
-AS $function$ DECLARE rel oid; order_by text; result jsonb; BEGIN IF NOT coalesce(public.legal_is_admin_user(), false) THEN RAISE EXCEPTION 'Admins only' USING ERRCODE = '42501'; END IF; SELECT c.oid INTO rel FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p') AND c.relname = p_table; IF rel IS NULL THEN RAISE EXCEPTION 'Unknown table %', p_table USING ERRCODE = '22023'; END IF; SELECT string_agg(quote_ident(a.attname), ', ' ORDER BY array_position(i.indkey::int2[], a.attnum)) INTO order_by FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey) WHERE i.indrelid = rel AND i.indisprimary; EXECUTE format( 'SELECT coalesce(jsonb_agg(to_jsonb(t)), ''[]''::jsonb) FROM (SELECT * FROM public.%I ORDER BY %s OFFSET %s LIMIT %s) t', p_table, coalesce(order_by, 'ctid'), greatest(coalesce(p_offset, 0), 0), least(greatest(coalesce(p_limit, 1000), 1), 1000) ) INTO result; RETURN result; END; $function$;
-
 CREATE OR REPLACE FUNCTION public.legal_prospect_apply_dnc()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -3340,18 +3312,6 @@ GRANT EXECUTE ON FUNCTION public.legal_normalize_phone(p text) TO service_role;
 REVOKE ALL ON FUNCTION public.legal_order_firm_pack(p_firm uuid, p_request uuid, p_quantity integer) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.legal_order_firm_pack(p_firm uuid, p_request uuid, p_quantity integer) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.legal_order_firm_pack(p_firm uuid, p_request uuid, p_quantity integer) TO service_role;
-REVOKE ALL ON FUNCTION public.legal_portal_auth_users_export(p_offset integer) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.legal_portal_auth_users_export(p_offset integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.legal_portal_auth_users_export(p_offset integer) TO service_role;
-REVOKE ALL ON FUNCTION public.legal_portal_leaderboard_source(p_from timestamp with time zone, p_to timestamp with time zone) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.legal_portal_leaderboard_source(p_from timestamp with time zone, p_to timestamp with time zone) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.legal_portal_leaderboard_source(p_from timestamp with time zone, p_to timestamp with time zone) TO service_role;
-REVOKE ALL ON FUNCTION public.legal_portal_schema_export() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.legal_portal_schema_export() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.legal_portal_schema_export() TO service_role;
-REVOKE ALL ON FUNCTION public.legal_portal_table_export(p_table text, p_offset integer, p_limit integer) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.legal_portal_table_export(p_table text, p_offset integer, p_limit integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.legal_portal_table_export(p_table text, p_offset integer, p_limit integer) TO service_role;
 REVOKE ALL ON FUNCTION public.legal_prospect_apply_dnc() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.legal_prospect_apply_dnc() TO service_role;
 REVOKE ALL ON FUNCTION public.legal_prospect_guard_call_attempt() FROM PUBLIC, anon, authenticated;
@@ -3604,14 +3564,14 @@ ALTER TABLE public.legal_ad_briefing_calls ADD CONSTRAINT "legal_ad_briefing_cal
 ALTER TABLE public.legal_ad_briefing_calls ADD CONSTRAINT "legal_ad_briefing_calls_report_id_fkey" FOREIGN KEY (report_id) REFERENCES legal_ad_briefing_reports(id);
 ALTER TABLE public.legal_ad_briefing_calls ADD CONSTRAINT "legal_ad_briefing_calls_retry_of_fkey" FOREIGN KEY (retry_of) REFERENCES legal_ad_briefing_calls(id);
 ALTER TABLE public.legal_ad_briefing_reports ADD CONSTRAINT "legal_ad_briefing_reports_owner_id_fkey" FOREIGN KEY (owner_id) REFERENCES legal_ad_briefing_settings(owner_id);
-ALTER TABLE public.legal_ad_briefing_settings ADD CONSTRAINT "legal_ad_briefing_settings_owner_id_fkey" FOREIGN KEY (owner_id) REFERENCES auth.users(id);
+-- skipped (Cloud rule): ad_briefing_settings ad_briefing_settings_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id)
 ALTER TABLE public.legal_ad_briefing_turns ADD CONSTRAINT "legal_ad_briefing_turns_call_id_fkey" FOREIGN KEY (call_id) REFERENCES legal_ad_briefing_calls(id);
 ALTER TABLE public.legal_appointment_attendance ADD CONSTRAINT "legal_appointment_attendance_appointment_id_fkey" FOREIGN KEY (appointment_id) REFERENCES legal_firm_appointments(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_appointment_attendance_events ADD CONSTRAINT "legal_appointment_attendance_events_appointment_id_fkey" FOREIGN KEY (appointment_id) REFERENCES legal_firm_appointments(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_appointment_reminder_jobs ADD CONSTRAINT "legal_appointment_reminder_jobs_appointment_id_fkey" FOREIGN KEY (appointment_id) REFERENCES legal_firm_appointments(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_appointment_reminders ADD CONSTRAINT "legal_appointment_reminders_appointment_id_fkey" FOREIGN KEY (appointment_id) REFERENCES legal_firm_appointments(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_call_hook_insights ADD CONSTRAINT "legal_call_hook_insights_call_id_fkey" FOREIGN KEY (call_id) REFERENCES legal_call_records(id) ON DELETE CASCADE;
-ALTER TABLE public.legal_call_hook_insights ADD CONSTRAINT "legal_call_hook_insights_requested_by_fkey" FOREIGN KEY (requested_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+-- skipped (Cloud rule): call_hook_insights call_hook_insights_requested_by_fkey FOREIGN KEY (requested_by) REFERENCES auth.users(id) ON DELETE SET NULL
 ALTER TABLE public.legal_call_records ADD CONSTRAINT "legal_call_records_lead_id_fkey" FOREIGN KEY (lead_id) REFERENCES legal_client_leads(id) ON DELETE SET NULL;
 ALTER TABLE public.legal_call_records ADD CONSTRAINT "legal_call_records_rep_id_fkey" FOREIGN KEY (rep_id) REFERENCES legal_sales_reps(id) ON DELETE SET NULL;
 ALTER TABLE public.legal_client_asset_calculations ADD CONSTRAINT "legal_client_asset_calculations_lead_id_fkey" FOREIGN KEY (lead_id) REFERENCES legal_client_leads(id) ON DELETE CASCADE;
@@ -3621,13 +3581,13 @@ ALTER TABLE public.legal_client_leads ADD CONSTRAINT "legal_client_leads_previou
 ALTER TABLE public.legal_client_leads ADD CONSTRAINT "legal_client_leads_rep_id_fkey" FOREIGN KEY (rep_id) REFERENCES legal_sales_reps(id) ON DELETE SET NULL;
 ALTER TABLE public.legal_cold_calling_audit_log ADD CONSTRAINT "legal_cold_calling_audit_log_prospect_firm_id_fkey" FOREIGN KEY (prospect_firm_id) REFERENCES legal_prospect_firms(id) ON DELETE SET NULL;
 ALTER TABLE public.legal_daily_phone_assignments ADD CONSTRAINT "legal_daily_phone_assignments_outbound_caller_id_id_fkey" FOREIGN KEY (outbound_caller_id_id) REFERENCES legal_phone_numbers(id) ON DELETE SET NULL;
-ALTER TABLE public.legal_deck_settings ADD CONSTRAINT "legal_deck_settings_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+-- skipped (Cloud rule): deck_settings deck_settings_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 ALTER TABLE public.legal_firm_application_call_sheets ADD CONSTRAINT "legal_firm_application_call_sheets_application_id_fkey" FOREIGN KEY (application_id) REFERENCES legal_firm_applications(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_firm_application_calls ADD CONSTRAINT "legal_firm_application_calls_application_id_fkey" FOREIGN KEY (application_id) REFERENCES legal_firm_applications(id) ON DELETE CASCADE;
-ALTER TABLE public.legal_firm_application_calls ADD CONSTRAINT "legal_firm_application_calls_callback_owner_id_fkey" FOREIGN KEY (callback_owner_id) REFERENCES auth.users(id);
+-- skipped (Cloud rule): firm_application_calls firm_application_calls_callback_owner_id_fkey FOREIGN KEY (callback_owner_id) REFERENCES auth.users(id)
 ALTER TABLE public.legal_firm_application_calls ADD CONSTRAINT "legal_firm_application_calls_rep_id_fkey" FOREIGN KEY (rep_id) REFERENCES legal_sales_reps(id);
 ALTER TABLE public.legal_firm_application_messages ADD CONSTRAINT "legal_firm_application_messages_application_id_fkey" FOREIGN KEY (application_id) REFERENCES legal_firm_applications(id) ON DELETE CASCADE;
-ALTER TABLE public.legal_firm_application_messages ADD CONSTRAINT "legal_firm_application_messages_created_by_fkey" FOREIGN KEY (created_by) REFERENCES auth.users(id);
+-- skipped (Cloud rule): firm_application_messages firm_application_messages_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 ALTER TABLE public.legal_firm_application_notes ADD CONSTRAINT "legal_firm_application_notes_application_id_fkey" FOREIGN KEY (application_id) REFERENCES legal_firm_applications(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_firm_application_notes ADD CONSTRAINT "legal_firm_application_notes_firm_call_id_fkey" FOREIGN KEY (firm_call_id) REFERENCES legal_firm_application_calls(id) ON DELETE SET NULL;
 ALTER TABLE public.legal_firm_appointment_notes ADD CONSTRAINT "legal_firm_appointment_notes_appointment_id_fkey" FOREIGN KEY (appointment_id) REFERENCES legal_firm_appointments(id) ON DELETE CASCADE;
@@ -3644,10 +3604,10 @@ ALTER TABLE public.legal_firm_blocked_slots ADD CONSTRAINT "legal_firm_blocked_s
 ALTER TABLE public.legal_firm_booking_follow_ups ADD CONSTRAINT "legal_firm_booking_follow_ups_application_id_fkey" FOREIGN KEY (application_id) REFERENCES legal_firm_applications(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_firm_calendar_history ADD CONSTRAINT "legal_firm_calendar_history_firm_id_fkey" FOREIGN KEY (firm_id) REFERENCES legal_firms(id);
 ALTER TABLE public.legal_firm_callback_recipients ADD CONSTRAINT "legal_firm_callback_recipients_call_id_fkey" FOREIGN KEY (call_id) REFERENCES legal_firm_application_calls(id);
-ALTER TABLE public.legal_firm_callback_recipients ADD CONSTRAINT "legal_firm_callback_recipients_owner_id_fkey" FOREIGN KEY (owner_id) REFERENCES auth.users(id);
-ALTER TABLE public.legal_firm_callback_settings ADD CONSTRAINT "legal_firm_callback_settings_owner_id_fkey" FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+-- skipped (Cloud rule): firm_callback_recipients firm_callback_recipients_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id)
+-- skipped (Cloud rule): firm_callback_settings firm_callback_settings_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE
 ALTER TABLE public.legal_firm_contract_events ADD CONSTRAINT "legal_firm_contract_events_contract_id_fkey" FOREIGN KEY (contract_id) REFERENCES legal_firm_contracts(id) ON DELETE CASCADE;
-ALTER TABLE public.legal_firm_contracts ADD CONSTRAINT "legal_firm_contracts_created_by_fkey" FOREIGN KEY (created_by) REFERENCES auth.users(id);
+-- skipped (Cloud rule): firm_contracts firm_contracts_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 ALTER TABLE public.legal_firm_contracts ADD CONSTRAINT "legal_firm_contracts_firm_id_fkey" FOREIGN KEY (firm_id) REFERENCES legal_firms(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_firm_lawyers ADD CONSTRAINT "legal_firm_lawyers_firm_id_fkey" FOREIGN KEY (firm_id) REFERENCES legal_firms(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_firm_locations ADD CONSTRAINT "legal_firm_locations_firm_id_fkey" FOREIGN KEY (firm_id) REFERENCES legal_firms(id) ON DELETE CASCADE;
@@ -3663,14 +3623,14 @@ ALTER TABLE public.legal_firm_packs ADD CONSTRAINT "legal_firm_packs_offer_id_fk
 ALTER TABLE public.legal_firm_pipeline_portals ADD CONSTRAINT "legal_firm_pipeline_portals_application_id_fkey" FOREIGN KEY (application_id) REFERENCES legal_firm_applications(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_firm_pipeline_portals ADD CONSTRAINT "legal_firm_pipeline_portals_firm_id_fkey" FOREIGN KEY (firm_id) REFERENCES legal_firms(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_firm_portal_users ADD CONSTRAINT "legal_firm_portal_users_firm_id_fkey" FOREIGN KEY (firm_id) REFERENCES legal_firms(id) ON DELETE CASCADE;
-ALTER TABLE public.legal_firm_portal_users ADD CONSTRAINT "legal_firm_portal_users_id_fkey" FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+-- skipped (Cloud rule): firm_portal_users firm_portal_users_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
 ALTER TABLE public.legal_firm_profile_items ADD CONSTRAINT "legal_firm_profile_items_section_id_fkey" FOREIGN KEY (section_id) REFERENCES legal_firm_profile_sections(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_firm_profile_sections ADD CONSTRAINT "legal_firm_profile_sections_firm_id_fkey" FOREIGN KEY (firm_id) REFERENCES legal_firms(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_firm_reminder_settings ADD CONSTRAINT "legal_firm_reminder_settings_firm_id_fkey" FOREIGN KEY (firm_id) REFERENCES legal_firms(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_firm_trading_hours ADD CONSTRAINT "legal_firm_trading_hours_firm_id_fkey" FOREIGN KEY (firm_id) REFERENCES legal_firms(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_phone_suppressions ADD CONSTRAINT "legal_phone_suppressions_prospect_firm_id_fkey" FOREIGN KEY (prospect_firm_id) REFERENCES legal_prospect_firms(id) ON DELETE SET NULL;
-ALTER TABLE public.legal_practice_call_recordings ADD CONSTRAINT "legal_practice_call_recordings_auth_user_id_fkey" FOREIGN KEY (auth_user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.legal_profiles ADD CONSTRAINT "legal_profiles_id_fkey" FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+-- skipped (Cloud rule): practice_call_recordings practice_call_recordings_auth_user_id_fkey FOREIGN KEY (auth_user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+-- skipped (Cloud rule): profiles profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
 ALTER TABLE public.legal_prospect_call_attempts ADD CONSTRAINT "legal_prospect_call_attempts_assignment_fk" FOREIGN KEY (daily_phone_assignment_id) REFERENCES legal_daily_phone_assignments(id) ON DELETE SET NULL;
 ALTER TABLE public.legal_prospect_call_attempts ADD CONSTRAINT "legal_prospect_call_attempts_call_record_id_fkey" FOREIGN KEY (call_record_id) REFERENCES legal_call_records(id) ON DELETE SET NULL;
 ALTER TABLE public.legal_prospect_call_attempts ADD CONSTRAINT "legal_prospect_call_attempts_caller_rep_id_fkey" FOREIGN KEY (caller_rep_id) REFERENCES legal_sales_reps(id) ON DELETE SET NULL;
@@ -3679,20 +3639,20 @@ ALTER TABLE public.legal_prospect_call_attempts ADD CONSTRAINT "legal_prospect_c
 ALTER TABLE public.legal_prospect_call_attempts ADD CONSTRAINT "legal_prospect_call_attempts_prospect_firm_id_fkey" FOREIGN KEY (prospect_firm_id) REFERENCES legal_prospect_firms(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_prospect_contacts ADD CONSTRAINT "legal_prospect_contacts_prospect_firm_id_fkey" FOREIGN KEY (prospect_firm_id) REFERENCES legal_prospect_firms(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_prospect_firms ADD CONSTRAINT "legal_prospect_firms_primary_contact_fk" FOREIGN KEY (primary_contact_id) REFERENCES legal_prospect_contacts(id) ON DELETE SET NULL;
-ALTER TABLE public.legal_rep_module_progress ADD CONSTRAINT "legal_rep_module_progress_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public.legal_rep_quiz_progress ADD CONSTRAINT "legal_rep_quiz_progress_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+-- skipped (Cloud rule): rep_module_progress rep_module_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+-- skipped (Cloud rule): rep_quiz_progress rep_quiz_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 ALTER TABLE public.legal_rep_sessions ADD CONSTRAINT "legal_rep_sessions_rep_id_fkey" FOREIGN KEY (rep_id) REFERENCES legal_sales_reps(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_reporting_hour_overrides ADD CONSTRAINT "legal_reporting_hour_overrides_rep_id_fkey" FOREIGN KEY (rep_id) REFERENCES legal_sales_reps(id);
 ALTER TABLE public.legal_reporting_rep_rates ADD CONSTRAINT "legal_reporting_rep_rates_rep_id_fkey" FOREIGN KEY (rep_id) REFERENCES legal_sales_reps(id);
 ALTER TABLE public.legal_sales_lead_claims ADD CONSTRAINT "legal_sales_lead_claims_lead_id_fkey" FOREIGN KEY (lead_id) REFERENCES legal_client_leads(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_sales_lead_claims ADD CONSTRAINT "legal_sales_lead_claims_session_id_fkey" FOREIGN KEY (session_id) REFERENCES legal_rep_sessions(id) ON DELETE CASCADE;
-ALTER TABLE public.legal_sales_reps ADD CONSTRAINT "legal_sales_reps_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+-- skipped (Cloud rule): sales_reps sales_reps_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL
 ALTER TABLE public.legal_sales_session_visits ADD CONSTRAINT "legal_sales_session_visits_lead_id_fkey" FOREIGN KEY (lead_id) REFERENCES legal_client_leads(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_sales_session_visits ADD CONSTRAINT "legal_sales_session_visits_session_id_fkey" FOREIGN KEY (session_id) REFERENCES legal_rep_sessions(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_sms_messages ADD CONSTRAINT "legal_sms_messages_lead_id_fkey" FOREIGN KEY (lead_id) REFERENCES legal_client_leads(id) ON DELETE SET NULL;
 ALTER TABLE public.legal_sms_messages ADD CONSTRAINT "legal_sms_messages_thread_id_fkey" FOREIGN KEY (thread_id) REFERENCES legal_sms_threads(id) ON DELETE CASCADE;
 ALTER TABLE public.legal_sms_threads ADD CONSTRAINT "legal_sms_threads_lead_id_fkey" FOREIGN KEY (lead_id) REFERENCES legal_client_leads(id) ON DELETE SET NULL;
-ALTER TABLE public.legal_user_roles ADD CONSTRAINT "legal_user_roles_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+-- skipped (Cloud rule): user_roles user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 
 -- Indexes
 CREATE UNIQUE INDEX "legal_ad_briefing_one_callback" ON public.legal_ad_briefing_calls USING btree (retry_of) WHERE (retry_of IS NOT NULL);
