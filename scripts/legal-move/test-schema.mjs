@@ -5,7 +5,8 @@ import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { replay } from "./replay.mjs";
 
-const file = process.argv[2] ?? ".legal-move/legal_schema.sql";
+// Default: the split migration parts in supabase/migrations, applied in order.
+const file = process.argv[2] ?? null;
 import { withoutHelpers } from "./generate-schema.mjs";
 const schema = withoutHelpers(JSON.parse(await readFile(process.argv[3] ?? ".legal-move/schema.json", "utf8")));
 import { readdir } from "node:fs/promises";
@@ -13,7 +14,8 @@ const hairOnly = (await readdir("supabase/migrations")).filter((f) => f.endsWith
 const r = await replay(hairOnly, { quiet: true, keepGoing: true });
 const db = r.db;
 const before = (await db.query("SELECT count(*)::int n FROM pg_class WHERE relnamespace='public'::regnamespace AND relname NOT LIKE 'legal\\_%'")).rows[0].n;
-const sql = (await readFile(file, "utf8")).replace(/CREATE EXTENSION[^;]*;/gi, "");
+const partFiles = file ? [file] : (await readdir("supabase/migrations")).filter((f) => /_legal_schema_part\d+\.sql$/.test(f)).sort().map((f) => "supabase/migrations/" + f);
+const sql = (await Promise.all(partFiles.map((f) => readFile(f, "utf8")))).join("\n").replace(/CREATE EXTENSION[^;]*;/gi, "");
 try {
   await db.exec(sql);
 } catch (e) {
