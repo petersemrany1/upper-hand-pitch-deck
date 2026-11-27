@@ -18,6 +18,11 @@ async function assertAdmin(supabase: { rpc: (fn: "is_admin_user") => PromiseLike
 const tableName = z.string().refine((t) => LEGAL_TABLE_NAMES.has(t), "Unknown Legal table");
 const userMap = z.record(z.string().uuid(), z.string().uuid());
 
+/** Staff whose Legal login email differs from their portal login email. */
+const SAME_PERSON: Record<string, string> = {
+  "nina@bold-marketing.com.au": "sinclair.nina1@gmail.com",
+};
+
 /** Swap Legal login ids for the matching portal login ids (also inside lists). */
 function remap(value: unknown, users: Record<string, string>): unknown {
   if (typeof value === "string") return users[value] ?? value;
@@ -62,7 +67,8 @@ export const legalUserMapFn = createServerFn({ method: "POST" })
         matched.push(u.email ?? u.id);
         continue;
       }
-      const id = u.email ? portal.get(u.email.trim().toLowerCase()) : undefined;
+      const email = u.email?.trim().toLowerCase();
+      const id = email ? portal.get(SAME_PERSON[email] ?? email) : undefined;
       // Two Legal logins can't share one portal login; the admin's own wins.
       if (id && !(data.me && data.users.some((x) => x.id === data.me) && id === self)) {
         map[u.id] = id;
