@@ -63,7 +63,8 @@ export const legalUserMapFn = createServerFn({ method: "POST" })
         continue;
       }
       const id = u.email ? portal.get(u.email.trim().toLowerCase()) : undefined;
-      if (id) {
+      // Two Legal logins can't share one portal login; the admin's own wins.
+      if (id && !(data.me && data.users.some((x) => x.id === data.me) && id === self)) {
         map[u.id] = id;
         matched.push(u.email!);
       } else unmatched.push(u.email ?? u.id);
