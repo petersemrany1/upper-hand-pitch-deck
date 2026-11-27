@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { usePersonalPhoneLine } from "@/hooks/usePersonalPhoneLine";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 // Global listener for inbound SMS. Shows a top-left toast on any page,
@@ -14,6 +16,8 @@ type InboundMessage = {
 };
 
 export function SmsNotifier() {
+  const { user } = useAuth();
+  const { line, ready } = usePersonalPhoneLine();
   const navigate = useNavigate();
   const location = useLocation();
   const locRef = useRef(location.pathname);
@@ -53,6 +57,8 @@ export function SmsNotifier() {
   };
 
   useEffect(() => {
+    if (!user || !ready) return;
+    let current = true;
     const ch = supabase
       .channel("global-sms-notifier")
       .on(
@@ -62,7 +68,13 @@ export function SmsNotifier() {
           const m = payload.new as InboundMessage;
           if (m.direction !== "inbound") return;
 
-          // Always play the tone (even on the inbox page)
+          if (line) {
+            const { data, error } = await supabase.from("sms_thread_participants")
+              .select("thread_id").eq("thread_id", m.thread_id).eq("user_id", user.id).maybeSingle();
+            if (error || !data || !current) return;
+          }
+          if (!current) return;
+          // Play the tone only for a conversation this user follows.
           playMessageTone();
 
           // Skip toast if already on the inbox page
@@ -90,8 +102,8 @@ export function SmsNotifier() {
         },
       )
       .subscribe();
-    return () => { void supabase.removeChannel(ch); };
-  }, [navigate]);
+    return () => { current = false; void supabase.removeChannel(ch); };
+  }, [navigate, user?.id, ready, line?.id]);
 
   return null;
 }

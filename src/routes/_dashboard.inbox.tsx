@@ -1,3 +1,5 @@
+import { PersonalPhoneLineBadge } from "@/components/PersonalPhoneLineBadge";
+import { ConversationNotificationsButton } from "@/components/ConversationNotificationsButton";
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -155,8 +157,10 @@ function InboxPage() {
       console.error("loadMessages", error);
       return;
     }
-    setMessages((data as unknown as Message[]) ?? []);
-  }, []);
+    const rows = (data as unknown as Message[]) ?? [];
+    setMessages(rows);
+    if (rows.length) await markReadFn({ data: { threadId: threadId, readThrough: rows[rows.length - 1].created_at } });
+  }, [markReadFn]);
 
   // Initial load + handle deep links from clinics page
   useEffect(() => {
@@ -194,7 +198,7 @@ function InboxPage() {
   useEffect(() => {
     if (!activeId) { setMessages([]); return; }
     void loadMessages(activeId);
-    void markReadFn({ data: { threadId: activeId } }).then(() => loadThreads());
+
   }, [activeId, loadMessages, loadThreads, markReadFn]);
 
   // Auto-scroll to latest message — scroll only the messages container,
@@ -272,6 +276,7 @@ function InboxPage() {
 
   return (
     <div className="h-full w-full flex flex-col" style={{ background: "#f7f7f5", color: "#111111" }}>
+      <PersonalPhoneLineBadge />
       {/* Tabs */}
       <div className="flex items-center gap-1 px-4 pt-3" style={{ background: "#ffffff", borderBottom: "1px solid #ebebeb" }}>
         {([
@@ -421,6 +426,7 @@ function InboxPage() {
                   </div>
                 )}
               </div>
+              {activeId && <ConversationNotificationsButton key={activeId} threadId={activeId} />}
               {activePhone && (
                 <button
                   type="button"
@@ -533,7 +539,7 @@ function InboxPage() {
                 </button>
               </div>
               <div className="text-[10px] text-[#111111] mt-2">
-                Press Enter to send · Shift+Enter for new line · Sent from +61 468 031 075
+                Press Enter to send · Shift+Enter for new line
               </div>
             </div>
           </>

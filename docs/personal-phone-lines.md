@@ -1,0 +1,15 @@
+# Personal phone lines and existing conversations
+
+A personal line is a separate Twilio mobile lease assigned to one authenticated user and their verified active sales rep. It is excluded from the rotating pool, retirement jobs, and replacement allowance. All manual portal SMS/MMS paths and server-authorized outbound calls use that line. An unavailable line, unsupported MMS or exhausted daily call allowance stops the request instead of substituting a shared number. Automated reminders retain their existing sender.
+
+Each contact retains the same `sms_threads` record. Incoming messages to an old shared number and the personal number append to that conversation. Participation is restored from historical calls and recorded for new calls and manual messages. Replies trigger personal toasts and Messages & Phone badges only for involved conversations; opening a shared conversation under another account does not clear the owner's notification. Older text-only history has no sender attribution, so the owner can use **Notify me** on an existing conversation. These are in-portal alerts; this change does not register operating-system push notifications while the portal is closed.
+
+Release order:
+
+1. Apply `20261127002548_personal_phone_lines.sql` transactionally to project `sfwokpeeffgrkxaptqji`, recording the migration. No lease is purchased or assigned by the migration. Before deployment, live function-body hashes matched the baseline claim and inbound callback migrations.
+2. Deploy `sms-inbound` and `voice-outbound` from the same commit, preserving the current public webhook/JWT configuration and Twilio signature validation.
+3. Publish the matching frontend/server build.
+4. After explicit recurring-cost approval, acquire a separate AU mobile number with voice, SMS and MMS enabled, using the existing approved regulatory bundle and its matching address. Configure the same voice and SMS webhooks/status callbacks as the shared lines. Insert the verified provider SID and actual number into `personal_phone_lines` with the user's verified auth and sales-rep IDs. Never repurpose an existing shared or retired number. Ownership and provider identity are immutable.
+5. Verify the assigned number appears in Messages & Phone and Sales Call, own-account sender RPC returns it, other accounts cannot read/use it, and notification participation is loaded. Do not place real calls or send real SMS as release tests without a specific recipient/message authorized by the user.
+
+Validation: `npx tsc --noEmit`, `npm run build`, `bun scripts/test-personal-phone-alerts.ts`, `bun test src/hooks/useTwilioDevice.incoming.test.tsx`, and the PGlite suites `scripts/test-personal-phone-lines.mjs` / `scripts/test-voice-reputation.mjs` (`PGLITE_MODULE` may point to an isolated install). These cover unchanged thread identity/history, both-number replies, historical involvement, personal unread acknowledgements, toast filtering, owner isolation, retries, callbacks, blacklist, daily limits, pool rotation and retirement.

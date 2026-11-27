@@ -1,3 +1,4 @@
+import { PersonalPhoneLineBadge } from "@/components/PersonalPhoneLineBadge";
 import { patientRescheduleNotice } from "@/lib/booking-confirmation-sms";
 import { createAttendanceCheck } from "./sales-call/attended-phones";
 import { ForcedOutcomeModal } from "./sales-call/ForcedOutcomeModal";
@@ -2047,6 +2048,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   return (
     <>
       {callbackBanner}
+      <PersonalPhoneLineBadge />
       {sessionBar}
       <div className="h-full flex flex-col lg:flex-row" style={{ background: COLORS.bg, color: COLORS.text }}>
       {/* LEFT — vertical step nav (desktop only) */}

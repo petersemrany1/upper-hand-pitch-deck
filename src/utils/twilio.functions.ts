@@ -1,8 +1,9 @@
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { normalizeSmsPhone, INVALID_SMS_PHONE } from "./sms-phone";
 import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import { logError } from "./error-logger.functions";
-import { getNextNumber } from "./phone-pool.functions";
+import { getUserSmsSender, ensureSmsConversation } from "./sms-sender.server";
 
 function getAdminClient() {
   const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
@@ -16,6 +17,7 @@ function getAdminClient() {
 
 async function persistOutboundSms(params: {
   to: string;
+  userId: string;
   from: string;
   body: string;
   sid?: string;
@@ -23,24 +25,9 @@ async function persistOutboundSms(params: {
 }) {
   try {
     const sb = getAdminClient();
-    const normalizedPhone = params.to.replace(/\D/g, "");
-    const { data: existing } = await sb
-      .from("sms_threads")
-      .select("id")
-      .eq("phone_normalized", normalizedPhone)
-      .maybeSingle();
-    let threadId = existing?.id as string | undefined;
-    if (!threadId) {
-      const { data: created, error: cErr } = await sb
-        .from("sms_threads")
-        .insert({ phone: params.to })
-        .select("id")
-        .single();
-      if (cErr || !created) return;
-      threadId = created.id;
-    }
-    if (!threadId) throw new Error("Could not create or find SMS thread");
+    const threadId = await ensureSmsConversation(params.to, params.from);
     await sb.from("sms_messages").insert({
+      sender_user_id: params.userId,
       thread_id: threadId,
       direction: "outbound",
       body: params.body,
@@ -58,15 +45,15 @@ async function persistOutboundSms(params: {
 // Sends the Stripe payment-link SMS via Twilio. Credentials come from server
 // env vars only — never hard-coded.
 
-export const sendPaymentLinkSMS = createServerFn({ method: "POST" })
+export const sendPaymentLinkSMS = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((data: { to: string; firstName: string; stripeLink: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const formattedPhone = normalizeSmsPhone(data.to);
     if (!formattedPhone) return { success: false as const, error: INVALID_SMS_PHONE };
 
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const { number: from } = await getNextNumber();
+    const from = await getUserSmsSender(context.supabase);
 
     if (!accountSid || !authToken) {
       const msg = "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN must be configured";
@@ -107,7 +94,7 @@ export const sendPaymentLinkSMS = createServerFn({ method: "POST" })
       });
       return { success: false as const, error: result.message || "Failed to send SMS" };
     }
-    await persistOutboundSms({
+    await persistOutboundSms({ userId: context.userId,
       to: formattedPhone,
       from,
       body: message,

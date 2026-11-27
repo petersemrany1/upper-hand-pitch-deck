@@ -1,3 +1,4 @@
+import { PersonalPhoneLineBadge } from "@/components/PersonalPhoneLineBadge";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getLeadNameIndex } from "@/utils/lead-phone-cache";
@@ -96,8 +97,10 @@ export function MiniMessenger() {
       .eq("thread_id", id)
       .order("created_at", { ascending: true });
     if (error) return;
-    setMessages((data as unknown as Message[]) ?? []);
-  }, []);
+    const rows = (data as unknown as Message[]) ?? [];
+    setMessages(rows);
+    if (rows.length) await markReadFn({ data: { threadId: id, readThrough: rows[rows.length - 1].created_at } });
+  }, [markReadFn]);
 
   // Load threads when opened
   useEffect(() => {
@@ -127,7 +130,7 @@ export function MiniMessenger() {
     if (!open) return;
     if (!threadId) { setMessages([]); return; }
     void loadMessages(threadId);
-    void markReadFn({ data: { threadId } }).then(() => loadThreads());
+
   }, [open, threadId, loadMessages, loadThreads, markReadFn]);
 
   // Auto-scroll messages
@@ -257,6 +260,7 @@ export function MiniMessenger() {
           height: "min(640px, calc(100vh - 32px))",
         }}
       >
+        <PersonalPhoneLineBadge />
         {/* Phone-style header bar */}
         <div
           className="flex items-center gap-2 px-3 py-2.5"
