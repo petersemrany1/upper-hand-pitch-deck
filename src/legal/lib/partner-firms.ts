@@ -1,7 +1,6 @@
 // Ported from the Legal app (family-law-floater/src/lib/partner-firms.ts). Re-run the port script to refresh.
 import { supabase } from "@/legal/integrations/supabase/client";
 import { creditBalance } from "./firm-portal-credits";
-import type { FirmLocationNotes } from "./firm-location";
 
 export type Firm = {
   id: string;
@@ -112,19 +111,6 @@ export async function fetchFirms(): Promise<Firm[]> {
   const { data, error } = await supabase.from("firms").select("*").order("firm_name");
   if (error) throw error;
   return (data ?? []) as Firm[];
-}
-
-/** Uses the existing admin-only firm update policy; never changes other firm details. */
-export async function saveFirmLocationNotes(firmId: string, notes: FirmLocationNotes) {
-  const { data, error } = await supabase
-    .from("firms")
-    .update({ nearby_landmarks: notes.nearby_landmarks, parking_info: notes.parking_info })
-    .eq("id", firmId)
-    .select("id, nearby_landmarks, parking_info")
-    .single();
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error("Location notes were not saved. Please try again.");
-  return data;
 }
 
 export async function fetchPacks(): Promise<FirmPack[]> {

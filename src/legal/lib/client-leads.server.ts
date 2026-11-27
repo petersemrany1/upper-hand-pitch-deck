@@ -89,7 +89,6 @@ const TIMELINES = ["asap", "1_3_months", "3_6_months", "no_rush"];
 const FUNDING = ["savings", "family", "litigation_funding", "not_sure"];
 
 
-
 function clean(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   const s = String(value)

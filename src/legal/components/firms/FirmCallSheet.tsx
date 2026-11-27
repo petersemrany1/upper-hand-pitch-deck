@@ -177,8 +177,6 @@ export function FirmCallSheet({
           </QuestionGroup>
         </Section>
         <Section number={4} title="Our offer" active={tab === 3} idBase={tabsId}>
-          <Script>Have you heard about us before, or is this your first time?</Script>
-          <p className="crm-coach-note">Pause and let them answer.</p>
           <Script>
             We started as a traditional marketing company. We were generating thousands of leads,
             but firms still weren’t getting the quality they needed. So we niched down to family law
@@ -193,9 +191,7 @@ export function FirmCallSheet({
             <p>We check three things:</p>
             <ol>
               <li>
-                <strong>They can afford a lawyer.</strong> We look for at least $750,000 in assets
-                and likely eligibility for JustFund, or $50,000 or more in cash available to fund
-                their matter.
+                <strong>They can afford a lawyer.</strong>
               </li>
               <li>
                 <strong>They know how they’ll fund it.</strong>

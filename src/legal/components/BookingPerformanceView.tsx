@@ -144,7 +144,6 @@ export function BookingPerformanceView({
           ? `${dateLabel(report.start)} ${report.start.slice(0, 4)} – ${dateLabel(report.end)} ${report.end.slice(0, 4)}`
           : `${dateLabel(report.start)} – ${dateLabel(report.end)} · ${report.start.slice(0, 4)}`;
   const selectedBookings = selectedRep?.bookings ?? report?.total ?? 0;
-  const selectedShows = points.reduce((total, point) => total + point.showed, 0);
   const maxRepBookings = Math.max(1, ...(report?.reps.map((rep) => rep.bookings) ?? []));
   const totalLabel = `${number(selectedBookings)} booking${selectedBookings === 1 ? "" : "s"}`;
   const currentMonth = report ? sydneyTodayISO(new Date(report.asOf)).slice(0, 7) : "";
@@ -354,7 +353,7 @@ export function BookingPerformanceView({
                     </div>
                     {points.length ? (
                       <div
-                        aria-label={`Booking trend line chart: ${totalLabel}, ${number(selectedShows)} showed up`}
+                        aria-label={`Booking trend line chart: ${totalLabel}`}
                         className="booking-line-chart"
                       >
                         <ResponsiveContainer width="100%" height="100%">
@@ -405,6 +404,7 @@ export function BookingPerformanceView({
                                       : `${dateLabel(point.date)} – ${dateLabel(point.end)}`
                                   : "";
                               }}
+                              formatter={(value) => [value, "Bookings"]}
                               contentStyle={{
                                 borderRadius: 12,
                                 padding: "10px 14px",
@@ -433,46 +433,24 @@ export function BookingPerformanceView({
                               activeDot={{ r: 5, strokeWidth: 3, stroke: "#fff" }}
                               isAnimationActive={false}
                             />
-                            <Line
-                              type="linear"
-                              dataKey="showed"
-                              name="Showed up"
-                              stroke="var(--bp-showed)"
-                              strokeWidth={2.5}
-                              strokeDasharray="6 3"
-                              dot={
-                                points.length <= 35 ? { r: 3, fill: "#fff", strokeWidth: 2 } : false
-                              }
-                              activeDot={{ r: 5, strokeWidth: 3, stroke: "#fff" }}
-                              isAnimationActive={false}
-                            />
                           </ComposedChart>
                         </ResponsiveContainer>
                       </div>
                     ) : (
-                      <p className="booking-empty">No recorded activity in this period.</p>
+                      <p className="booking-empty">No recorded work activity in this period.</p>
                     )}
                     <div className="booking-chart-caption">
-                      <div className="booking-chart-legend">
-                        <span>
-                          <i />
-                          Bookings per {grouping}
-                        </span>
-                        <span>
-                          <i className="booking-showed-key" />
-                          Showed up per {grouping}
-                        </span>
-                      </div>
+                      <span>
+                        <i />
+                        Bookings per {grouping}
+                        {grouping === "month" ? " · all months" : " · active workdays only"}
+                      </span>
                       <span>
                         {selectedBookings === 0
                           ? "No bookings in this period"
                           : `Current ${grouping} may be incomplete`}
                       </span>
                     </div>
-                    <p className="booking-chart-date-note">
-                      Bookings by booking date · showed up by appointment date
-                      {grouping === "month" ? " · all months" : " · days with activity"}
-                    </p>
                     {grouping === "month" && points.length > 0 && (
                       <div className="booking-monthly-totals">
                         <div
@@ -490,7 +468,6 @@ export function BookingPerformanceView({
                               <tr>
                                 <th scope="col">Month</th>
                                 <th scope="col">Bookings</th>
-                                <th scope="col">Showed up</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -505,7 +482,6 @@ export function BookingPerformanceView({
                                     ) : null}
                                   </th>
                                   <td>{number(point.bookings)}</td>
-                                  <td>{number(point.showed)}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -597,7 +573,6 @@ export function BookingPerformanceView({
                             <tr>
                               <th>Date</th>
                               <th>Bookings</th>
-                              <th>Showed up</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -608,7 +583,6 @@ export function BookingPerformanceView({
                                   {point.end !== point.date ? ` – ${point.end}` : ""}
                                 </td>
                                 <td>{number(point.bookings)}</td>
-                                <td>{number(point.showed)}</td>
                               </tr>
                             ))}
                           </tbody>

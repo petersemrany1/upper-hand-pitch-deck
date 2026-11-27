@@ -1,4 +1,5 @@
 // Ported from the Legal app (family-law-floater/src/lib/ad-metrics.server.ts). Re-run the port script to refresh.
+import { trackingAdName } from "./tracking-ad-name";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/legal/integrations/supabase/client.server";
 import { buildAdOutcomes } from "./ad-outcomes";
@@ -60,7 +61,7 @@ export async function loadAdMetrics(
       outcomes.appointments,
       coverageComplete,
     ),
-    rows: parsed,
+    rows: parsed.map((row) => ({ ...row, ad_name: trackingAdName(row.ad_id, row.ad_name) })),
     since,
     until,
     missingDays,

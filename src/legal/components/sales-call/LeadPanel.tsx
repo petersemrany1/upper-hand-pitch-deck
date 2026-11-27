@@ -13,13 +13,11 @@ import {
   SelectValue,
 } from "@/legal/components/ui/select";
 import { LEAD_STATUSES } from "@/legal/lib/client-leads";
-import type { Firm, FirmLawyer } from "@/legal/lib/partner-firms";
-import { OBJECTIONS, type CallLead, type CallRecord } from "@/legal/lib/sales-call";
-import { OBJECTION_CARDS } from "@/legal/lib/sales-script";
-import { CallHistory } from "./call-history";
-import { FirmOffices } from "@/legal/components/firm-portal/FirmOffices";
-import type { FirmLocationNotes } from "@/legal/lib/firm-location";
 import { ClientDetails } from "./client-details";
+import type { Firm, FirmLawyer } from "@/legal/lib/partner-firms";
+import { OBJECTIONS, formatDuration, type CallLead, type CallRecord } from "@/legal/lib/sales-call";
+import { OBJECTION_CARDS } from "@/legal/lib/sales-script";
+import { FirmOffices } from "@/legal/components/firm-portal/FirmOffices";
 
 // Rates for people who aren't in the firm's lawyer list (e.g. paralegals), and a
 // fallback for lawyers whose hourly rate hasn't been filled in yet.
@@ -67,7 +65,6 @@ export function FirmInfoCard({
   lawyers,
   selectedLawyerId,
   onSelectLawyer,
-  onSaveFirmLocation,
 }: {
   firms: Firm[];
   selectedFirmId: string | null;
@@ -75,7 +72,6 @@ export function FirmInfoCard({
   lawyers: FirmLawyer[];
   selectedLawyerId: string | null;
   onSelectLawyer: (id: string | null) => void;
-  onSaveFirmLocation?: ((firmId: string, notes: FirmLocationNotes) => Promise<void>) | undefined;
 }) {
   const firm = firms.find((f) => f.id === selectedFirmId) ?? null;
   const firmAllocates = firmAllocatesLawyer(selectedFirmId);
@@ -136,7 +132,7 @@ export function FirmInfoCard({
         </p>
       ) : (
         <>
-          <div className="mt-3"><FirmOffices key={firm.id} firmId={firm.id} canEdit={Boolean(onSaveFirmLocation)} /></div>
+          <div className="mt-3"><FirmOffices key={firm.id} firmId={firm.id} /></div>
           {firm.notes?.trim() ? <Detail label="Notes" value={firm.notes} /> : null}
           <div className="mt-2 overflow-hidden rounded-md border">
             <div className="flex items-center justify-between border-b bg-muted/40 px-2 py-1 text-[10px] font-semibold text-muted-foreground">
@@ -247,10 +243,6 @@ export function LeadPanel({
   onCallbackSave,
   onObjection,
   calls,
-  callsLoading = false,
-  callsError = false,
-  callsRefreshing = false,
-  onRefreshCalls,
   onNextLead,
   depositPaid,
   depositLinkSent,
@@ -266,7 +258,6 @@ export function LeadPanel({
   lawyers,
   selectedLawyerId,
   onSelectLawyer,
-  onSaveFirmLocation,
 }: {
   lead: CallLead;
   exPartner: string;
@@ -278,10 +269,6 @@ export function LeadPanel({
   onCallbackSave: () => void;
   onObjection: (objection: string) => void;
   calls: CallRecord[];
-  callsLoading?: boolean;
-  callsError?: boolean;
-  callsRefreshing?: boolean;
-  onRefreshCalls?: () => void;
   onNextLead: () => void;
   depositPaid: boolean;
   depositLinkSent: boolean;
@@ -297,7 +284,6 @@ export function LeadPanel({
   lawyers: FirmLawyer[];
   selectedLawyerId: string | null;
   onSelectLawyer: (id: string | null) => void;
-  onSaveFirmLocation?: ((firmId: string, notes: FirmLocationNotes) => Promise<void>) | undefined;
 }) {
   const exEmpty = !exPartner.trim();
   const leadName = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Lead";
@@ -436,7 +422,6 @@ export function LeadPanel({
           lawyers={lawyers}
           selectedLawyerId={selectedLawyerId}
           onSelectLawyer={onSelectLawyer}
-          onSaveFirmLocation={onSaveFirmLocation}
         />
 
         {lead.status === "callback_scheduled" ? (
@@ -512,13 +497,31 @@ export function LeadPanel({
           <summary className="cursor-pointer text-xs font-medium">
             Call history ({calls.length})
           </summary>
-          <CallHistory
-            calls={calls}
-            loading={callsLoading}
-            error={callsError}
-            refreshing={callsRefreshing}
-            onRefresh={onRefreshCalls}
-          />
+          {calls.length === 0 ? (
+            <p className="mt-2 text-[13px] text-muted-foreground">No calls logged yet.</p>
+          ) : (
+            <ul className="mt-2 space-y-1.5">
+              {calls.map((c) => (
+                <li
+                  key={c.id}
+                  className="flex items-center justify-between rounded-lg border bg-card px-2.5 py-1.5 text-[12px]"
+                >
+                  <span>
+                    {new Date(c.created_at).toLocaleString("en-AU", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {c.call_status ?? "—"}
+                    {c.duration_seconds ? ` · ${formatDuration(c.duration_seconds)}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </details>
       </div>
 

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { BellOff, MessageSquare, Mic, MicOff, Phone, PhoneOff, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/legal/components/ui/button";
 import { Textarea } from "@/legal/components/ui/textarea";
 import { sendIncomingFirmMessage } from "@/legal/lib/firm-callbacks.functions";
@@ -80,6 +81,7 @@ export function FirmIncomingCall({
         setUncertain(true);
         setFeedback("Delivery is unconfirmed. Check the firm's inbox before sending another text.");
       } else {
+        toast.success("Message queued");
         const current = latestReceiver.current;
         if (current.caller?.callSid === draftCaller.callSid && current.phase === "ringing")
           void current.hangUp();

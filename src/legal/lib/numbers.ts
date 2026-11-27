@@ -1,4 +1,5 @@
 // Ported from the Legal app (family-law-floater/src/lib/numbers.ts). Re-run the port script to refresh.
+import { trackingAdName } from "./tracking-ad-name";
 import { repCallDays, type HourCorrection } from "./rep-labour";
 import type { ReportingData } from "./reporting-data.server";
 import type {
@@ -141,7 +142,7 @@ export function makeNumbersReport(
     if (!ads.has(key))
       ads.set(key, {
         reporting_key: key,
-        ad_name: name,
+        ad_name: key.startsWith("id:") ? trackingAdName(key.split(":")[1], name) : name,
         location,
         ...blank(),
         clicks: 0,

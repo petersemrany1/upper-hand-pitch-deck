@@ -1,4 +1,5 @@
 // Ported from the Legal app (family-law-floater/src/lib/ad-outcomes.ts). Re-run the port script to refresh.
+import { trackingAdName } from "./tracking-ad-name";
 import type { AdMetricRow } from "./ad-metrics";
 export type AdIdentity = Pick<
   AdMetricRow,
@@ -71,7 +72,7 @@ export function buildAdOutcomes(
       result = {
         key,
         adId: latest.ad_id,
-        name: latest.ad_name,
+        name: trackingAdName(latest.ad_id, latest.ad_name),
         locations: [...new Set(records.map((r) => r.location ?? "Unassigned"))],
         leads: 0,
         booked: 0,

@@ -25,8 +25,6 @@ import {
   fetchLawyers,
   fetchPacks,
   fetchTradingHours,
-  saveFirmLocationNotes,
-  type Firm,
 } from "@/legal/lib/partner-firms";
 import {
   appendObjection,
@@ -285,8 +283,6 @@ function SalesCallWorkspace() {
     queryKey: ["call-records", activeId],
     queryFn: () => fetchCallRecords(activeId!),
     enabled: Boolean(activeId),
-    // Provider status/recording callbacks can arrive after the hangup refresh.
-    refetchInterval: 5000,
   });
 
   const firmsQuery = useQuery({
@@ -1412,10 +1408,6 @@ function SalesCallWorkspace() {
       onCallbackSave={saveCallback}
       onObjection={addObjection}
       calls={callsQuery.data ?? []}
-      callsLoading={callsQuery.isPending}
-      callsError={callsQuery.isError}
-      callsRefreshing={callsQuery.isFetching}
-      onRefreshCalls={() => void callsQuery.refetch()}
       onNextLead={handleNextLead}
       depositPaid={Boolean(lead.deposit_paid_at)}
       depositLinkSent={depositLinkSent || Boolean(lead.stripe_checkout_session_id && !lead.stripe_checkout_session_id.startsWith("cs_"))}
@@ -1426,15 +1418,6 @@ function SalesCallWorkspace() {
       unreadCount={unreadCount}
       onSaveName={saveLeadName}
       firms={firmsQuery.data ?? []}
-      onSaveFirmLocation={isAdmin ? async (firmId, notes) => {
-        const saved = await saveFirmLocationNotes(firmId, notes);
-        await queryClient.cancelQueries({ queryKey: ["firms"] });
-        queryClient.setQueryData<Firm[]>(["firms"], (firms) =>
-          firms?.map((firm) => firm.id === saved.id ? { ...firm, ...saved } : firm),
-        );
-        void queryClient.invalidateQueries({ queryKey: ["firms"] });
-        toast.success("Location notes saved");
-      } : undefined}
       selectedFirmId={selectedFirmId}
       onSelectFirm={(id) => {
         setSelectedFirmId(id);

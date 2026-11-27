@@ -1,18 +1,9 @@
 // Ported from the Legal app (family-law-floater/src/components/firms/FirmDrawer.tsx). Re-run the port script to refresh.
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FirmOfferPanel } from "../firm-offers/FirmOfferPanel";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import {
-  ArrowUpRight,
-  BookOpen,
-  Clock3,
-  FileText,
-  Mail,
-  MessageSquare,
-  Phone,
-  X,
-} from "lucide-react";
+import { ArrowUpRight, BookOpen, Clock3, Mail, MessageSquare, Phone, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   STAGES,
@@ -30,7 +21,6 @@ import { FirmContactEditor } from "./FirmContactEditor";
 import { FirmConversation } from "./FirmConversation";
 import { FirmCallSheet } from "./FirmCallSheet";
 import { FirmCallControls } from "./FirmCallControls";
-import { FirmCallSummaries } from "./FirmCallSummaries";
 import { StageDot } from "./firm-ui";
 import { FirmCalendlyBooking } from "./FirmCalendlyBooking";
 import "./firm-crm.css";
@@ -75,9 +65,6 @@ export function FirmDrawer({
   onOpenApplication?: (id: string) => void;
 }) {
   const [offerOpen, setOfferOpen] = useState(false);
-  const [summariesOpen, setSummariesOpen] = useState(false);
-  const summariesId = useId();
-  const summaryButton = useRef<HTMLButtonElement>(null);
   const [mobilePanel, setMobilePanel] = useState<"guide" | "notes">("guide");
   const [historyTab, setHistoryTab] = useState<"activity" | "calls">("activity");
   const [showConversation, setShowConversation] = useState(true);
@@ -267,17 +254,6 @@ export function FirmDrawer({
               contactSaving={Object.values(syncingContacts).some(Boolean)}
             />
           )}
-          <button
-            ref={summaryButton}
-            type="button"
-            className="crm-summary-trigger"
-            aria-expanded={summariesOpen}
-            aria-controls={summariesId}
-            onClick={() => setSummariesOpen((open) => !open)}
-          >
-            <FileText size={16} />
-            Call summaries
-          </button>
           {canManageOffers && (
             <button
               type="button"
@@ -292,7 +268,6 @@ export function FirmDrawer({
           className="crm-mobile-tabs crm-workspace-tabs"
           role="tablist"
           aria-label="Firm workspace"
-          style={summariesOpen ? { display: "none" } : undefined}
         >
           <button
             type="button"
@@ -313,29 +288,7 @@ export function FirmDrawer({
             Messages & history
           </button>
         </div>
-        <div id={summariesId} className="crm-summary-panel" hidden={!summariesOpen}>
-          {summariesOpen && (
-            <FirmCallSummaries
-              calls={workspace.data?.calls ?? []}
-              notes={notes}
-              loading={workspace.isLoading}
-              notesLoading={notesLoading}
-              error={workspace.error?.message}
-              generatingCallId={retry.isPending ? retry.variables : null}
-              onGenerate={(callId) => retry.mutate(callId)}
-              onRefresh={() => void workspace.refetch()}
-              onBack={() => {
-                setSummariesOpen(false);
-                summaryButton.current?.focus();
-              }}
-            />
-          )}
-        </div>
-        <div
-          className="crm-workspace"
-          data-mobile-panel={mobilePanel}
-          style={summariesOpen ? { display: "none" } : undefined}
-        >
+        <div className="crm-workspace" data-mobile-panel={mobilePanel}>
           <div className="crm-guide-panel">
             {workspace.isLoading || (!workspace.isFetchedAfterMount && !workspace.error) ? (
               <p className="p-5 text-sm text-muted-foreground">Loading call sheet…</p>

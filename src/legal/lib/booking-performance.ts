@@ -12,10 +12,6 @@ export type PerformanceBooking = {
   client_name: string;
   lead_id?: string | null;
   client_phone?: string | null;
-  appointment_date?: string | null;
-  status?: string | null;
-  outcome?: string | null;
-  disqualified_at?: string | null;
 };
 export type PerformanceRep = { id: string; name: string; role: string; is_active: boolean };
 export type PerformanceCall = {
@@ -36,8 +32,6 @@ export type BookingDay = {
   date: string;
   total: number;
   byRep: Record<string, number>;
-  showed: number;
-  showedByRep: Record<string, number>;
   workedByRep: Record<string, true>;
 };
 export type BookingGrouping = "day" | "week" | "month";
@@ -214,8 +208,8 @@ export function connectedBookingConversion(
   };
 }
 
-/** Count each appointment once per series, attributed to the recorded booking rep.
- * Bookings use the booking date; confirmed shows use the appointment date.
+/** Count appointment IDs once, by when booked and the recorded booking rep.
+ * Appointment dates, reschedules, reminder rows and revenue never enter this metric.
  */
 export function bookingPerformance(
   bookings: PerformanceBooking[],
@@ -231,7 +225,7 @@ export function bookingPerformance(
   const monthStart = `${today.slice(0, 7)}-01`;
   const days = new Map<string, BookingDay>();
   for (let date = start; date <= end && date <= today; date = addDays(date, 1)) {
-    days.set(date, { date, total: 0, byRep: {}, showed: 0, showedByRep: {}, workedByRep: {} });
+    days.set(date, { date, total: 0, byRep: {}, workedByRep: {} });
   }
   const summary = { today: 0, yesterday: 0, week: 0, month: 0 };
   const counts = new Map<string, number>();
@@ -241,22 +235,6 @@ export function bookingPerformance(
     const time = new Date(booking.booked_at);
     if (!Number.isFinite(time.getTime()) || time > now) continue;
     seen.add(booking.id);
-    const repId = booking.booking_rep_id || UNASSIGNED_REP;
-    const showDay = days.get(booking.appointment_date ?? "");
-    if (
-      showDay &&
-      booking.status !== "cancelled" &&
-      booking.status !== "no_show" &&
-      !booking.disqualified_at &&
-      booking.outcome !== "disqualified" &&
-      booking.outcome !== "noshow" &&
-      (booking.outcome === "show" || booking.outcome === "signed" || booking.status === "showed")
-    ) {
-      showDay.showed++;
-      showDay.showedByRep[repId] = (showDay.showedByRep[repId] ?? 0) + 1;
-      // Keep reps with shows selectable even when they made no bookings in this period.
-      if (!counts.has(repId)) counts.set(repId, 0);
-    }
     const date = sydneyTodayISO(time);
     if (date === today) summary.today++;
     if (date === yesterday) summary.yesterday++;
@@ -264,6 +242,7 @@ export function bookingPerformance(
     if (date >= monthStart && date <= today) summary.month++;
     const day = days.get(date);
     if (!day) continue;
+    const repId = booking.booking_rep_id || UNASSIGNED_REP;
     day.workedByRep[repId] = true;
     day.total++;
     day.byRep[repId] = (day.byRep[repId] ?? 0) + 1;
@@ -308,16 +287,11 @@ export function bookingPerformance(
 }
 
 export function groupBookingDays(days: BookingDay[], grouping: BookingGrouping, repId = "") {
-  const buckets = new Map<
-    string,
-    { date: string; end: string; bookings: number; showed: number }
-  >();
+  const buckets = new Map<string, { date: string; end: string; bookings: number }>();
   for (const day of days) {
-    const showed = repId ? (day.showedByRep[repId] ?? 0) : day.showed;
-    // Include show-only days even when the booking rep did not work that day.
+    // Monthly history includes quiet months; daily/weekly trends retain workday filtering.
     if (
       grouping !== "month" &&
-      !showed &&
       (repId ? !day.workedByRep[repId] : !Object.keys(day.workedByRep).length)
     )
       continue;
@@ -327,10 +301,9 @@ export function groupBookingDays(days: BookingDay[], grouping: BookingGrouping, 
         : grouping === "week"
           ? addDays(day.date, -((new Date(`${day.date}T12:00:00Z`).getUTCDay() + 6) % 7))
           : day.date;
-    const bucket = buckets.get(key) ?? { date: day.date, end: day.date, bookings: 0, showed: 0 };
+    const bucket = buckets.get(key) ?? { date: day.date, end: day.date, bookings: 0 };
     bucket.end = day.date;
     bucket.bookings += repId ? (day.byRep[repId] ?? 0) : day.total;
-    bucket.showed += showed;
     buckets.set(key, bucket);
   }
   return [...buckets.values()];

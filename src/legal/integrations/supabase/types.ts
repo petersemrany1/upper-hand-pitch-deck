@@ -14,157 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      ad_spend_daily: {
-        Row: {
-          id: string
-          date: string
-          ad_id: string | null
-          ad_name: string
-          adset_name: string | null
-          campaign_id: string | null
-          campaign_name: string | null
-          account_id: string | null
-          location: string | null
-          spend_aud: number
-          impressions: number
-          clicks: number
-          source: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          date?: string
-          ad_id?: string | null
-          ad_name?: string
-          adset_name?: string | null
-          campaign_id?: string | null
-          campaign_name?: string | null
-          account_id?: string | null
-          location?: string | null
-          spend_aud?: number
-          impressions?: number
-          clicks?: number
-          source?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          date?: string
-          ad_id?: string | null
-          ad_name?: string
-          adset_name?: string | null
-          campaign_id?: string | null
-          campaign_name?: string | null
-          account_id?: string | null
-          location?: string | null
-          spend_aud?: number
-          impressions?: number
-          clicks?: number
-          source?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-
-      ad_spend_sync_state: {
-        Row: {
-          id: number
-          last_synced_at: string | null
-          last_attempt_at: string | null
-          last_status: string | null
-          last_message: string | null
-          account_id: string | null
-          account_name: string | null
-          currency: string | null
-          timezone: string | null
-          coverage_from: string | null
-          coverage_to: string | null
-          campaign_ids: string[] | null
-          ad_total: number | null
-          reference_total: number | null
-        }
-        Insert: {
-          id?: number
-          last_synced_at?: string | null
-          last_attempt_at?: string | null
-          last_status?: string | null
-          last_message?: string | null
-          account_id?: string | null
-          account_name?: string | null
-          currency?: string | null
-          timezone?: string | null
-          coverage_from?: string | null
-          coverage_to?: string | null
-          campaign_ids?: string[] | null
-          ad_total?: number | null
-          reference_total?: number | null
-        }
-        Update: {
-          id?: number
-          last_synced_at?: string | null
-          last_attempt_at?: string | null
-          last_status?: string | null
-          last_message?: string | null
-          account_id?: string | null
-          account_name?: string | null
-          currency?: string | null
-          timezone?: string | null
-          coverage_from?: string | null
-          coverage_to?: string | null
-          campaign_ids?: string[] | null
-          ad_total?: number | null
-          reference_total?: number | null
-        }
-        Relationships: []
-      }
-
-      ad_spend_coverage: {
-        Row: {
-          date: string
-          synced_at: string
-          account_id: string
-          campaign_ids: string[]
-        }
-        Insert: {
-          date?: string
-          synced_at?: string
-          account_id?: string
-          campaign_ids?: string[]
-        }
-        Update: {
-          date?: string
-          synced_at?: string
-          account_id?: string
-          campaign_ids?: string[]
-        }
-        Relationships: []
-      }
-
-      reporting_hour_overrides: {
-        Row: {rep_id:string;work_date:string;hours:number;note:string;updated_at:string}
-        Insert: {rep_id:string;work_date:string;hours:number;note:string;updated_at?:string}
-        Update: {rep_id?:string;work_date?:string;hours?:number;note?:string;updated_at?:string}
-        Relationships: []
-      }
-      reporting_rep_rates: {
-        Row: {
-          rep_id: string
-          hourly_rate: number | null
-          booking_bonus: number | null
-        }
-        Insert: {
-          rep_id: string
-          hourly_rate?: number | null
-          booking_bonus?: number | null
-        }
-        Update: {
-          rep_id: string
-          hourly_rate?: number | null
-          booking_bonus?: number | null
-        }
-        Relationships: []
-      }
-
       ad_briefing_calls: {
         Row: {
           call_date: string
@@ -353,6 +202,141 @@ export type Database = {
           },
         ]
       }
+      ad_spend_coverage: {
+        Row: {
+          account_id: string
+          campaign_ids: string[]
+          date: string
+          synced_at: string
+        }
+        Insert: {
+          account_id: string
+          campaign_ids: string[]
+          date: string
+          synced_at: string
+        }
+        Update: {
+          account_id?: string
+          campaign_ids?: string[]
+          date?: string
+          synced_at?: string
+        }
+        Relationships: []
+      }
+      ad_spend_daily: {
+        Row: {
+          account_id: string | null
+          ad_id: string | null
+          ad_name: string
+          adset_id: string | null
+          adset_name: string | null
+          campaign_id: string | null
+          campaign_name: string | null
+          clicks: number
+          creative_id: string | null
+          date: string
+          id: string
+          impressions: number
+          location: string | null
+          metrics_fetched_at: string | null
+          source: string
+          spend_aud: number
+          updated_at: string
+          video_metrics: Json | null
+        }
+        Insert: {
+          account_id?: string | null
+          ad_id?: string | null
+          ad_name: string
+          adset_id?: string | null
+          adset_name?: string | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          clicks?: number
+          creative_id?: string | null
+          date: string
+          id?: string
+          impressions?: number
+          location?: string | null
+          metrics_fetched_at?: string | null
+          source: string
+          spend_aud: number
+          updated_at?: string
+          video_metrics?: Json | null
+        }
+        Update: {
+          account_id?: string | null
+          ad_id?: string | null
+          ad_name?: string
+          adset_id?: string | null
+          adset_name?: string | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          clicks?: number
+          creative_id?: string | null
+          date?: string
+          id?: string
+          impressions?: number
+          location?: string | null
+          metrics_fetched_at?: string | null
+          source?: string
+          spend_aud?: number
+          updated_at?: string
+          video_metrics?: Json | null
+        }
+        Relationships: []
+      }
+      ad_spend_sync_state: {
+        Row: {
+          account_id: string | null
+          account_name: string | null
+          ad_total: number | null
+          campaign_ids: string[] | null
+          coverage_from: string | null
+          coverage_to: string | null
+          currency: string | null
+          id: number
+          last_attempt_at: string | null
+          last_message: string | null
+          last_status: string | null
+          last_synced_at: string | null
+          reference_total: number | null
+          timezone: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          account_name?: string | null
+          ad_total?: number | null
+          campaign_ids?: string[] | null
+          coverage_from?: string | null
+          coverage_to?: string | null
+          currency?: string | null
+          id: number
+          last_attempt_at?: string | null
+          last_message?: string | null
+          last_status?: string | null
+          last_synced_at?: string | null
+          reference_total?: number | null
+          timezone?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          account_name?: string | null
+          ad_total?: number | null
+          campaign_ids?: string[] | null
+          coverage_from?: string | null
+          coverage_to?: string | null
+          currency?: string | null
+          id?: number
+          last_attempt_at?: string | null
+          last_message?: string | null
+          last_status?: string | null
+          last_synced_at?: string | null
+          reference_total?: number | null
+          timezone?: string | null
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           created_at: string
@@ -376,6 +360,147 @@ export type Database = {
           value?: Json
         }
         Relationships: []
+      }
+      appointment_attendance: {
+        Row: {
+          appointment_id: string
+          booking_changed_at: string
+          booking_version: string
+          call_outcome: string | null
+          called_at: string | null
+          confirmed_at: string | null
+          latest_reply: string | null
+          latest_reply_at: string | null
+          reason: string | null
+          status: string
+        }
+        Insert: {
+          appointment_id: string
+          booking_changed_at?: string
+          booking_version?: string
+          call_outcome?: string | null
+          called_at?: string | null
+          confirmed_at?: string | null
+          latest_reply?: string | null
+          latest_reply_at?: string | null
+          reason?: string | null
+          status?: string
+        }
+        Update: {
+          appointment_id?: string
+          booking_changed_at?: string
+          booking_version?: string
+          call_outcome?: string | null
+          called_at?: string | null
+          confirmed_at?: string | null
+          latest_reply?: string | null
+          latest_reply_at?: string | null
+          reason?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_attendance_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "firm_appointments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appointment_attendance_events: {
+        Row: {
+          actor_id: string | null
+          appointment_id: string
+          booking_version: string
+          created_at: string
+          detail: string | null
+          id: string
+          kind: string
+        }
+        Insert: {
+          actor_id?: string | null
+          appointment_id: string
+          booking_version: string
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind: string
+        }
+        Update: {
+          actor_id?: string | null
+          appointment_id?: string
+          booking_version?: string
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_attendance_events_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "firm_appointments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appointment_reminder_jobs: {
+        Row: {
+          appointment_id: string
+          booking_version: string
+          claimed_at: string | null
+          delivery_status: string | null
+          due_at: string
+          from_phone: string | null
+          id: string
+          kind: string
+          last_error: string | null
+          sent_at: string | null
+          state: string
+          to_phone: string | null
+          twilio_sid: string | null
+        }
+        Insert: {
+          appointment_id: string
+          booking_version: string
+          claimed_at?: string | null
+          delivery_status?: string | null
+          due_at: string
+          from_phone?: string | null
+          id?: string
+          kind: string
+          last_error?: string | null
+          sent_at?: string | null
+          state?: string
+          to_phone?: string | null
+          twilio_sid?: string | null
+        }
+        Update: {
+          appointment_id?: string
+          booking_version?: string
+          claimed_at?: string | null
+          delivery_status?: string | null
+          due_at?: string
+          from_phone?: string | null
+          id?: string
+          kind?: string
+          last_error?: string | null
+          sent_at?: string | null
+          state?: string
+          to_phone?: string | null
+          twilio_sid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_reminder_jobs_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "firm_appointments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       appointment_reminders: {
         Row: {
@@ -411,6 +536,95 @@ export type Database = {
             columns: ["appointment_id"]
             isOneToOne: false
             referencedRelation: "firm_appointments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appointment_sms_opt_outs: {
+        Row: {
+          created_at: string
+          phone: string
+        }
+        Insert: {
+          created_at?: string
+          phone: string
+        }
+        Update: {
+          created_at?: string
+          phone?: string
+        }
+        Relationships: []
+      }
+      appointment_sms_receipts: {
+        Row: {
+          created_at: string
+          sid: string
+        }
+        Insert: {
+          created_at?: string
+          sid: string
+        }
+        Update: {
+          created_at?: string
+          sid?: string
+        }
+        Relationships: []
+      }
+      call_hook_insights: {
+        Row: {
+          assessment: Json | null
+          attempts: number
+          call_id: string
+          generated_at: string | null
+          generation_token: string | null
+          hook: string | null
+          lease_until: string | null
+          model: string
+          prompt_version: string
+          reason: string
+          requested_by: string | null
+          source_hash: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assessment?: Json | null
+          attempts?: number
+          call_id: string
+          generated_at?: string | null
+          generation_token?: string | null
+          hook?: string | null
+          lease_until?: string | null
+          model: string
+          prompt_version: string
+          reason?: string
+          requested_by?: string | null
+          source_hash: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          assessment?: Json | null
+          attempts?: number
+          call_id?: string
+          generated_at?: string | null
+          generation_token?: string | null
+          hook?: string | null
+          lease_until?: string | null
+          model?: string
+          prompt_version?: string
+          reason?: string
+          requested_by?: string | null
+          source_hash?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_hook_insights_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: true
+            referencedRelation: "call_records"
             referencedColumns: ["id"]
           },
         ]
@@ -486,30 +700,35 @@ export type Database = {
       }
       client_asset_calculations: {
         Row: {
-          lead_id: string
           calculation: Json
+          lead_id: string
           revision: number
           updated_at: string
           updated_by: string
         }
         Insert: {
-          lead_id: string
           calculation: Json
+          lead_id: string
           revision?: number
           updated_at?: string
           updated_by?: string
         }
         Update: {
           calculation?: Json
+          lead_id?: string
           revision?: number
+          updated_at?: string
+          updated_by?: string
         }
-        Relationships: [{
-          foreignKeyName: "client_asset_calculations_lead_id_fkey"
-          columns: ["lead_id"]
-          isOneToOne: true
-          referencedRelation: "client_leads"
-          referencedColumns: ["id"]
-        }]
+        Relationships: [
+          {
+            foreignKeyName: "client_asset_calculations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "client_leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       client_leads: {
         Row: {
@@ -518,7 +737,6 @@ export type Database = {
           asset_band: string | null
           booking_date: string | null
           booking_time: string | null
-          rep_notes: string | null
           call_notes: string | null
           callback_scheduled_at: string | null
           campaign_name: string | null
@@ -550,6 +768,7 @@ export type Database = {
           raw_payload: Json
           relationship_stage: string | null
           rep_id: string | null
+          rep_notes: string | null
           settlement_timeline: string | null
           status: string
           stripe_checkout_session_id: string | null
@@ -562,7 +781,6 @@ export type Database = {
           asset_band?: string | null
           booking_date?: string | null
           booking_time?: string | null
-          rep_notes?: string | null
           call_notes?: string | null
           callback_scheduled_at?: string | null
           campaign_name?: string | null
@@ -594,6 +812,7 @@ export type Database = {
           raw_payload?: Json
           relationship_stage?: string | null
           rep_id?: string | null
+          rep_notes?: string | null
           settlement_timeline?: string | null
           status?: string
           stripe_checkout_session_id?: string | null
@@ -606,7 +825,6 @@ export type Database = {
           asset_band?: string | null
           booking_date?: string | null
           booking_time?: string | null
-          rep_notes?: string | null
           call_notes?: string | null
           callback_scheduled_at?: string | null
           campaign_name?: string | null
@@ -638,6 +856,7 @@ export type Database = {
           raw_payload?: Json
           relationship_stage?: string | null
           rep_id?: string | null
+          rep_notes?: string | null
           settlement_timeline?: string | null
           status?: string
           stripe_checkout_session_id?: string | null
@@ -1028,37 +1247,16 @@ export type Database = {
           },
         ]
       }
-      firm_pipeline_portals: {
-        Row: { application_id: string; firm_id: string; created_at: string }
-        Insert: { application_id: string; firm_id: string; created_at?: string }
-        Update: { application_id?: string; firm_id?: string; created_at?: string }
-        Relationships: [
-          {
-            foreignKeyName: "firm_pipeline_portals_application_id_fkey"
-            columns: ["application_id"]
-            isOneToOne: true
-            referencedRelation: "firm_applications"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "firm_pipeline_portals_firm_id_fkey"
-            columns: ["firm_id"]
-            isOneToOne: false
-            referencedRelation: "firms"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       firm_applications: {
         Row: {
-          calendly_booking_email: string | null
-          calendly_event_uri: string | null
-          calendly_start_at: string | null
-          calendly_end_at: string | null
-          calendly_checked_at: string | null
-          calendly_sync_attempted_at: string | null
           ad_name: string | null
           adset_name: string | null
+          calendly_booking_email: string | null
+          calendly_checked_at: string | null
+          calendly_end_at: string | null
+          calendly_event_uri: string | null
+          calendly_start_at: string | null
+          calendly_sync_attempted_at: string | null
           campaign_name: string | null
           city: string | null
           created_at: string
@@ -1074,14 +1272,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          calendly_booking_email?: string | null
-          calendly_event_uri?: string | null
-          calendly_start_at?: string | null
-          calendly_end_at?: string | null
-          calendly_checked_at?: string | null
-          calendly_sync_attempted_at?: string | null
           ad_name?: string | null
           adset_name?: string | null
+          calendly_booking_email?: string | null
+          calendly_checked_at?: string | null
+          calendly_end_at?: string | null
+          calendly_event_uri?: string | null
+          calendly_start_at?: string | null
+          calendly_sync_attempted_at?: string | null
           campaign_name?: string | null
           city?: string | null
           created_at?: string
@@ -1097,14 +1295,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          calendly_booking_email?: string | null
-          calendly_event_uri?: string | null
-          calendly_start_at?: string | null
-          calendly_end_at?: string | null
-          calendly_checked_at?: string | null
-          calendly_sync_attempted_at?: string | null
           ad_name?: string | null
           adset_name?: string | null
+          calendly_booking_email?: string | null
+          calendly_checked_at?: string | null
+          calendly_end_at?: string | null
+          calendly_event_uri?: string | null
+          calendly_start_at?: string | null
+          calendly_sync_attempted_at?: string | null
           campaign_name?: string | null
           city?: string | null
           created_at?: string
@@ -1168,16 +1366,9 @@ export type Database = {
       }
       firm_appointments: {
         Row: {
-          location_revision: number
-          location_id: string | null
-          location_name: string | null
-          location_address: string | null
-          location_parking_info: string | null
-          location_nearby_landmarks: string | null
-          consultation_duration_minutes: number
-
           appointment_date: string | null
           appointment_time: string | null
+          booking_rep_id: string | null
           chase_note: string | null
           chase_requested_at: string | null
           chase_requested_by: string | null
@@ -1193,7 +1384,7 @@ export type Database = {
           conflict_status: string
           consult_mode: string
           consult_summary: string | null
-          booking_rep_id: string | null
+          consultation_duration_minutes: number
           created_at: string
           disqualified_at: string | null
           disqualified_by: string | null
@@ -1204,27 +1395,26 @@ export type Database = {
           intel_notes: string | null
           lawyer_id: string | null
           lead_id: string | null
+          location_address: string | null
+          location_id: string | null
+          location_name: string | null
+          location_nearby_landmarks: string | null
+          location_parking_info: string | null
+          location_revision: number
           notes: string | null
           offer_pack_id: string | null
           outcome: string | null
-          refund_processed_at: string | null
           rebooked_from: string | null
+          refund_processed_at: string | null
           refund_status: string | null
           status: string
           stripe_refund_id: string | null
           updated_at: string
         }
         Insert: {
-          location_revision?: number
-          location_id?: string | null
-          location_name?: string | null
-          location_address?: string | null
-          location_parking_info?: string | null
-          location_nearby_landmarks?: string | null
-          consultation_duration_minutes?: number
-
           appointment_date?: string | null
           appointment_time?: string | null
+          booking_rep_id?: string | null
           chase_note?: string | null
           chase_requested_at?: string | null
           chase_requested_by?: string | null
@@ -1240,7 +1430,7 @@ export type Database = {
           conflict_status?: string
           consult_mode?: string
           consult_summary?: string | null
-          booking_rep_id?: string | null
+          consultation_duration_minutes?: number
           created_at?: string
           disqualified_at?: string | null
           disqualified_by?: string | null
@@ -1251,27 +1441,26 @@ export type Database = {
           intel_notes?: string | null
           lawyer_id?: string | null
           lead_id?: string | null
+          location_address?: string | null
+          location_id?: string | null
+          location_name?: string | null
+          location_nearby_landmarks?: string | null
+          location_parking_info?: string | null
+          location_revision?: number
           notes?: string | null
           offer_pack_id?: string | null
           outcome?: string | null
-          refund_processed_at?: string | null
           rebooked_from?: string | null
+          refund_processed_at?: string | null
           refund_status?: string | null
           status?: string
           stripe_refund_id?: string | null
           updated_at?: string
         }
         Update: {
-          location_revision?: number
-          location_id?: string | null
-          location_name?: string | null
-          location_address?: string | null
-          location_parking_info?: string | null
-          location_nearby_landmarks?: string | null
-          consultation_duration_minutes?: number
-
           appointment_date?: string | null
           appointment_time?: string | null
+          booking_rep_id?: string | null
           chase_note?: string | null
           chase_requested_at?: string | null
           chase_requested_by?: string | null
@@ -1287,7 +1476,7 @@ export type Database = {
           conflict_status?: string
           consult_mode?: string
           consult_summary?: string | null
-          booking_rep_id?: string | null
+          consultation_duration_minutes?: number
           created_at?: string
           disqualified_at?: string | null
           disqualified_by?: string | null
@@ -1298,17 +1487,37 @@ export type Database = {
           intel_notes?: string | null
           lawyer_id?: string | null
           lead_id?: string | null
+          location_address?: string | null
+          location_id?: string | null
+          location_name?: string | null
+          location_nearby_landmarks?: string | null
+          location_parking_info?: string | null
+          location_revision?: number
           notes?: string | null
           offer_pack_id?: string | null
           outcome?: string | null
-          refund_processed_at?: string | null
           rebooked_from?: string | null
+          refund_processed_at?: string | null
           refund_status?: string | null
           status?: string
           stripe_refund_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "appointment_office_belongs_to_firm"
+            columns: ["firm_id", "location_id"]
+            isOneToOne: false
+            referencedRelation: "firm_locations"
+            referencedColumns: ["firm_id", "id"]
+          },
+          {
+            foreignKeyName: "firm_appointments_booking_rep_id_fkey"
+            columns: ["booking_rep_id"]
+            isOneToOne: false
+            referencedRelation: "sales_reps"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "firm_appointments_firm_id_fkey"
             columns: ["firm_id"]
@@ -1335,6 +1544,13 @@ export type Database = {
             columns: ["offer_pack_id"]
             isOneToOne: false
             referencedRelation: "firm_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_appointments_rebooked_from_fkey"
+            columns: ["rebooked_from"]
+            isOneToOne: false
+            referencedRelation: "firm_appointments"
             referencedColumns: ["id"]
           },
         ]
@@ -1382,11 +1598,10 @@ export type Database = {
       }
       firm_blocked_slots: {
         Row: {
-          excluded_dates: string[]
-
           created_at: string
           date: string
           end_time: string | null
+          excluded_dates: string[]
           firm_id: string
           id: string
           is_recurring: boolean
@@ -1401,11 +1616,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          excluded_dates?: string[]
-
           created_at?: string
           date: string
           end_time?: string | null
+          excluded_dates?: string[]
           firm_id: string
           id?: string
           is_recurring?: boolean
@@ -1420,11 +1634,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          excluded_dates?: string[]
-
           created_at?: string
           date?: string
           end_time?: string | null
+          excluded_dates?: string[]
           firm_id?: string
           id?: string
           is_recurring?: boolean
@@ -1492,11 +1705,81 @@ export type Database = {
           },
         ]
       }
+      firm_calendar_history: {
+        Row: {
+          actor_name: string
+          actor_role: string
+          after_data: Json | null
+          before_data: Json | null
+          entity_id: string
+          entity_type: string
+          firm_id: string
+          id: number
+          operation: string
+          recorded_at: string
+        }
+        Insert: {
+          actor_name: string
+          actor_role: string
+          after_data?: Json | null
+          before_data?: Json | null
+          entity_id: string
+          entity_type: string
+          firm_id: string
+          id?: never
+          operation: string
+          recorded_at?: string
+        }
+        Update: {
+          actor_name?: string
+          actor_role?: string
+          after_data?: Json | null
+          before_data?: Json | null
+          entity_id?: string
+          entity_type?: string
+          firm_id?: string
+          id?: never
+          operation?: string
+          recorded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_calendar_history_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       firm_callback_recipients: {
-        Row: { call_id: string; owner_id: string; session_id: string; declined_at: string | null }
-        Insert: { call_id: string; owner_id: string; session_id: string; declined_at?: string | null }
-        Update: { call_id?: string; owner_id?: string; session_id?: string; declined_at?: string | null }
-        Relationships: []
+        Row: {
+          call_id: string
+          declined_at: string | null
+          owner_id: string
+          session_id: string
+        }
+        Insert: {
+          call_id: string
+          declined_at?: string | null
+          owner_id: string
+          session_id: string
+        }
+        Update: {
+          call_id?: string
+          declined_at?: string | null
+          owner_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_callback_recipients_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "firm_application_calls"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       firm_callback_settings: {
         Row: {
@@ -1780,6 +2063,59 @@ export type Database = {
           },
         ]
       }
+      firm_locations: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          firm_id: string
+          id: string
+          is_active: boolean
+          name: string
+          nearby_landmarks: string | null
+          parking_info: string | null
+          sort_order: number
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          firm_id: string
+          id?: string
+          is_active?: boolean
+          name: string
+          nearby_landmarks?: string | null
+          parking_info?: string | null
+          sort_order?: number
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          firm_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          nearby_landmarks?: string | null
+          parking_info?: string | null
+          sort_order?: number
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_locations_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       firm_offer_events: {
         Row: {
           created_at: string
@@ -2000,6 +2336,69 @@ export type Database = {
           },
         ]
       }
+      firm_pack_orders: {
+        Row: {
+          created_at: string
+          firm_id: string
+          id: string
+          notification_attempts: number
+          notification_claim: string | null
+          notification_next_at: string
+          notification_sent_at: string | null
+          pack_id: string
+          payment_status: string
+          price_per_show_cents: number
+          quantity: number
+          request_id: string
+          requested_by: string
+        }
+        Insert: {
+          created_at?: string
+          firm_id: string
+          id?: string
+          notification_attempts?: number
+          notification_claim?: string | null
+          notification_next_at?: string
+          notification_sent_at?: string | null
+          pack_id: string
+          payment_status?: string
+          price_per_show_cents: number
+          quantity: number
+          request_id: string
+          requested_by: string
+        }
+        Update: {
+          created_at?: string
+          firm_id?: string
+          id?: string
+          notification_attempts?: number
+          notification_claim?: string | null
+          notification_next_at?: string
+          notification_sent_at?: string | null
+          pack_id?: string
+          payment_status?: string
+          price_per_show_cents?: number
+          quantity?: number
+          request_id?: string
+          requested_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_pack_orders_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_pack_orders_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: true
+            referencedRelation: "firm_packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       firm_packs: {
         Row: {
           created_at: string
@@ -2056,6 +2455,39 @@ export type Database = {
             columns: ["offer_id"]
             isOneToOne: true
             referencedRelation: "firm_offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      firm_pipeline_portals: {
+        Row: {
+          application_id: string
+          created_at: string
+          firm_id: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          firm_id: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          firm_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_pipeline_portals_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: true
+            referencedRelation: "firm_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_pipeline_portals_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
             referencedColumns: ["id"]
           },
         ]
@@ -2159,6 +2591,68 @@ export type Database = {
           },
         ]
       }
+      firm_public_holidays: {
+        Row: {
+          holiday_date: string
+          name: string
+          state: string
+        }
+        Insert: {
+          holiday_date: string
+          name: string
+          state: string
+        }
+        Update: {
+          holiday_date?: string
+          name?: string
+          state?: string
+        }
+        Relationships: []
+      }
+      firm_reminder_settings: {
+        Row: {
+          alert_email: string
+          closure_dates: string[]
+          confirmation_enabled_at: string | null
+          firm_id: string
+          mode: string
+          reminder_time: string
+          staffed_days: number[]
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          alert_email?: string
+          closure_dates?: string[]
+          confirmation_enabled_at?: string | null
+          firm_id: string
+          mode?: string
+          reminder_time?: string
+          staffed_days?: number[]
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          alert_email?: string
+          closure_dates?: string[]
+          confirmation_enabled_at?: string | null
+          firm_id?: string
+          mode?: string
+          reminder_time?: string
+          staffed_days?: number[]
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_reminder_settings_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: true
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       firm_trading_hours: {
         Row: {
           close_time: string | null
@@ -2206,59 +2700,13 @@ export type Database = {
           },
         ]
       }
-      firm_locations: {
-        Row: {
-          sort_order: number
-          id: string
-          firm_id: string
-          name: string
-          address: string | null
-          city: string | null
-          state: string | null
-          parking_info: string | null
-          nearby_landmarks: string | null
-          is_active: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          sort_order?: number
-          id?: string
-          firm_id: string
-          name: string
-          address?: string | null
-          city?: string | null
-          state?: string | null
-          parking_info?: string | null
-          nearby_landmarks?: string | null
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          sort_order?: number
-          id?: string
-          firm_id?: string
-          name?: string
-          address?: string | null
-          city?: string | null
-          state?: string | null
-          parking_info?: string | null
-          nearby_landmarks?: string | null
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [{ foreignKeyName: "firm_locations_firm_id_fkey"; columns: ["firm_id"]; isOneToOne: false; referencedRelation: "firms"; referencedColumns: ["id"] }]
-      }
       firms: {
         Row: {
-          consultation_duration_minutes: number
-          buffer_minutes: number
-
           abn: string | null
           address: string | null
+          buffer_minutes: number
           city: string | null
+          consultation_duration_minutes: number
           created_at: string
           email: string | null
           firm_name: string
@@ -2275,12 +2723,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          consultation_duration_minutes?: number
-          buffer_minutes?: number
-
           abn?: string | null
           address?: string | null
+          buffer_minutes?: number
           city?: string | null
+          consultation_duration_minutes?: number
           created_at?: string
           email?: string | null
           firm_name: string
@@ -2297,12 +2744,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          consultation_duration_minutes?: number
-          buffer_minutes?: number
-
           abn?: string | null
           address?: string | null
+          buffer_minutes?: number
           city?: string | null
+          consultation_duration_minutes?: number
           created_at?: string
           email?: string | null
           firm_name?: string
@@ -3100,6 +3546,64 @@ export type Database = {
           },
         ]
       }
+      reporting_hour_overrides: {
+        Row: {
+          hours: number
+          note: string
+          rep_id: string
+          updated_at: string
+          work_date: string
+        }
+        Insert: {
+          hours: number
+          note: string
+          rep_id: string
+          updated_at?: string
+          work_date: string
+        }
+        Update: {
+          hours?: number
+          note?: string
+          rep_id?: string
+          updated_at?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reporting_hour_overrides_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reporting_rep_rates: {
+        Row: {
+          booking_bonus: number | null
+          hourly_rate: number | null
+          rep_id: string
+        }
+        Insert: {
+          booking_bonus?: number | null
+          hourly_rate?: number | null
+          rep_id: string
+        }
+        Update: {
+          booking_bonus?: number | null
+          hourly_rate?: number | null
+          rep_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reporting_rep_rates_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: true
+            referencedRelation: "sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_lead_claims: {
         Row: {
           expires_at: string
@@ -3136,39 +3640,42 @@ export type Database = {
       sales_reps: {
         Row: {
           can_manage_firm_pipeline: boolean
+          can_view_team_clients: boolean
           created_at: string
           email: string | null
           id: string
           is_active: boolean
           name: string | null
-          role: string
           portal_pages: string[] | null
+          role: string
           sales_only: boolean
           updated_at: string
           user_id: string | null
         }
         Insert: {
           can_manage_firm_pipeline?: boolean
+          can_view_team_clients?: boolean
           created_at?: string
           email?: string | null
           id?: string
           is_active?: boolean
           name?: string | null
-          role?: string
           portal_pages?: string[] | null
+          role?: string
           sales_only?: boolean
           updated_at?: string
           user_id?: string | null
         }
         Update: {
           can_manage_firm_pipeline?: boolean
+          can_view_team_clients?: boolean
           created_at?: string
           email?: string | null
           id?: string
           is_active?: boolean
           name?: string | null
-          role?: string
           portal_pages?: string[] | null
+          role?: string
           sales_only?: boolean
           updated_at?: string
           user_id?: string | null
@@ -3331,25 +3838,36 @@ export type Database = {
       }
     }
     Functions: {
-      set_up_firm_portal: {
-        Args: { p_application_id: string }
-        Returns: { firm_id: string; created: boolean }[]
-      }
-      sync_firm_calendly_booking: {
-        Args: {
-          p_application_id: string
-          p_expected_email: string
-          p_expected_stage: string
-          p_checked_at: string
-          p_event_uri: string | null
-          p_start_at: string | null
-          p_end_at: string | null
-        }
-        Returns: string
-      }
       activate_firm_offer_pack: {
         Args: { _firm_id: string; _offer_id: string }
         Returns: string
+      }
+      can_access_portal_page: { Args: { p_page: string }; Returns: boolean }
+      can_manage_firm_pipeline: { Args: never; Returns: boolean }
+      can_view_team_clients: { Args: never; Returns: boolean }
+      claim_appointment_reminder: {
+        Args: {
+          p_from: string
+          p_id: string
+          p_settings_updated_at?: string
+          p_to: string
+        }
+        Returns: boolean
+      }
+      claim_call_hook: {
+        Args: {
+          p_call: string
+          p_hash: string
+          p_model: string
+          p_regenerate?: boolean
+          p_user: string
+          p_version: string
+        }
+        Returns: string
+      }
+      claim_firm_pack_notifications: {
+        Args: { p_order?: string }
+        Returns: Json
       }
       claim_sales_lead: {
         Args: {
@@ -3360,11 +3878,27 @@ export type Database = {
         Returns: string
       }
       current_firm_id: { Args: never; Returns: string }
+      current_portal_access: { Args: never; Returns: Json }
       current_sales_rep_id: { Args: never; Returns: string }
+      finish_firm_pack_notification: {
+        Args: { p_claim: string; p_order: string; p_sent: boolean }
+        Returns: undefined
+      }
       firm_name_key: { Args: { p: string }; Returns: string }
       firm_offer_rate_limit: { Args: { _key: string }; Returns: boolean }
       firm_phone_key: { Args: { value: string }; Returns: string }
+      firm_schedule_snapshot: { Args: { p_firm: string }; Returns: Json }
+      get_firm_calendar_history: {
+        Args: {
+          p_before?: number
+          p_date?: string
+          p_firm: string
+          p_limit?: number
+        }
+        Returns: Json
+      }
       get_firm_pack_balance: { Args: { _firm_id: string }; Returns: number }
+      get_firm_schedule: { Args: { p_firm: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -3373,21 +3907,138 @@ export type Database = {
         Returns: boolean
       }
       has_sales_role: { Args: never; Returns: boolean }
+      has_staff_profile: { Args: never; Returns: boolean }
+      import_verified_legal_spend: {
+        Args: {
+          p_account: string
+          p_account_name: string
+          p_campaigns: string[]
+          p_fetched_at: string
+          p_from: string
+          p_rows: Json
+          p_to: string
+          p_total: number
+        }
+        Returns: undefined
+      }
       is_admin_user: { Args: never; Returns: boolean }
       is_firm_user_for: { Args: { _firm_id: string }; Returns: boolean }
       is_phone_suppressed: { Args: { p: string }; Returns: boolean }
-      can_manage_firm_pipeline: { Args: never; Returns: boolean }
-      current_portal_access: { Args: never; Returns: Json }
-      can_access_portal_page: { Args: { p_page: string }; Returns: boolean }
-      list_staff_portal_access: { Args: never; Returns: { id: string; user_id: string | null; name: string | null; email: string | null; role: string; is_active: boolean; pages: string[] }[] }
-      set_staff_portal_pages: { Args: { p_rep_id: string; p_pages: string[] }; Returns: undefined }
       is_sales_only_user: { Args: never; Returns: boolean }
       is_service_or_admin: { Args: never; Returns: boolean }
+      legal_calendar_history_fields: {
+        Args: { kind: string; r: Json }
+        Returns: Json
+      }
+      list_staff_portal_access: {
+        Args: never
+        Returns: {
+          email: string
+          id: string
+          is_active: boolean
+          name: string
+          pages: string[]
+          role: string
+          user_id: string
+        }[]
+      }
       match_firm_application: { Args: { p_phone: string }; Returns: string }
       normalize_phone: { Args: { p: string }; Returns: string }
+      order_firm_pack: {
+        Args: { p_firm: string; p_quantity: number; p_request: string }
+        Returns: Json
+      }
+      portal_auth_users_export: { Args: { p_offset?: number }; Returns: Json }
+      portal_leaderboard_source: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      portal_schema_export: { Args: never; Returns: Json }
+      portal_table_export: {
+        Args: { p_limit?: number; p_offset?: number; p_table: string }
+        Returns: Json
+      }
+      rebook_client_after_no_show: {
+        Args: {
+          p_actor: string
+          p_date: string
+          p_firm: string
+          p_lawyer: string
+          p_lead: string
+          p_location?: string
+          p_mode: string
+          p_previous: string
+          p_reminders: Json
+          p_time: string
+        }
+        Returns: Json
+      }
+      record_appointment_call: {
+        Args: {
+          p_actor: string
+          p_appointment_id: string
+          p_outcome: string
+          p_version: string
+        }
+        Returns: undefined
+      }
+      record_appointment_delivery: {
+        Args: { p_error: string; p_id: string; p_sid: string; p_status: string }
+        Returns: undefined
+      }
+      record_appointment_reply: {
+        Args: {
+          p_body: string
+          p_from: string
+          p_opt_out: string
+          p_sid: string
+          p_to: string
+        }
+        Returns: undefined
+      }
       renew_sales_lead: {
         Args: { p_lead_id: string; p_session_id: string }
         Returns: boolean
+      }
+      replace_legal_meta_spend: {
+        Args: {
+          p_account: string
+          p_account_name: string
+          p_campaigns: string[]
+          p_from: string
+          p_rows: Json
+          p_to: string
+          p_total: number
+        }
+        Returns: undefined
+      }
+      replace_legal_meta_spend_with_metrics: {
+        Args: {
+          p_account: string
+          p_account_name: string
+          p_campaigns: string[]
+          p_fetched_at: string
+          p_from: string
+          p_rows: Json
+          p_to: string
+          p_total: number
+        }
+        Returns: undefined
+      }
+      reschedule_firm_appointment: {
+        Args: {
+          p_appointment: string
+          p_author: string
+          p_change_location?: boolean
+          p_date: string
+          p_expected_date: string
+          p_expected_location?: string
+          p_expected_time: string
+          p_location?: string
+          p_reminders: Json
+          p_time: string
+        }
+        Returns: undefined
       }
       sales_booking_times: {
         Args: { p_firm_id: string }
@@ -3395,6 +4046,10 @@ export type Database = {
           appointment_date: string
           appointment_time: string
         }[]
+      }
+      sales_queue_city_has_capacity: {
+        Args: { p_city: string }
+        Returns: boolean
       }
       sales_queue_rep: { Args: { p_session_id: string }; Returns: string }
       save_firm_call_sheet: {
@@ -3410,6 +4065,67 @@ export type Database = {
           _version: number
         }
         Returns: boolean
+      }
+      save_firm_reminder_settings: {
+        Args: {
+          p_closures: string[]
+          p_days: number[]
+          p_email: string
+          p_firm_id: string
+          p_mode: string
+          p_time: string
+          p_timezone: string
+        }
+        Returns: undefined
+      }
+      save_firm_schedule: {
+        Args: { p_command: Json; p_firm: string; p_version: string }
+        Returns: Json
+      }
+      schedule_block_matches: {
+        Args: {
+          b: Database["public"]["Tables"]["firm_blocked_slots"]["Row"]
+          p_day: string
+        }
+        Returns: boolean
+      }
+      schedule_hours: {
+        Args: { p_day: string; p_firm: string }
+        Returns: {
+          closes: number
+          opens: number
+          step: number
+        }[]
+      }
+      schedule_minute: { Args: { p_time: string }; Returns: number }
+      schedule_state: { Args: { p_state: string }; Returns: string }
+      set_legal_booking_target: {
+        Args: { p_month: string; p_rep: string; p_target: number }
+        Returns: undefined
+      }
+      set_staff_portal_pages: {
+        Args: { p_pages: string[]; p_rep_id: string }
+        Returns: undefined
+      }
+      set_up_firm_portal: {
+        Args: { p_application_id: string }
+        Returns: {
+          created: boolean
+          firm_id: string
+        }[]
+      }
+      staff_portal_pages: { Args: { p_rep_id: string }; Returns: string[] }
+      sync_firm_calendly_booking: {
+        Args: {
+          p_application_id: string
+          p_checked_at: string
+          p_end_at: string
+          p_event_uri: string
+          p_expected_email: string
+          p_expected_stage: string
+          p_start_at: string
+        }
+        Returns: string
       }
       update_firm_sms_status: {
         Args: {

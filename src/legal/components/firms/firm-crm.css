@@ -224,131 +224,6 @@
   gap: 4px;
   border-bottom: 1px solid var(--crm-line);
 }
-.crm-firm-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  flex-shrink: 0;
-  gap: 12px 20px;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--crm-line);
-}
-.crm-summary-trigger,
-.crm-summary-generate {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px solid #ddd9fb;
-  border-radius: 8px;
-  padding: 9px 12px;
-  background: #f0effc;
-  color: #4338ca;
-  font-weight: 600;
-  font-size: 12px;
-}
-.crm-summary-trigger:hover,
-.crm-summary-generate:not(:disabled):hover {
-  background: #e5e2fc;
-}
-.crm-summary-panel {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  background: #fafbfc;
-}
-.crm-call-summaries {
-  padding: 22px;
-}
-.crm-summary-content {
-  max-width: 760px;
-  margin: 0 auto;
-}
-.crm-summary-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--crm-accent);
-  margin-bottom: 18px;
-  font-size: 12px;
-}
-.crm-call-summaries h3 {
-  font-size: 20px;
-  font-weight: 650;
-  letter-spacing: -0.025em;
-}
-.crm-summary-intro {
-  margin: 8px 0 20px;
-  color: #62718a;
-  line-height: 1.7;
-}
-.crm-summary-card,
-.crm-summary-notice {
-  margin: 14px 0;
-  padding: 18px;
-  border: 1px solid var(--crm-line);
-  border-radius: 10px;
-  background: #fff;
-  overflow-wrap: anywhere;
-}
-.crm-summary-call-heading {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px;
-}
-.crm-summary-call-heading h4 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 650;
-}
-.crm-summary-call-heading > span,
-.crm-summary-date {
-  font-size: 11px;
-  color: #62718a;
-}
-.crm-summary-date {
-  margin: 6px 0 14px;
-}
-.crm-summary-text {
-  white-space: pre-wrap;
-  line-height: 1.8;
-}
-.crm-summary-missing,
-.crm-summary-notice {
-  color: #62718a;
-  line-height: 1.7;
-}
-.crm-summary-generate {
-  margin-top: 12px;
-}
-.crm-summary-notice p + p {
-  margin-top: 8px;
-}
-.crm-summary-notice button {
-  color: var(--crm-accent);
-  margin-top: 8px;
-  text-decoration: underline;
-}
-.crm-summary-transcript {
-  border-top: 1px solid var(--crm-line);
-  margin-top: 18px;
-  padding-top: 12px;
-}
-.crm-call-summaries summary {
-  cursor: pointer;
-  color: #5147c5;
-  font-weight: 550;
-}
-.crm-summary-transcript p,
-.crm-summary-saved-notes > p {
-  margin-top: 12px;
-}
-.crm-summary-saved-notes {
-  margin-top: 24px;
-}
 .crm-pipeline button {
   display: flex;
   align-items: center;
@@ -1223,11 +1098,13 @@
   padding: 19px 26px 12px;
 }
 .crm-firm-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  flex-shrink: 0;
   padding: 8px 26px;
   gap: 18px;
-}
-.crm-summary-trigger {
-  padding: 6px 9px;
+  border-bottom: 1px solid var(--crm-line);
 }
 .crm-workspace-tabs {
   display: flex;

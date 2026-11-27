@@ -138,9 +138,9 @@ export async function syncFirmCalendlyBookings(now = new Date()) {
             p_expected_email: bookingEmail,
             p_expected_stage: app.stage,
             p_checked_at: now.toISOString(),
-            p_event_uri: booking?.uri ?? null,
-            p_start_at: booking?.start_time ?? null,
-            p_end_at: booking?.end_time ?? null,
+            p_event_uri: (booking?.uri ?? null) as string,
+            p_start_at: (booking?.start_time ?? null) as string,
+            p_end_at: (booking?.end_time ?? null) as string,
           });
           if (error) throw error;
           checked++;

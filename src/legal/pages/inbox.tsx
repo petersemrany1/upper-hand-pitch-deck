@@ -209,8 +209,8 @@ function InboxPage() {
 
   return (
     <main className="flex flex-1 flex-col overflow-hidden">
-      <div className="shrink-0 border-b px-5 py-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="border-b px-5 py-4">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold tracking-tight" style={{ fontFamily: "var(--font-heading)" }}>
               Inbox
@@ -219,18 +219,15 @@ function InboxPage() {
               Every text message and phone call with your leads.
             </p>
           </div>
-          <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-3">
-            <CallWidget dialler={dialler} leadName={dialNumber || "Dialled call"} />
-            <Button
-              variant={dialOpen ? "default" : "outline"}
-              size="sm"
-              onClick={() => setDialOpen((v) => !v)}
-              aria-label="Open dialler"
-            >
-              <Phone className="h-4 w-4" />
-              <span className="ml-2">Dial</span>
-            </Button>
-          </div>
+          <Button
+            variant={dialOpen ? "default" : "outline"}
+            size="sm"
+            onClick={() => setDialOpen((v) => !v)}
+            aria-label="Open dialler"
+          >
+            <Phone className="h-4 w-4" />
+            <span className="ml-2">Dial</span>
+          </Button>
         </div>
         {dialOpen ? (
           <div className="mt-3 flex max-w-md items-center gap-2">
@@ -271,6 +268,8 @@ function InboxPage() {
           ))}
         </div>
       </div>
+
+      <CallWidget dialler={dialler} leadName={dialNumber || "Dialled call"} />
 
       {tab === "calls" ? (
         <CallsLog

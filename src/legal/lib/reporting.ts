@@ -49,10 +49,6 @@ export function performanceRecords(data: ReportingData) {
     client_name: a.client_name ?? "",
     lead_id: a.lead_id,
     client_phone: a.client_phone,
-    appointment_date: a.appointment_date,
-    status: a.status,
-    outcome: a.outcome,
-    disqualified_at: a.disqualified_at,
   }));
   const calls: PerformanceCall[] = data.calls.map((c) => ({
     id: c.id,

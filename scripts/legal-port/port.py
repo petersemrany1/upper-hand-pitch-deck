@@ -4,7 +4,7 @@ Usage: port.py <route under routes/_authenticated> ...   one page and what it im
 Re-runnable; overwrites copies. Portal-owned files (LegalView, legal.css, bridge/,
 runtime/, move/ and the integrations/supabase shims) are never touched."""
 import os,re,sys,shutil
-SRC=os.path.expanduser('~/Documents/GitHub/family-law-floater/src')
+SRC=os.environ.get('LEGAL_SRC') or os.path.expanduser('~/Documents/GitHub/family-law-floater/src')
 DST='/Users/peter/Developer/upper-hand-legal/src/legal'
 exec(open(os.path.join(os.path.dirname(__file__),'closure.py')).read().split('for route in')[0].replace("ROOT=os.path.expanduser('~/Documents/GitHub/family-law-floater/src')","ROOT=SRC"))
 SKIP={'integrations/supabase/client.ts','integrations/supabase/previewAuthStorage.ts'}
