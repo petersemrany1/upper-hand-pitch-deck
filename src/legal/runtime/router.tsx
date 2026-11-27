@@ -40,6 +40,9 @@ export function legalTarget(to: unknown, search?: unknown): LegalTarget {
   if (!path.startsWith("/") || path === "/") return { href: path || ".", external: false };
   if (portal) {
     if (portal !== "/login") params.set("biz", "legal");
+    // Keep the "try on copied records" switch while clicking around.
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("legalData") === "portal")
+      params.set("legalData", "portal");
     const q = params.toString();
     return { href: `${portal}${q ? `?${q}` : ""}`, external: false };
   }
@@ -92,7 +95,8 @@ export function useNavigate(_opts?: unknown) {
       // Search-only update on the current page: keep the Legal switch.
       const current = new URLSearchParams(window.location.search);
       const next = typeof options.search === "function" ? options.search(Object.fromEntries(current)) : options.search;
-      return navigate({ search: { ...(next as object), biz: "legal" } as never, replace: options.replace });
+      const keep = current.get("legalData") === "portal" ? { legalData: "portal" } : {};
+      return navigate({ search: { ...(next as object), biz: "legal", ...keep } as never, replace: options.replace });
     }
     const { href, external } = legalTarget(options.to, typeof options.search === "function" ? undefined : options.search);
     if (external) {
