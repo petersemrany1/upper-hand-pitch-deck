@@ -5,7 +5,7 @@ import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { RequireLegal } from "@/components/business/LegalConnect";
 import { legalDb } from "@/lib/legal/client";
 import { LEGAL_TABLES } from "@/legal/move/manifest";
-import { importLegalRowsFn, legalCopyCountsFn } from "@/utils/legal-move.functions";
+import { importLegalRowsFn, legalCopyCountsFn, legalUserMapFn } from "@/utils/legal-move.functions";
 
 // Admin tool for the Legal move (docs/legal-move-plan.md): copies every Legal
 // record into this database's legal_ tables and compares the counts. Safe to
@@ -24,9 +24,33 @@ async function exportPage(table: string, offset: number): Promise<Record<string,
   return (data ?? []) as Record<string, unknown>[];
 }
 
+async function exportAll(table: string): Promise<Record<string, unknown>[]> {
+  const rows: Record<string, unknown>[] = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const page = await exportPage(table, offset);
+    rows.push(...page);
+    if (page.length < PAGE) return rows;
+  }
+}
+
+/** Legal staff logins (law firm portal logins are left alone until switch-over). */
+async function legalStaffLogins(): Promise<{ id: string; email: string | null }[]> {
+  const firmUsers = new Set((await exportAll("firm_portal_users")).map((r) => String(r.id)));
+  const users: { id: string; email: string | null }[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await legalDb().rpc("portal_auth_users_export", { p_offset: offset });
+    if (error) throw new Error(`Reading Legal logins: ${error.message}`);
+    const page = (data ?? []) as { id: string; email: string | null }[];
+    users.push(...page.filter((u) => !firmUsers.has(u.id)).map((u) => ({ id: u.id, email: u.email })));
+    if (page.length < 1000) return users;
+  }
+}
+
 function LegalMovePage() {
   const importRows = useServerFn(importLegalRowsFn);
   const counts = useServerFn(legalCopyCountsFn);
+  const userMap = useServerFn(legalUserMapFn);
+  const [people, setPeople] = useState<{ matched: string[]; unmatched: string[] } | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
   const [running, setRunning] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
@@ -40,20 +64,26 @@ function LegalMovePage() {
     setLines(LEGAL_TABLES.map((t) => ({ table: t.name, legal: 0, copied: 0, state: "waiting" })));
     const all: Record<string, Record<string, unknown>[]> = {};
     let failed = 0;
+    // Legal staff are matched to their portal logins by email; the copy points at those.
+    let users: Record<string, string> = {};
+    try {
+      const res = await userMap({ data: { users: await legalStaffLogins() } });
+      users = res.map;
+      setPeople({ matched: res.matched, unmatched: res.unmatched });
+    } catch (e) {
+      setSummary(`Couldn't match Legal staff to portal logins: ${e instanceof Error ? e.message : String(e)}`);
+      setRunning(false);
+      return;
+    }
     // Pass 1: every row, parents first, with self/cyclic links left empty.
     for (const t of LEGAL_TABLES) {
       update(t.name, { state: "copying" });
       try {
-        const rows: Record<string, unknown>[] = [];
-        for (let offset = 0; ; offset += PAGE) {
-          const page = await exportPage(t.name, offset);
-          rows.push(...page);
-          if (page.length < PAGE) break;
-        }
+        const rows = await exportAll(t.name);
         all[t.name] = rows;
         let copied = 0;
         for (let i = 0; i === 0 || i < rows.length; i += 200) {
-          const res = await importRows({ data: { table: t.name, rows: rows.slice(i, i + 200), pass: "rows", first: i === 0 } });
+          const res = await importRows({ data: { table: t.name, rows: rows.slice(i, i + 200), pass: "rows", first: i === 0, users } });
           copied += res.written;
           update(t.name, { legal: rows.length, copied });
         }
@@ -68,8 +98,19 @@ function LegalMovePage() {
       try {
         const rows = all[t.name]!;
         for (let i = 0; i < rows.length; i += 200)
-          await importRows({ data: { table: t.name, rows: rows.slice(i, i + 200), pass: "links" } });
+          await importRows({ data: { table: t.name, rows: rows.slice(i, i + 200), pass: "links", users } });
         update(t.name, { state: "done" });
+      } catch (e) {
+        failed++;
+        update(t.name, { state: "failed", error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+    // Pass 3: remove earlier copies still keyed by a Legal login id (children first).
+    for (const t of [...LEGAL_TABLES].reverse().filter((t) => all[t.name])) {
+      try {
+        const rows = all[t.name]!;
+        for (let i = 0; i < rows.length; i += 200)
+          await importRows({ data: { table: t.name, rows: rows.slice(i, i + 200), pass: "cleanup", users } });
       } catch (e) {
         failed++;
         update(t.name, { state: "failed", error: e instanceof Error ? e.message : String(e) });
@@ -111,6 +152,12 @@ function LegalMovePage() {
           </button>
           {summary && <span className="text-sm font-medium">{summary}</span>}
         </div>
+        {people && (
+          <p className="mt-3 text-sm">
+            Matched {people.matched.length} Legal staff to their portal logins
+            {people.unmatched.length ? `; no portal login yet: ${people.unmatched.join(", ")}` : "."}
+          </p>
+        )}
         {lines.length > 0 && (
           <table className="mt-4 w-full text-sm">
             <thead>

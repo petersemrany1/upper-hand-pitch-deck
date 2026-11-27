@@ -16,18 +16,60 @@ async function assertAdmin(supabase: { rpc: (fn: "is_admin_user") => PromiseLike
 }
 
 const tableName = z.string().refine((t) => LEGAL_TABLE_NAMES.has(t), "Unknown Legal table");
+const userMap = z.record(z.string().uuid(), z.string().uuid());
+
+/** Swap Legal login ids for the matching portal login ids (also inside lists). */
+function remap(value: unknown, users: Record<string, string>): unknown {
+  if (typeof value === "string") return users[value] ?? value;
+  if (Array.isArray(value)) return value.map((v) => remap(v, users));
+  return value;
+}
+
+/**
+ * Legal staff sign in to the portal with their portal accounts, so the copied
+ * records must point at portal login ids. Matches Legal logins to portal logins
+ * by email; anyone without a portal account keeps their Legal id for now.
+ */
+export const legalUserMapFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { users: { id: string; email: string | null }[] }) =>
+    z.object({ users: z.array(z.object({ id: z.string().uuid(), email: z.string().nullable() })).max(5000) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as never);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const portal = new Map<string, string>();
+    for (let page = 1; ; page++) {
+      const { data: res, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (error) throw new Error(error.message);
+      for (const u of res.users) if (u.email) portal.set(u.email.trim().toLowerCase(), u.id);
+      if (res.users.length < 1000) break;
+    }
+    const map: Record<string, string> = {};
+    const matched: string[] = [];
+    const unmatched: string[] = [];
+    for (const u of data.users) {
+      const id = u.email ? portal.get(u.email.trim().toLowerCase()) : undefined;
+      if (id) {
+        map[u.id] = id;
+        matched.push(u.email!);
+      } else unmatched.push(u.email ?? u.id);
+    }
+    return { map, matched, unmatched };
+  });
 
 /** Upsert one batch of Legal rows. Deferred links are left empty until the second pass. */
 export const importLegalRowsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (input: { table: string; rows: Record<string, unknown>[]; pass: "rows" | "links"; first?: boolean }) =>
+    (input: { table: string; rows: Record<string, unknown>[]; pass: "rows" | "links" | "cleanup"; first?: boolean; users?: Record<string, string> }) =>
       z
         .object({
           table: tableName,
           rows: z.array(z.record(z.string(), z.unknown())).max(1000),
-          pass: z.enum(["rows", "links"]),
+          pass: z.enum(["rows", "links", "cleanup"]),
           first: z.boolean().optional(),
+          users: userMap.optional(),
         })
         .parse(input),
   )
@@ -45,7 +87,24 @@ export const importLegalRowsFn = createServerFn({ method: "POST" })
       if (error) throw new Error(`${data.table}: ${error.message}`);
     }
     if (!data.rows.length) return { written: 0 };
-    const rows = data.rows.map((row) => {
+    const users = data.users ?? {};
+    // Rows keyed by a login id (profiles, settings, progress) are copied under the
+    // portal id. The "cleanup" pass, run last and children first, removes the
+    // earlier copy still keyed by the Legal id, once nothing points at it.
+    if (data.pass === "cleanup") {
+      let removed = 0;
+      for (const row of data.rows) {
+        if (!spec.key.some((k) => typeof row[k] === "string" && users[row[k] as string])) continue;
+        let q = (supabaseAdmin.from(`legal_${data.table}` as never) as any).delete();
+        for (const k of spec.key) q = q.eq(k, row[k]);
+        const { error } = await q;
+        if (error) throw new Error(`${data.table}: ${error.message}`);
+        removed++;
+      }
+      return { written: removed };
+    }
+    const rows = data.rows.map((original) => {
+      const row = Object.fromEntries(Object.entries(original).map(([k, v]) => [k, remap(v, users)]));
       const out: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(row)) {
         if (spec.skip.includes(k)) continue;

@@ -15,6 +15,9 @@ import {
 } from "@/components/business/LegalConnect";
 import { LegalContext, type LegalRouteContext } from "./runtime/context";
 import { resolveRole } from "./lib/roles";
+import { setLegalDataMode, type LegalDataMode } from "./runtime/mode";
+import { supabase as portalSupabase } from "@/integrations/supabase/client";
+import type { User } from "@supabase/supabase-js";
 import "./legal.css";
 
 // Legal pages that now run natively inside the portal, keyed by the portal
@@ -25,6 +28,19 @@ const NATIVE: Record<string, () => Promise<{ LegalPage: ComponentType }>> = {
   "/leaderboard": () => import("./pages/leaderboard"),
   "/my-recordings": () => import("./pages/transcripts"),
 };
+
+// Pages switched to the copied Legal records in this portal's database
+// (docs/legal-move-plan.md, stage 5). Others still read the Legal app's
+// database. Adding ?legalData=portal to the address tries any page on the
+// copied records without switching it for everyone.
+const PORTAL_DATA_PAGES = new Set<string>([]);
+
+function dataModeFor(path: string): LegalDataMode {
+  if (PORTAL_DATA_PAGES.has(path)) return "portal";
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("legalData") === "portal")
+    return "portal";
+  return "legal";
+}
 
 const pages = new Map<string, ComponentType>();
 function pageFor(path: string): ComponentType | null {
@@ -79,20 +95,38 @@ function useLegalFonts() {
   }, []);
 }
 
+// The signed-in portal user, for pages running on the copied Legal records.
+function usePortalUser(enabled: boolean): User | null {
+  const [user, setUser] = useState<User | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    portalSupabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+    const { data } = portalSupabase.auth.onAuthStateChange((_e, s) => setUser(s?.user ?? null));
+    return () => data.subscription.unsubscribe();
+  }, [enabled]);
+  return user;
+}
+
 // Legal pages read the signed-in Legal user from their route context.
-function LegalUser({ children }: { children: ReactNode }) {
+function LegalUser({ mode, children }: { mode: LegalDataMode; children: ReactNode }) {
   const { session } = useLegalSession();
+  const portalUser = usePortalUser(mode === "portal");
   const [ctx, setCtx] = useState<LegalRouteContext | null>(null);
-  const user = session?.user ?? null;
+  const [failed, setFailed] = useState<string | null>(null);
+  const user = mode === "portal" ? portalUser : (session?.user ?? null);
   useEffect(() => {
     if (!user) return setCtx(null);
     let alive = true;
     // The Legal role (admin, rep, firm...) decides what Legal pages show.
-    resolveRole().then((role) => alive && setCtx({ user, role }));
+    resolveRole().then(
+      (role) => alive && setCtx({ user, role }),
+      (e: unknown) => alive && setFailed(e instanceof Error ? e.message : String(e)),
+    );
     return () => {
       alive = false;
     };
   }, [user]);
+  if (failed) return <div className="m-6 text-sm" style={{ color: "#b83232" }}>{failed}</div>;
   if (!ctx) return null;
   return <LegalContext.Provider value={ctx}>{children}</LegalContext.Provider>;
 }
@@ -106,6 +140,9 @@ export function LegalView({
 }) {
   useLegalFonts();
   const Page = pageFor(path);
+  const mode = dataModeFor(path);
+  // Set before the page renders so its queries reach the right database.
+  setLegalDataMode(mode);
   // One query cache per Legal view, as in the Legal app.
   const [client] = useState(
     () =>
@@ -114,27 +151,32 @@ export function LegalView({
       }),
   );
   if (!Page) return null;
+  const body = (
+    <QueryClientProvider client={client} key={mode}>
+      <LegalErrorBoundary>
+        <Suspense
+          fallback={
+            <div className="flex items-center gap-2 p-6 text-sm opacity-70">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading Legal…
+            </div>
+          }
+        >
+          <Page />
+        </Suspense>
+      </LegalErrorBoundary>
+    </QueryClientProvider>
+  );
   return (
     <div
       className={`legal-scope flex min-h-0 flex-1 flex-col ${fullscreen ? "h-screen" : "min-h-full"}`}
     >
-      <RequireLegal>
-        <LegalUser>
-          <QueryClientProvider client={client}>
-            <LegalErrorBoundary>
-              <Suspense
-                fallback={
-                  <div className="flex items-center gap-2 p-6 text-sm opacity-70">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Loading Legal…
-                  </div>
-                }
-              >
-                <Page />
-              </Suspense>
-            </LegalErrorBoundary>
-          </QueryClientProvider>
-        </LegalUser>
-      </RequireLegal>
+      {mode === "portal" ? (
+        <LegalUser mode={mode}>{body}</LegalUser>
+      ) : (
+        <RequireLegal>
+          <LegalUser mode={mode}>{body}</LegalUser>
+        </RequireLegal>
+      )}
     </div>
   );
 }
