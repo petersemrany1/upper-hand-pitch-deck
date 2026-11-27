@@ -68,5 +68,13 @@ We move it in stages. Each stage is checked before the next one starts.
 - **2026-11-27 — Stage 4 first copy done.** `/legal-move` copied all 76 tables,
   9,632 records, counts match. Re-run it any time to top up. Not yet copied:
   the 15 stored files (firm offers, training media, a practice recording).
-- Next: Stage 2 (bring the Legal engine across, starting with the screens that
-  need no outside accounts), then Stage 3 (accounts) with Peter.
+- **2026-11-27 — Stage 2 engine copied in (not switched on).**
+  `scripts/legal-port/port.py --all` brings all Legal code into `src/legal/`
+  (426 files, 27 staff pages). Runtime stand-ins: `runtime/prefix.ts` (legal_
+  table/function/bucket translation), `runtime/env.ts` (LEGAL_ settings only),
+  `runtime/router.tsx` (Legal links to portal sections), `runtime/mode.ts`
+  (each page reads the Legal app's database until switched to "portal").
+- Next in Stage 2: match Legal staff to their Upper Hand logins in the copied
+  data, mount Legal's API routes under `/api/public/legal/…` (disabled), copy
+  the 15 stored files, then switch the first page (Leads) to "portal" mode and
+  compare it with the Legal app. Stage 3 (accounts) with Peter after that.
