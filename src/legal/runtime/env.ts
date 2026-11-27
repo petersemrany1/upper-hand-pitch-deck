@@ -9,8 +9,17 @@ export function legalEnvName(name: string): string {
   return PASSTHROUGH.has(name) || name.startsWith("LEGAL_") ? name : `LEGAL_${name}`;
 }
 
-const source = (): Record<string, string | undefined> =>
+const raw = (): Record<string, string | undefined> =>
   typeof process === "undefined" ? {} : (process.env as Record<string, string | undefined>);
+
+// Legal keys can be added ahead of switch-over: until LEGAL_LIVE=true, Legal
+// code sees none of them (only the portal database connection), so it can't
+// call, text, email, charge or spend on AI from this app early.
+const source = (): Record<string, string | undefined> => {
+  const env = raw();
+  if (env.LEGAL_LIVE === "true") return env;
+  return Object.fromEntries(Object.entries(env).filter(([k]) => PASSTHROUGH.has(k) || k === "LEGAL_LIVE"));
+};
 
 export const legalEnv: Record<string, string | undefined> = new Proxy({} as Record<string, string | undefined>, {
   get(_, key) {
