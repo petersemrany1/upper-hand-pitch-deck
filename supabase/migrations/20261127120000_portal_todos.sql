@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS public.portal_todos (
 
 CREATE INDEX IF NOT EXISTS portal_todos_open_idx ON public.portal_todos (done_at, due_date);
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.portal_todos TO authenticated;
+
 ALTER TABLE public.portal_todos ENABLE ROW LEVEL SECURITY;
 
 -- Staff (admins and reps) share one list.
@@ -38,5 +40,3 @@ $$;
 DROP TRIGGER IF EXISTS portal_todos_touch ON public.portal_todos;
 CREATE TRIGGER portal_todos_touch BEFORE UPDATE ON public.portal_todos
   FOR EACH ROW EXECUTE FUNCTION public.portal_todos_touch();
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.portal_todos TO authenticated;
