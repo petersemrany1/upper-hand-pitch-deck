@@ -115,6 +115,14 @@ function PartnerClinicsPage() {
 
   useEffect(() => { void load(); }, []);
 
+  // ?clinic=<id> opens that partner's portal directly (used by Reclassification).
+  useEffect(() => {
+    if (selectedClinic || clinics.length === 0 || typeof window === "undefined") return;
+    const wanted = new URLSearchParams(window.location.search).get("clinic");
+    const match = wanted ? clinics.find((c) => c.id === wanted) : undefined;
+    if (match) setSelectedClinic(match);
+  }, [clinics, selectedClinic]);
+
   const visibleClinics = showInactive ? clinics : clinics.filter((c) => c.is_active);
 
   const toggleClinicActive = async (c: PartnerClinic) => {

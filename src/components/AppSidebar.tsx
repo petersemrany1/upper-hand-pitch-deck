@@ -1,4 +1,4 @@
-import { DollarSign, Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy, ChevronDown, Calendar, BarChart3, GraduationCap, UserSearch, Monitor, Bell, FileAudio, Megaphone } from "lucide-react";
+import { DollarSign, Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Users, Headphones, Trophy, ChevronDown, Calendar, GraduationCap, FileAudio, Megaphone, ListTodo, KanbanSquare, RefreshCcw } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
@@ -31,21 +31,20 @@ const ALL_FOLDERS: NavFolder[] = [
     items: [
       { title: "Dashboard", url: "/", icon: LayoutDashboard, tab: "dashboard" },
       { title: "Sales Call", url: "/sales-call", icon: Headphones, tab: "sales_portal" },
-      { title: "Messages & Phone", url: "/inbox", icon: Phone, tab: "phone" },
+      { title: "Messages", url: "/inbox", icon: Phone, tab: "phone" },
       { title: "Appointments", url: "/booked-appointments", icon: Calendar, tab: "appointments" },
-      { title: "Chase Queue", url: "/chase-queue", icon: Bell, tab: "chase_queue" },
+      { title: "To Do", url: "/todo", icon: ListTodo, tab: "todo" },
       { title: "Numbers", url: "/numbers", icon: DollarSign, tab: "numbers" },
     ],
   },
   {
     title: "Growth",
     repIcon: Megaphone,
-    repUrl: "/clinics",
+    repUrl: "/crm",
     items: [
-      { title: "Clinics CRM", url: "/clinics", icon: Building2, tab: "clinics" },
+      { title: "CRM", url: "/crm", icon: KanbanSquare, tab: "clinics" },
       { title: "Meta Ads", url: "/meta-ads", icon: Megaphone, tab: "meta_ads" },
       { title: "Pitch Decks", url: "/pitch-deck", icon: Presentation, tab: "pitch_deck" },
-      { title: "Sent Links", url: "/sent-links", icon: Send, tab: "sent_links" },
     ],
   },
   {
@@ -53,8 +52,8 @@ const ALL_FOLDERS: NavFolder[] = [
     repIcon: Building2,
     repUrl: "/partner-clinics",
     items: [
-      { title: "Partner Portals", url: "/partner-clinics", icon: Building2, tab: "partner_clinics" },
-      { title: "Clinic Meta Leads", url: "/sales-test-leads", icon: UserSearch, tab: "sales_test_leads" },
+      { title: "Partner Portal", url: "/partner-clinics", icon: Building2, tab: "partner_clinics" },
+      { title: "Reclassification", url: "/reclassifications", icon: RefreshCcw, tab: "partner_clinics" },
     ],
   },
   {
@@ -64,11 +63,9 @@ const ALL_FOLDERS: NavFolder[] = [
     items: [
       { title: "Leads", url: "/leads", icon: Users, tab: "leads" },
       { title: "Leaderboard", url: "/leaderboard", icon: Trophy, tab: "leaderboard" },
-      { title: "My Recordings", url: "/my-recordings", icon: FileAudio, tab: "recordings" },
+      { title: "Recordings & Transcripts", url: "/my-recordings", icon: FileAudio, tab: "recordings" },
       { title: "Training", url: "/training", icon: GraduationCap, tab: "training" },
       { title: "Invoices", url: "/invoices", icon: DollarSign, tab: "invoices" },
-      { title: "Analytics", url: "/analytics", icon: BarChart3, tab: "analytics" },
-      { title: "Numbers Game", url: "/numbers-game", icon: Monitor, tab: "numbers_game" },
     ],
   },
 ];
@@ -131,10 +128,17 @@ export function AppSidebar() {
   const allowed = new Set<TabKey>(allowedTabs);
   const canSee = (tab: TabKey) => tab === "meta_ads" ? role === "admin" : role === "admin" || allowed.has(tab);
   const folders: NavFolder[] = ALL_FOLDERS
-    .map((f) => ({ ...f, items: f.items.filter((i) => canSee(i.tab) && !(role === "caller" && i.tab === "dashboard")) }))
+    .map((f) => ({
+      ...f,
+      items: f.items
+        .filter((i) => canSee(i.tab) && !(role === "caller" && i.tab === "dashboard"))
+        // Clinic setters only work the clinic list, so their CRM link opens it directly.
+        .map((i) => (role === "caller" && i.url === "/crm" ? { ...i, url: "/clinics" } : i)),
+    }))
     .filter((f) => f.items.length > 0);
 
-  const isActive = (path: string) => pathMatchesItem(currentPath, path);
+  const isActive = (path: string) =>
+    pathMatchesItem(currentPath, path) || (path === "/crm" && pathMatchesItem(currentPath, "/clinics"));
 
   const [openFolders, setOpenFolders] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(ALL_FOLDERS.map((folder) => [folder.title, true])),
@@ -228,7 +232,8 @@ export function AppSidebar() {
               className="group-data-[collapsible=icon]:hidden"
               style={{ fontSize: 13, fontWeight: 500, color: "#111", letterSpacing: "-0.01em" }}
             >
-              Hair Transplant Group Portal
+              Upper Hand Portal
+              <span className="block" style={{ fontSize: 11, fontWeight: 400, color: "#8a8a86" }}>Hair Transplants · Legal</span>
             </span>
           </div>
         </div>

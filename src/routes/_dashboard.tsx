@@ -10,6 +10,8 @@ import { NotificationsProvider } from "@/hooks/useNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { TAB_TO_URL, type TabKey } from "@/lib/tab-access";
+import { sectionForPath } from "@/lib/business";
+import { BusinessSection } from "@/components/business/BusinessSection";
 
 const MiniMessenger = lazy(() =>
   import("@/components/MiniMessenger").then((module) => ({ default: module.MiniMessenger })),
@@ -32,6 +34,9 @@ function tabForPath(pathname: string): TabKey | null {
   if (pathname.startsWith("/pitch-deck")) return "pitch_deck";
   if (pathname.startsWith("/clinics")) return "clinics";
   if (pathname.startsWith("/sent-links")) return "sent_links";
+  if (pathname.startsWith("/todo") || pathname.startsWith("/chase-queue")) return "todo";
+  if (pathname.startsWith("/crm")) return "clinics";
+  if (pathname.startsWith("/reclassifications")) return "partner_clinics";
   return null;
 }
 
@@ -46,6 +51,7 @@ function DashboardLayout() {
   const isFullscreen = location.pathname === "/pitch-deck";
   const pageOwnsNotificationBell = ["/sales-call", "/leaderboard", "/training/practice-call"].includes(location.pathname) || location.pathname.startsWith("/partner-clinics");
   const isTrainingRoute = location.pathname.startsWith("/training");
+  const businessSection = sectionForPath(location.pathname);
   const isClinicSetter = role === "caller";
 
   // Redirect unauthenticated users once the session check has resolved.
@@ -126,7 +132,9 @@ function DashboardLayout() {
       <NotificationsProvider>
         {/* PROTECTED — pitch-deck-root scope restores original dark theme tokens */}
         <div className="pitch-deck-root">
-          <Outlet />
+          <BusinessSection section={sectionForPath(location.pathname)!} floating>
+            <Outlet />
+          </BusinessSection>
         </div>
         <SmsNotifier />
       </NotificationsProvider>
@@ -150,7 +158,13 @@ function DashboardLayout() {
               </div>
             )}
             <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
-              <Outlet />
+              {businessSection ? (
+                <BusinessSection section={businessSection}>
+                  <Outlet />
+                </BusinessSection>
+              ) : (
+                <Outlet />
+              )}
             </main>
           </div>
         </DashboardShell>

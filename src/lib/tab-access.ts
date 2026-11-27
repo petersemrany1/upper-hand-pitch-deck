@@ -19,7 +19,8 @@ export type TabKey =
   | "sent_links"
   | "chase_queue"
   | "recordings"
-  | "sales_test_leads";
+  | "sales_test_leads"
+  | "todo";
 
 export const ALL_TAB_KEYS: TabKey[] = [
   "meta_ads",
@@ -41,6 +42,7 @@ export const ALL_TAB_KEYS: TabKey[] = [
   "recordings",
   "sales_test_leads",
   "invoices",
+  "todo",
 ];
 
 export const TAB_LABELS: Record<TabKey, string> = {
@@ -48,7 +50,7 @@ export const TAB_LABELS: Record<TabKey, string> = {
   invoices: "Invoices",
   dashboard: "Dashboard",
   training: "Training",
-  partner_clinics: "Partner Clinics",
+  partner_clinics: "Partner Portal",
   sales_portal: "Sales Portal",
   leaderboard: "Leaderboard",
   appointments: "Appointments",
@@ -56,18 +58,19 @@ export const TAB_LABELS: Record<TabKey, string> = {
   analytics: "Analytics",
   numbers: "Numbers",
   numbers_game: "Numbers Game",
-  phone: "Phone",
+  phone: "Messages",
   pitch_deck: "Pitch Deck",
-  clinics: "Clinics",
+  clinics: "CRM",
   sent_links: "Sent Links",
   chase_queue: "Chase Queue",
-  recordings: "My Recordings",
+  recordings: "Recordings & Transcripts",
   sales_test_leads: "Clinic Meta Leads",
+  todo: "To Do",
 };
 
 export const TAB_GROUPS: { title: string; tabs: TabKey[] }[] = [
   { title: "General", tabs: ["dashboard", "training", "partner_clinics"] },
-  { title: "Sales", tabs: ["sales_portal", "leaderboard", "appointments", "leads", "analytics", "numbers", "numbers_game", "phone", "chase_queue", "recordings", "invoices"] },
+  { title: "Sales", tabs: ["sales_portal", "leaderboard", "appointments", "leads", "analytics", "numbers", "numbers_game", "phone", "todo", "chase_queue", "recordings", "invoices"] },
   { title: "Clinic Acquisition", tabs: ["pitch_deck", "clinics", "sent_links", "sales_test_leads"] },
 ];
 
@@ -91,6 +94,7 @@ export const TAB_TO_URL: Record<TabKey, string> = {
   chase_queue: "/chase-queue",
   recordings: "/my-recordings",
   sales_test_leads: "/sales-test-leads",
+  todo: "/todo",
 };
 
 export type RoleKey = "admin" | "rep" | "caller";
@@ -101,7 +105,7 @@ export function defaultTabsForRole(role: RoleKey): TabKey[] {
   if (role === "admin") return [...ALL_TAB_KEYS];
   if (role === "caller") return ["clinics", "phone"];
   // rep
-  return ["dashboard", "training", "sales_portal", "appointments", "phone", "chase_queue", "recordings", "invoices"];
+  return ["dashboard", "training", "sales_portal", "appointments", "phone", "todo", "chase_queue", "recordings", "invoices"];
 }
 
 // Resolve effective tabs given the role and optional override.
@@ -109,6 +113,8 @@ export function resolveAllowedTabs(role: RoleKey, override: string[] | null | un
   if (role === "admin") return [...ALL_TAB_KEYS];
   if (!override || override.length === 0) return defaultTabsForRole(role);
   const set = new Set(override.filter((t): t is TabKey => (ALL_TAB_KEYS as string[]).includes(t)));
+  // To Do replaced the Chase Queue: anyone who had the Chase Queue keeps the same access.
+  if (set.has("chase_queue")) set.add("todo");
   return ALL_TAB_KEYS.filter((t) => set.has(t) && !(role === "rep" && t === "partner_clinics"));
 }
 

@@ -29,6 +29,7 @@ import { Route as DashboardClientsRouteImport } from './routes/_dashboard.client
 import { Route as DashboardClinicContactReviewRouteImport } from './routes/_dashboard.clinic-contact-review'
 import { Route as DashboardClinicOwnerReviewRouteImport } from './routes/_dashboard.clinic-owner-review'
 import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinics'
+import { Route as DashboardCrmRouteImport } from './routes/_dashboard.crm'
 import { Route as DashboardInboxRouteImport } from './routes/_dashboard.inbox'
 import { Route as DashboardInvoicesRouteImport } from './routes/_dashboard.invoices'
 import { Route as DashboardLeaderboardRouteImport } from './routes/_dashboard.leaderboard'
@@ -41,12 +42,14 @@ import { Route as DashboardNumbersRouteImport } from './routes/_dashboard.number
 import { Route as DashboardNumbersGameRouteImport } from './routes/_dashboard.numbers-game'
 import { Route as DashboardPartnerClinicsRouteImport } from './routes/_dashboard.partner-clinics'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
+import { Route as DashboardReclassificationsRouteImport } from './routes/_dashboard.reclassifications'
 import { Route as DashboardRepHoursRouteImport } from './routes/_dashboard.rep-hours'
 import { Route as DashboardSalesCallRouteImport } from './routes/_dashboard.sales-call'
 import { Route as DashboardSalesCallTestRouteImport } from './routes/_dashboard.sales-call-test'
 import { Route as DashboardSalesTestLeadsRouteImport } from './routes/_dashboard.sales-test-leads'
 import { Route as DashboardSentLinksRouteImport } from './routes/_dashboard.sent-links'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
+import { Route as DashboardTodoRouteImport } from './routes/_dashboard.todo'
 import { Route as DashboardTrainingRouteImport } from './routes/_dashboard.training'
 import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
@@ -186,6 +189,11 @@ const DashboardClinicsRoute = DashboardClinicsRouteImport.update({
 } as any).lazy(() =>
   import('./routes/_dashboard.clinics.lazy').then((d) => d.Route),
 )
+const DashboardCrmRoute = DashboardCrmRouteImport.update({
+  id: '/crm',
+  path: '/crm',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardInboxRoute = DashboardInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
@@ -252,6 +260,12 @@ const DashboardPitchDeckRoute = DashboardPitchDeckRouteImport.update({
   path: '/pitch-deck',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardReclassificationsRoute =
+  DashboardReclassificationsRouteImport.update({
+    id: '/reclassifications',
+    path: '/reclassifications',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 const DashboardRepHoursRoute = DashboardRepHoursRouteImport.update({
   id: '/rep-hours',
   path: '/rep-hours',
@@ -284,6 +298,11 @@ const DashboardSentLinksRoute = DashboardSentLinksRouteImport.update({
 const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardTodoRoute = DashboardTodoRouteImport.update({
+  id: '/todo',
+  path: '/todo',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardTrainingRoute = DashboardTrainingRouteImport.update({
@@ -497,6 +516,7 @@ export interface FileRoutesByFullPath {
   '/clinic-contact-review': typeof DashboardClinicContactReviewRoute
   '/clinic-owner-review': typeof DashboardClinicOwnerReviewRoute
   '/clinics': typeof DashboardClinicsRoute
+  '/crm': typeof DashboardCrmRoute
   '/inbox': typeof DashboardInboxRoute
   '/invoices': typeof DashboardInvoicesRoute
   '/leaderboard': typeof DashboardLeaderboardRoute
@@ -509,12 +529,14 @@ export interface FileRoutesByFullPath {
   '/numbers-game': typeof DashboardNumbersGameRoute
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
+  '/reclassifications': typeof DashboardReclassificationsRoute
   '/rep-hours': typeof DashboardRepHoursRoute
   '/sales-call': typeof DashboardSalesCallRoute
   '/sales-call-test': typeof DashboardSalesCallTestRoute
   '/sales-test-leads': typeof DashboardSalesTestLeadsRoute
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
+  '/todo': typeof DashboardTodoRoute
   '/training': typeof DashboardTrainingRouteWithChildren
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
@@ -568,6 +590,7 @@ export interface FileRoutesByTo {
   '/clinic-contact-review': typeof DashboardClinicContactReviewRoute
   '/clinic-owner-review': typeof DashboardClinicOwnerReviewRoute
   '/clinics': typeof DashboardClinicsRoute
+  '/crm': typeof DashboardCrmRoute
   '/inbox': typeof DashboardInboxRoute
   '/invoices': typeof DashboardInvoicesRoute
   '/leaderboard': typeof DashboardLeaderboardRoute
@@ -580,12 +603,14 @@ export interface FileRoutesByTo {
   '/numbers-game': typeof DashboardNumbersGameRoute
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
+  '/reclassifications': typeof DashboardReclassificationsRoute
   '/rep-hours': typeof DashboardRepHoursRoute
   '/sales-call': typeof DashboardSalesCallRoute
   '/sales-call-test': typeof DashboardSalesCallTestRoute
   '/sales-test-leads': typeof DashboardSalesTestLeadsRoute
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
+  '/todo': typeof DashboardTodoRoute
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/': typeof DashboardIndexRoute
@@ -641,6 +666,7 @@ export interface FileRoutesById {
   '/_dashboard/clinic-contact-review': typeof DashboardClinicContactReviewRoute
   '/_dashboard/clinic-owner-review': typeof DashboardClinicOwnerReviewRoute
   '/_dashboard/clinics': typeof DashboardClinicsRoute
+  '/_dashboard/crm': typeof DashboardCrmRoute
   '/_dashboard/inbox': typeof DashboardInboxRoute
   '/_dashboard/invoices': typeof DashboardInvoicesRoute
   '/_dashboard/leaderboard': typeof DashboardLeaderboardRoute
@@ -653,12 +679,14 @@ export interface FileRoutesById {
   '/_dashboard/numbers-game': typeof DashboardNumbersGameRoute
   '/_dashboard/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
+  '/_dashboard/reclassifications': typeof DashboardReclassificationsRoute
   '/_dashboard/rep-hours': typeof DashboardRepHoursRoute
   '/_dashboard/sales-call': typeof DashboardSalesCallRoute
   '/_dashboard/sales-call-test': typeof DashboardSalesCallTestRoute
   '/_dashboard/sales-test-leads': typeof DashboardSalesTestLeadsRoute
   '/_dashboard/sent-links': typeof DashboardSentLinksRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
+  '/_dashboard/todo': typeof DashboardTodoRoute
   '/_dashboard/training': typeof DashboardTrainingRouteWithChildren
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
@@ -716,6 +744,7 @@ export interface FileRouteTypes {
     | '/clinic-contact-review'
     | '/clinic-owner-review'
     | '/clinics'
+    | '/crm'
     | '/inbox'
     | '/invoices'
     | '/leaderboard'
@@ -728,12 +757,14 @@ export interface FileRouteTypes {
     | '/numbers-game'
     | '/partner-clinics'
     | '/pitch-deck'
+    | '/reclassifications'
     | '/rep-hours'
     | '/sales-call'
     | '/sales-call-test'
     | '/sales-test-leads'
     | '/sent-links'
     | '/settings'
+    | '/todo'
     | '/training'
     | '/api/coach-stream'
     | '/email/unsubscribe'
@@ -787,6 +818,7 @@ export interface FileRouteTypes {
     | '/clinic-contact-review'
     | '/clinic-owner-review'
     | '/clinics'
+    | '/crm'
     | '/inbox'
     | '/invoices'
     | '/leaderboard'
@@ -799,12 +831,14 @@ export interface FileRouteTypes {
     | '/numbers-game'
     | '/partner-clinics'
     | '/pitch-deck'
+    | '/reclassifications'
     | '/rep-hours'
     | '/sales-call'
     | '/sales-call-test'
     | '/sales-test-leads'
     | '/sent-links'
     | '/settings'
+    | '/todo'
     | '/api/coach-stream'
     | '/email/unsubscribe'
     | '/'
@@ -859,6 +893,7 @@ export interface FileRouteTypes {
     | '/_dashboard/clinic-contact-review'
     | '/_dashboard/clinic-owner-review'
     | '/_dashboard/clinics'
+    | '/_dashboard/crm'
     | '/_dashboard/inbox'
     | '/_dashboard/invoices'
     | '/_dashboard/leaderboard'
@@ -871,12 +906,14 @@ export interface FileRouteTypes {
     | '/_dashboard/numbers-game'
     | '/_dashboard/partner-clinics'
     | '/_dashboard/pitch-deck'
+    | '/_dashboard/reclassifications'
     | '/_dashboard/rep-hours'
     | '/_dashboard/sales-call'
     | '/_dashboard/sales-call-test'
     | '/_dashboard/sales-test-leads'
     | '/_dashboard/sent-links'
     | '/_dashboard/settings'
+    | '/_dashboard/todo'
     | '/_dashboard/training'
     | '/api/coach-stream'
     | '/email/unsubscribe'
@@ -1090,6 +1127,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardClinicsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/crm': {
+      id: '/_dashboard/crm'
+      path: '/crm'
+      fullPath: '/crm'
+      preLoaderRoute: typeof DashboardCrmRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/inbox': {
       id: '/_dashboard/inbox'
       path: '/inbox'
@@ -1174,6 +1218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardPitchDeckRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/reclassifications': {
+      id: '/_dashboard/reclassifications'
+      path: '/reclassifications'
+      fullPath: '/reclassifications'
+      preLoaderRoute: typeof DashboardReclassificationsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/rep-hours': {
       id: '/_dashboard/rep-hours'
       path: '/rep-hours'
@@ -1214,6 +1265,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof DashboardSettingsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/todo': {
+      id: '/_dashboard/todo'
+      path: '/todo'
+      fullPath: '/todo'
+      preLoaderRoute: typeof DashboardTodoRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/training': {
@@ -1495,6 +1553,7 @@ interface DashboardRouteChildren {
   DashboardClinicContactReviewRoute: typeof DashboardClinicContactReviewRoute
   DashboardClinicOwnerReviewRoute: typeof DashboardClinicOwnerReviewRoute
   DashboardClinicsRoute: typeof DashboardClinicsRoute
+  DashboardCrmRoute: typeof DashboardCrmRoute
   DashboardInboxRoute: typeof DashboardInboxRoute
   DashboardInvoicesRoute: typeof DashboardInvoicesRoute
   DashboardLeaderboardRoute: typeof DashboardLeaderboardRoute
@@ -1507,12 +1566,14 @@ interface DashboardRouteChildren {
   DashboardNumbersGameRoute: typeof DashboardNumbersGameRoute
   DashboardPartnerClinicsRoute: typeof DashboardPartnerClinicsRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
+  DashboardReclassificationsRoute: typeof DashboardReclassificationsRoute
   DashboardRepHoursRoute: typeof DashboardRepHoursRoute
   DashboardSalesCallRoute: typeof DashboardSalesCallRoute
   DashboardSalesCallTestRoute: typeof DashboardSalesCallTestRoute
   DashboardSalesTestLeadsRoute: typeof DashboardSalesTestLeadsRoute
   DashboardSentLinksRoute: typeof DashboardSentLinksRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
+  DashboardTodoRoute: typeof DashboardTodoRoute
   DashboardTrainingRoute: typeof DashboardTrainingRouteWithChildren
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
@@ -1525,6 +1586,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardClinicContactReviewRoute: DashboardClinicContactReviewRoute,
   DashboardClinicOwnerReviewRoute: DashboardClinicOwnerReviewRoute,
   DashboardClinicsRoute: DashboardClinicsRoute,
+  DashboardCrmRoute: DashboardCrmRoute,
   DashboardInboxRoute: DashboardInboxRoute,
   DashboardInvoicesRoute: DashboardInvoicesRoute,
   DashboardLeaderboardRoute: DashboardLeaderboardRoute,
@@ -1537,12 +1599,14 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardNumbersGameRoute: DashboardNumbersGameRoute,
   DashboardPartnerClinicsRoute: DashboardPartnerClinicsRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
+  DashboardReclassificationsRoute: DashboardReclassificationsRoute,
   DashboardRepHoursRoute: DashboardRepHoursRoute,
   DashboardSalesCallRoute: DashboardSalesCallRoute,
   DashboardSalesCallTestRoute: DashboardSalesCallTestRoute,
   DashboardSalesTestLeadsRoute: DashboardSalesTestLeadsRoute,
   DashboardSentLinksRoute: DashboardSentLinksRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
+  DashboardTodoRoute: DashboardTodoRoute,
   DashboardTrainingRoute: DashboardTrainingRouteWithChildren,
   DashboardIndexRoute: DashboardIndexRoute,
 }
