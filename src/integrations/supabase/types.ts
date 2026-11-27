@@ -9394,6 +9394,10 @@ export type Database = {
         Args: { p_firm: string; p_quantity: number; p_request: string }
         Returns: Json
       }
+      legal_portal_leaderboard_source: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       legal_rebook_client_after_no_show: {
         Args: {
           p_actor: string
