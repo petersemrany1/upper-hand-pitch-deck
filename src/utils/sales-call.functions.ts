@@ -1,4 +1,4 @@
-import { getSmsSender } from "./sms-sender.server";
+import { getUserSmsSender, ensureSmsConversation } from "./sms-sender.server";
 import { saveSalesOutcome, stampLatestCallOutcome } from "./sales-outcome.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { salesCallCounts, dashboardMetrics, conversionPercent, isRankedRep } from "@/lib/leaderboard-metrics";
@@ -107,13 +107,13 @@ export const matchClinicsBySuburb = createServerFn({ method: "POST" })
 
 /* ───────────────────────── Send MMS ───────────────────────── */
 
-export const sendLeadMms = createServerFn({ method: "POST" })
+export const sendLeadMms = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string; mediaUrl: string; body?: string }) => ({
     leadId: String(data.leadId ?? ""),
     mediaUrl: String(data.mediaUrl ?? ""),
     body: data.body ?? "",
   }))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     if (!data.leadId || !data.mediaUrl) return { success: false as const, error: "leadId and mediaUrl required" };
 
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -124,7 +124,7 @@ export const sendLeadMms = createServerFn({ method: "POST" })
       .from("meta_leads").select("id, phone, first_name").eq("id", data.leadId).single();
     if (!lead?.phone) return { success: false as const, error: "Lead has no phone" };
 
-    const TWILIO_FROM = await getSmsSender(null, true);
+    const TWILIO_FROM = await getUserSmsSender(context.supabase, null, true);
     const to = formatAUPhone(lead.phone);
     const params = new URLSearchParams();
     params.set("To", to);
@@ -156,19 +156,10 @@ export const sendLeadMms = createServerFn({ method: "POST" })
     }
 
     // Persist to sms_threads + sms_messages
-    let threadId: string | null = null;
-    const { data: existing } = await supabaseAdmin.from("sms_threads").select("id").eq("phone", to).maybeSingle();
-    if (existing?.id) {
-      threadId = existing.id;
-    } else {
-      const { data: created } = await supabaseAdmin
-        .from("sms_threads")
-        .insert({ phone: to, display_name: [lead.first_name].filter(Boolean).join(" ") || null })
-        .select("id").single();
-      threadId = created?.id ?? null;
-    }
+    const threadId = await ensureSmsConversation(to, TWILIO_FROM);
     if (threadId) {
       await supabaseAdmin.from("sms_messages").insert({
+        sender_user_id: context.userId,
         thread_id: threadId, lead_id: data.leadId, phone: to, direction: "outbound",
         body: data.body || null, media_urls: [data.mediaUrl],
         twilio_message_sid: twilioResult.sid ?? null, status: twilioResult.status ?? "queued",

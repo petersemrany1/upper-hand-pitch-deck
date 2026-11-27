@@ -9,6 +9,8 @@ export function repIdFromIdentity(value: string): string | null {
 }
 export function blockedMessage(reason: string): string {
   switch (reason) {
+    case 'personal_line_daily_limit': return 'Your personal number has reached its daily calling limit. No other number will be used. Please try again later.';
+    case 'personal_line_unavailable': return 'Your personal number is unavailable. No other number will be used. Please contact your administrator.';
     case 'do_not_call': return 'This contact is on the do not call list. The call has not been placed.';
     case 'no_eligible_number': return 'All active caller IDs have reached their daily limits or have been retired. No call has been placed. Please try again later.';
     default: return 'Calling is temporarily unavailable. No call has been placed. Please try again later.';

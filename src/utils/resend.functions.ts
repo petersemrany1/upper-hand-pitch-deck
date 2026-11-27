@@ -1,5 +1,5 @@
 import { normalizeSmsPhone, INVALID_SMS_PHONE } from "./sms-phone";
-import { getSmsSender } from "./sms-sender.server";
+import { getUserSmsSender, ensureSmsConversation } from "./sms-sender.server";
 import { loadPatientConfirmation } from "./patient-confirmation.server";
 import { assertExistingBookingAccess } from "./booking-access.server";
 import { patientRescheduleNotice, PATIENT_SMS_FROM } from "@/lib/booking-confirmation-sms";
@@ -289,36 +289,13 @@ async function ensureSmsThread(
   leadId?: string | null,
 ): Promise<string | null> {
   try {
-    const normalizedPhone = phone.replace(/\D/g, "");
-    const { data: existing } = await admin
-      .from("sms_threads")
-      .select("id")
-      .eq("phone_normalized", normalizedPhone)
-      .maybeSingle();
-    if (existing?.id) return existing.id as string;
-
-    let displayName: string | null = null;
+    const threadId = await ensureSmsConversation(phone, "");
     if (leadId) {
-      const { data: lead } = await admin
-        .from("meta_leads")
-        .select("first_name,last_name")
-        .eq("id", leadId)
-        .maybeSingle();
-      if (lead) {
-        displayName = [lead.first_name, lead.last_name].filter(Boolean).join(" ").trim() || null;
-      }
+      const { data: lead } = await admin.from("meta_leads").select("first_name,last_name").eq("id", leadId).maybeSingle();
+      const name = lead ? [lead.first_name, lead.last_name].filter(Boolean).join(" ").trim() : "";
+      if (name) await admin.from("sms_threads").update({ display_name: name }).eq("id", threadId).is("display_name", null);
     }
-
-    const { data: created, error: createErr } = await admin
-      .from("sms_threads")
-      .insert({ phone, display_name: displayName })
-      .select("id")
-      .single();
-    if (createErr || !created) {
-      console.error("ensureSmsThread: create failed", createErr);
-      return null;
-    }
-    return created.id as string;
+    return threadId;
   } catch (e) {
     console.error("ensureSmsThread error", e);
     return null;
@@ -659,10 +636,10 @@ export const sendContractSMS = createServerFn({ method: "POST" })
       perShowFee: number;
     }) => data
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const fromNumber = await getSmsSender(process.env.TWILIO_FROM_NUMBER ?? null);
+    const fromNumber = await getUserSmsSender(context.supabase, process.env.TWILIO_FROM_NUMBER ?? null);
 
     if (!accountSid || !authToken) {
       const msg = "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN must be configured";
@@ -795,6 +772,13 @@ export const sendContractSMS = createServerFn({ method: "POST" })
         });
         return { success: false as const, error: result.message || "Failed to send SMS" };
       }
+
+      const threadId = await ensureSmsThread(getAdminClient(), formattedPhone);
+      if (threadId) await getAdminClient().from("sms_messages").insert({
+        thread_id: threadId, sender_user_id: context.userId, direction: "outbound",
+        body: message, from_number: fromNumber, to_number: formattedPhone,
+        twilio_message_sid: result.sid, status: result.status ?? "queued", media_urls: [],
+      });
 
       // Log successful contract send
       try {
@@ -1326,13 +1310,13 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
       bookingTime: string;
     }) => data
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const formatted = normalizeSmsPhone(data.phone);
     if (!formatted) return { success: false as const, error: INVALID_SMS_PHONE };
 
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const TWILIO_FROM = await getSmsSender(PATIENT_SMS_FROM);
+    const TWILIO_FROM = await getUserSmsSender(context.supabase, PATIENT_SMS_FROM);
 
     if (!accountSid || !authToken) {
       return { success: false as const, error: "Twilio credentials not configured" };
@@ -1401,6 +1385,7 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
         const threadId = await ensureSmsThread(admin, formatted, data.leadId);
         if (!threadId) throw new Error("Could not create or find SMS thread");
         await admin.from("sms_messages").insert({
+          sender_user_id: context.userId,
           thread_id: threadId,
           lead_id: data.leadId,
           body: message,
@@ -1435,7 +1420,7 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const TWILIO_FROM = await getSmsSender(PATIENT_SMS_FROM);
+    const TWILIO_FROM = await getUserSmsSender(context.supabase, PATIENT_SMS_FROM);
 
     if (!accountSid || !authToken) {
       return { success: false as const, error: "Twilio credentials not configured" };
@@ -1479,6 +1464,7 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
         const threadId = await ensureSmsThread(admin, formatted, data.leadId);
         if (!threadId) throw new Error("Could not create or find SMS thread");
         await admin.from("sms_messages").insert({
+          sender_user_id: context.userId,
           thread_id: threadId,
           lead_id: data.leadId,
           body: message,
@@ -1507,10 +1493,10 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
 export const sendManualSms = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string; phone: string; body: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const TWILIO_FROM = await getSmsSender(PATIENT_SMS_FROM);
+    const TWILIO_FROM = await getUserSmsSender(context.supabase, PATIENT_SMS_FROM);
     if (!accountSid || !authToken) {
       return { success: false as const, error: "Twilio not configured" };
     }
@@ -1554,6 +1540,7 @@ export const sendManualSms = createServerFn({ method: "POST" })
         const threadId = await ensureSmsThread(admin, formatted, data.leadId);
         if (!threadId) throw new Error("Could not create or find SMS thread");
         await admin.from("sms_messages").insert({
+          sender_user_id: context.userId,
           thread_id: threadId,
           lead_id: data.leadId,
           body: data.body,
@@ -1731,13 +1718,13 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
       return data;
     }
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const formatted = normalizeSmsPhone(data.phone);
     if (!formatted) return { success: false as const, error: INVALID_SMS_PHONE };
 
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const TWILIO_FROM = await getSmsSender(PATIENT_SMS_FROM);
+    const TWILIO_FROM = await getUserSmsSender(context.supabase, PATIENT_SMS_FROM);
 
     if (!accountSid || !authToken) {
       return { success: false as const, error: "Twilio credentials not configured" };
@@ -1791,6 +1778,7 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
         const threadId = await ensureSmsThread(admin, formatted, data.leadId);
         if (!threadId) throw new Error("Could not create or find SMS thread");
         await admin.from("sms_messages").insert({
+          sender_user_id: context.userId,
           thread_id: threadId,
           lead_id: data.leadId,
           phone: formatted,

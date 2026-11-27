@@ -88,27 +88,11 @@ serve(async (req) => {
       return new Response("<Response/>", { status: 200, headers: { "Content-Type": "text/xml" } });
     }
 
-    // 1) Find or create thread
-    let threadId: string;
-    const { data: existing } = await sb
-      .from("sms_threads")
-      .select("id")
-      .eq("phone", from)
-      .maybeSingle();
-
-    if (existing?.id) {
-      threadId = existing.id;
-    } else {
-      const { data: created, error: createErr } = await sb
-        .from("sms_threads")
-        .insert({ phone: from })
-        .select("id")
-        .single();
-      if (createErr || !created) {
-        console.error("sms-inbound: thread create failed", createErr);
-        return new Response("Message storage failed", { status: 500 });
-      }
-      threadId = created.id;
+    // Keep replies to old and personal numbers in the same contact conversation.
+    const { data: threadId, error: threadError } = await sb.rpc("ensure_sms_thread", { p_phone: from, p_local_number: to });
+    if (threadError || !threadId) {
+      console.error("sms-inbound: thread lookup failed", threadError);
+      return new Response("Message storage failed", { status: 500 });
     }
 
     // 2) Download media into sms-media bucket
