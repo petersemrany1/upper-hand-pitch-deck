@@ -21,7 +21,6 @@ export const MOVE_HELPERS = new Set([
   "portal_schema_export",
   "portal_table_export",
   "portal_auth_users_export",
-  "portal_leaderboard_source",
 ]);
 
 /** The snapshot minus the move helpers. */
