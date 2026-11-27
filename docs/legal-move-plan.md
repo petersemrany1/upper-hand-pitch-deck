@@ -86,6 +86,14 @@ We move it in stages. Each stage is checked before the next one starts.
   (`/leads?biz=legal&legalData=portal`) matches the Legal app line for line
   (228 leads). No page is switched for everyone: the copy is a snapshot, so
   pages switch at switch-over (or once the copy is kept live).
-- Next: give Nina a portal login, then re-run the copy; try the other screens
-  with `legalData=portal`; mount Legal's API routes under `/api/public/legal/…`
-  (disabled); apply the `legal-` storage rules; Stage 3 (accounts) with Peter.
+- **2026-11-28 (later).** Nina linked to her portal login
+  (sinclair.nina1@gmail.com) via `SAME_PERSON` in `legal-move.functions.ts`;
+  copy re-run, counts match. Leaderboard got its own source function here
+  (`legal_portal_leaderboard_source`, applied by Lovable). All four native Legal
+  screens match the Legal app on the copied records: Leads (228), Leaderboard
+  (This month, every rep's numbers), Transcripts (Tim Chigwidden's calls and
+  transcript), Pitch deck. The test switch now carries across Legal links.
+- Next: bring the remaining Legal screens (sales call, booked appointments,
+  inbox, firms, numbers, settings, training…) in as native pages; mount Legal's
+  API routes under `/api/public/legal/…` (disabled); apply the `legal-` storage
+  rules; copy the 2 firm-offer files; Stage 3 (accounts) with Peter.
