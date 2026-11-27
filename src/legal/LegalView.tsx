@@ -15,6 +15,7 @@ import {
 } from "@/components/business/LegalConnect";
 import { LegalContext, type LegalRouteContext } from "./runtime/context";
 import { resolveRole } from "./lib/roles";
+import { legalTrialOn } from "./runtime/trial";
 import { setLegalDataMode, type LegalDataMode } from "./runtime/mode";
 import { supabase as portalSupabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -37,14 +38,48 @@ const PORTAL_DATA_PAGES = new Set<string>([]);
 
 function dataModeFor(path: string): LegalDataMode {
   if (PORTAL_DATA_PAGES.has(path)) return "portal";
-  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("legalData") === "portal")
-    return "portal";
+  // Screens not yet live only ever run on the copied records.
+  if (legalTrialOn() || !(path in NATIVE)) return "portal";
   return "legal";
+}
+
+type PageModule = () => Promise<{ LegalPage: ComponentType }>;
+
+// Legal screens still being moved: they open natively only with the
+// "try on copied records" switch (?legalData=portal); everyone else keeps
+// seeing the Legal app in a frame. Legal-only screens live under /legal/….
+const TRIAL: Record<string, PageModule> = {
+  "/sales-call": () => import("./pages/sales-call"),
+  "/inbox": () => import("./pages/inbox"),
+  "/booked-appointments": () => import("./pages/booked-appointments"),
+  "/numbers": () => import("./pages/numbers"),
+  "/training": () => import("./pages/training/index"),
+  "/training/ai": () => import("./pages/training/ai"),
+  "/training/audience": () => import("./pages/training/audience"),
+  "/training/call-coaching": () => import("./pages/training/call-coaching"),
+  "/training/consultation-videos": () => import("./pages/training/consultation-videos"),
+  "/training/knowledge-quiz": () => import("./pages/training/knowledge-quiz"),
+  "/training/platform": () => import("./pages/training/platform"),
+  "/training/practice-call": () => import("./pages/training/practice-call"),
+  "/training/product-knowledge": () => import("./pages/training/product-knowledge"),
+  "/training/read-along": () => import("./pages/training/read-along"),
+  "/training/sales-call-example": () => import("./pages/training/sales-call-example"),
+  "/training/sales-framework": () => import("./pages/training/sales-framework"),
+  "/legal/dashboard": () => import("./pages/dashboard"),
+  "/legal/firms": () => import("./pages/firms"),
+  "/legal/firm-cold-calling": () => import("./pages/firm-cold-calling"),
+  "/legal/ad-briefing": () => import("./pages/ad-briefing"),
+  "/legal/handover-check": () => import("./pages/handover-check"),
+  "/legal/settings": () => import("./pages/settings"),
+};
+
+function moduleFor(path: string): PageModule | undefined {
+  return NATIVE[path] ?? (legalTrialOn() ? TRIAL[path] : undefined);
 }
 
 const pages = new Map<string, ComponentType>();
 function pageFor(path: string): ComponentType | null {
-  const load = NATIVE[path];
+  const load = moduleFor(path);
   if (!load) return null;
   if (!pages.has(path))
     pages.set(
@@ -55,7 +90,7 @@ function pageFor(path: string): ComponentType | null {
 }
 
 export function hasNativeLegalPage(path: string): boolean {
-  return path in NATIVE;
+  return !!moduleFor(path);
 }
 
 class LegalErrorBoundary extends Component<

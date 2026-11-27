@@ -7,6 +7,7 @@ import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from "react";
 import * as Router from "@tanstack/react-router";
 import { LEGAL_APP_ORIGIN } from "@/lib/legal/client";
 import { useLegalContext, type LegalRouteContext } from "./context";
+import { legalTrialOn, TRIAL_PATHS } from "./trial";
 
 export * from "@tanstack/react-router";
 
@@ -36,13 +37,18 @@ export function legalTarget(to: unknown, search?: unknown): LegalTarget {
   if (search && typeof search === "object")
     for (const [k, v] of Object.entries(search as Record<string, unknown>))
       if (v !== undefined && v !== null) params.set(k, String(v));
-  const portal = PORTAL_PATHS[path];
+  const trial = legalTrialOn();
+  // While trying screens on copied records, training modules and Legal-only
+  // screens open inside the portal too.
+  const portal =
+    PORTAL_PATHS[path] ??
+    (trial && TRIAL_PATHS.has(path) ? path : undefined) ??
+    (trial && TRIAL_PATHS.has(`/legal${path}`) ? `/legal${path}` : undefined);
   if (!path.startsWith("/") || path === "/") return { href: path || ".", external: false };
   if (portal) {
     if (portal !== "/login") params.set("biz", "legal");
     // Keep the "try on copied records" switch while clicking around.
-    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("legalData") === "portal")
-      params.set("legalData", "portal");
+    if (trial) params.set("legalData", "portal");
     const q = params.toString();
     return { href: `${portal}${q ? `?${q}` : ""}`, external: false };
   }

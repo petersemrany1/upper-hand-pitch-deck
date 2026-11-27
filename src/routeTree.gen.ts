@@ -54,6 +54,7 @@ import { Route as DashboardTodoRouteImport } from './routes/_dashboard.todo'
 import { Route as DashboardTrainingRouteImport } from './routes/_dashboard.training'
 import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
+import { Route as DashboardLegalSplatRouteImport } from './routes/_dashboard.legal.$'
 import { Route as DashboardTrainingIndexRouteImport } from './routes/_dashboard.training.index'
 import { Route as DashboardTrainingAiRouteImport } from './routes/_dashboard.training.ai'
 import { Route as DashboardTrainingAudienceRouteImport } from './routes/_dashboard.training.audience'
@@ -326,6 +327,11 @@ const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
   path: '/email/unsubscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardLegalSplatRoute = DashboardLegalSplatRouteImport.update({
+  id: '/legal/$',
+  path: '/legal/$',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardTrainingIndexRoute = DashboardTrainingIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -547,6 +553,7 @@ export interface FileRoutesByFullPath {
   '/training': typeof DashboardTrainingRouteWithChildren
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/legal/$': typeof DashboardLegalSplatRoute
   '/training/ai': typeof DashboardTrainingAiRoute
   '/training/audience': typeof DashboardTrainingAudienceRoute
   '/training/call-coaching': typeof DashboardTrainingCallCoachingRoute
@@ -622,6 +629,7 @@ export interface FileRoutesByTo {
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/': typeof DashboardIndexRoute
+  '/legal/$': typeof DashboardLegalSplatRoute
   '/training/ai': typeof DashboardTrainingAiRoute
   '/training/audience': typeof DashboardTrainingAudienceRoute
   '/training/call-coaching': typeof DashboardTrainingCallCoachingRoute
@@ -700,6 +708,7 @@ export interface FileRoutesById {
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/_dashboard/': typeof DashboardIndexRoute
+  '/_dashboard/legal/$': typeof DashboardLegalSplatRoute
   '/_dashboard/training/ai': typeof DashboardTrainingAiRoute
   '/_dashboard/training/audience': typeof DashboardTrainingAudienceRoute
   '/_dashboard/training/call-coaching': typeof DashboardTrainingCallCoachingRoute
@@ -778,6 +787,7 @@ export interface FileRouteTypes {
     | '/training'
     | '/api/coach-stream'
     | '/email/unsubscribe'
+    | '/legal/$'
     | '/training/ai'
     | '/training/audience'
     | '/training/call-coaching'
@@ -853,6 +863,7 @@ export interface FileRouteTypes {
     | '/api/coach-stream'
     | '/email/unsubscribe'
     | '/'
+    | '/legal/$'
     | '/training/ai'
     | '/training/audience'
     | '/training/call-coaching'
@@ -930,6 +941,7 @@ export interface FileRouteTypes {
     | '/api/coach-stream'
     | '/email/unsubscribe'
     | '/_dashboard/'
+    | '/_dashboard/legal/$'
     | '/_dashboard/training/ai'
     | '/_dashboard/training/audience'
     | '/_dashboard/training/call-coaching'
@@ -1314,6 +1326,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EmailUnsubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_dashboard/legal/$': {
+      id: '/_dashboard/legal/$'
+      path: '/legal/$'
+      fullPath: '/legal/$'
+      preLoaderRoute: typeof DashboardLegalSplatRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/training/': {
       id: '/_dashboard/training/'
       path: '/'
@@ -1596,6 +1615,7 @@ interface DashboardRouteChildren {
   DashboardTodoRoute: typeof DashboardTodoRoute
   DashboardTrainingRoute: typeof DashboardTrainingRouteWithChildren
   DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardLegalSplatRoute: typeof DashboardLegalSplatRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
@@ -1630,6 +1650,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardTodoRoute: DashboardTodoRoute,
   DashboardTrainingRoute: DashboardTrainingRouteWithChildren,
   DashboardIndexRoute: DashboardIndexRoute,
+  DashboardLegalSplatRoute: DashboardLegalSplatRoute,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(

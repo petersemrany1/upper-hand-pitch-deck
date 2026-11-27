@@ -62,9 +62,12 @@ export function BusinessSection({
   floating?: boolean;
 }) {
   const [view, setView] = useBusinessView(section);
+  const { pathname } = useLocation();
   const title = sectionTitle(section);
-  const legalBody = hasNativeLegalPage(section.path) ? (
-    <LegalView path={section.path} fullscreen={floating} />
+  // Sub-pages (training modules) open their own Legal page when there is one.
+  const legalPath = hasNativeLegalPage(pathname) ? pathname : section.path;
+  const legalBody = hasNativeLegalPage(legalPath) ? (
+    <LegalView key={legalPath} path={legalPath} fullscreen={floating} />
   ) : (
     <LegalFrame path={section.legalPath} title={title} />
   );
