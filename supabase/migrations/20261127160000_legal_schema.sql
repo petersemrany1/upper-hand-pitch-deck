@@ -4221,14 +4221,5 @@ ALTER TABLE public.legal_sms_messages DISABLE TRIGGER "stop_booking_follow_ups_o
 CREATE TRIGGER set_sms_threads_updated_at BEFORE UPDATE ON public.legal_sms_threads FOR EACH ROW EXECUTE FUNCTION legal_set_updated_at();
 ALTER TABLE public.legal_sms_threads DISABLE TRIGGER "set_sms_threads_updated_at";
 
--- Storage buckets and their policies
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('legal-firm-contracts', 'legal-firm-contracts', false, 26214400, NULL) ON CONFLICT (id) DO NOTHING;
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('legal-firm-offers', 'legal-firm-offers', false, NULL, NULL) ON CONFLICT (id) DO NOTHING;
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('legal-practice-call-recordings', 'legal-practice-call-recordings', false, NULL, NULL) ON CONFLICT (id) DO NOTHING;
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('legal-training-media', 'legal-training-media', false, NULL, NULL) ON CONFLICT (id) DO NOTHING;
-CREATE POLICY "legal_Sales phone no portal files" ON storage.objects AS RESTRICTIVE FOR ALL TO authenticated USING (((NOT legal_is_sales_only_user()) OR legal_can_access_portal_page('/training'::text))) WITH CHECK ((NOT legal_is_sales_only_user()));
-CREATE POLICY "legal_Staff training file scope" ON storage.objects AS RESTRICTIVE FOR SELECT TO authenticated USING (((bucket_id <> ALL (ARRAY['legal-training-media'::text, 'legal-practice-call-recordings'::text])) OR (NOT legal_has_staff_profile()) OR legal_can_access_portal_page('/training'::text)));
-CREATE POLICY "legal_practice recordings read own or admin" ON storage.objects AS PERMISSIVE FOR SELECT TO authenticated USING (((bucket_id = 'legal-practice-call-recordings'::text) AND (legal_is_admin_user() OR ((storage.foldername(name))[1] = (auth.uid())::text))));
-CREATE POLICY "legal_training media staff read" ON storage.objects AS PERMISSIVE FOR SELECT TO authenticated USING (((bucket_id = 'legal-training-media'::text) AND legal_has_sales_role()));
 
 RESET check_function_bodies;

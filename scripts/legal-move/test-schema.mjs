@@ -7,7 +7,9 @@ import { replay } from "./replay.mjs";
 
 const file = process.argv[2] ?? ".legal-move/legal_schema.sql";
 const schema = JSON.parse(await readFile(process.argv[3] ?? ".legal-move/schema.json", "utf8"));
-const r = await replay(["supabase/migrations"], { quiet: true, keepGoing: true });
+import { readdir } from "node:fs/promises";
+const hairOnly = (await readdir("supabase/migrations")).filter((f) => f.endsWith(".sql") && !/_legal_/.test(f)).sort().map((f) => "supabase/migrations/" + f);
+const r = await replay(hairOnly, { quiet: true, keepGoing: true });
 const db = r.db;
 const before = (await db.query("SELECT count(*)::int n FROM pg_class WHERE relnamespace='public'::regnamespace AND relname NOT LIKE 'legal\\_%'")).rows[0].n;
 const sql = (await readFile(file, "utf8")).replace(/CREATE EXTENSION[^;]*;/gi, "");
@@ -23,7 +25,7 @@ try {
     if (((line.match(/\$function\$/g) ?? []).length) % 2 === 1) inBody = !inBody;
   }
   parts.push(cur.join("\n"));
-  const db2 = (await replay(["supabase/migrations"], { quiet: true, keepGoing: true })).db;
+  const db2 = (await replay(hairOnly, { quiet: true, keepGoing: true })).db;
   for (const p of parts) {
     try { await db2.exec(p); } catch (err) { console.error("FAILED:", err.message, "\n", p.slice(0, 600)); process.exit(1); }
   }

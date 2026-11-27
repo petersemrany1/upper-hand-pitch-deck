@@ -243,6 +243,18 @@ export function generate(schema) {
   }
   emit("");
 
+  emit("", "RESET check_function_bodies;");
+  return L.join("\n") + "\n";
+}
+
+/** Storage buckets and their policies. Lovable's migration tool rejects bucket
+ * rows, so buckets are created with its storage tool and only the policies go
+ * in a migration (generate-storage). */
+export function generateStorage(schema) {
+  const { rewrite } = makeRewriter(schema);
+  const P = (n) => PREFIX + n;
+  const L = [];
+  const emit = (...lines) => L.push(...lines);
   emit("-- Storage buckets and their policies");
   for (const b of schema.buckets) {
     const mimes = b.allowed_mime_types ? `ARRAY[${b.allowed_mime_types.map((m) => `'${m}'`).join(", ")}]` : "NULL";
@@ -250,11 +262,17 @@ export function generate(schema) {
       `INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('${BUCKET_PREFIX}${b.id}', '${BUCKET_PREFIX}${b.name}', ${b.public}, ${b.file_size_limit ?? "NULL"}, ${mimes}) ON CONFLICT (id) DO NOTHING;`,
     );
   }
+  // storage.objects is shared with the Hair app: scope every Legal rule to
+  // Legal buckets so a restrictive Legal rule can never limit Hair files.
+  const legalOnly = `bucket_id LIKE '${BUCKET_PREFIX}%'`;
+  const scope = (expr, restrictive) =>
+    restrictive ? `(NOT (${legalOnly})) OR (${rewrite(expr)})` : `(${legalOnly}) AND (${rewrite(expr)})`;
   for (const p of schema.policies.filter((p) => p.schemaname === "storage")) {
     const roles = (Array.isArray(p.roles) ? p.roles : String(p.roles).replace(/[{}]/g, "").split(",")).join(", ");
+    const restrictive = p.permissive === "RESTRICTIVE";
     let sql = `CREATE POLICY ${q(P(p.policyname))} ON storage.${p.tablename} AS ${p.permissive} FOR ${p.cmd} TO ${roles}`;
-    if (p.qual) sql += ` USING (${rewrite(p.qual)})`;
-    if (p.with_check) sql += ` WITH CHECK (${rewrite(p.with_check)})`;
+    if (p.qual) sql += ` USING (${scope(p.qual, restrictive)})`;
+    if (p.with_check) sql += ` WITH CHECK (${scope(p.with_check, restrictive)})`;
     emit(sql + ";");
   }
   emit("", "RESET check_function_bodies;");
@@ -262,6 +280,8 @@ export function generate(schema) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const schema = JSON.parse(readFileSync(process.argv[2] ?? ".legal-move/schema.json", "utf8"));
-  process.stdout.write(generate(schema));
+  const args = process.argv.slice(2);
+  const storage = args.includes("--storage");
+  const schema = JSON.parse(readFileSync(args.find((a) => !a.startsWith("--")) ?? ".legal-move/schema.json", "utf8"));
+  process.stdout.write(storage ? generateStorage(schema) : generate(schema));
 }
