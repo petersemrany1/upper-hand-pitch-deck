@@ -3468,6 +3468,50 @@ export type Database = {
         }
         Relationships: []
       }
+      personal_phone_lines: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          mms_enabled: boolean
+          number: string
+          outbound_daily_limit: number
+          rep_id: string
+          twilio_sid: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          mms_enabled?: boolean
+          number: string
+          outbound_daily_limit?: number
+          rep_id: string
+          twilio_sid: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          mms_enabled?: boolean
+          number?: string
+          outbound_daily_limit?: number
+          rep_id?: string
+          twilio_sid?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personal_phone_lines_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: true
+            referencedRelation: "sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       phone_numbers: {
         Row: {
           call_count: number
@@ -4301,6 +4345,7 @@ export type Database = {
           lead_id: string | null
           media_urls: Json
           phone: string | null
+          sender_user_id: string | null
           sent_at: string | null
           status: string | null
           thread_id: string | null
@@ -4317,6 +4362,7 @@ export type Database = {
           lead_id?: string | null
           media_urls?: Json
           phone?: string | null
+          sender_user_id?: string | null
           sent_at?: string | null
           status?: string | null
           thread_id?: string | null
@@ -4333,6 +4379,7 @@ export type Database = {
           lead_id?: string | null
           media_urls?: Json
           phone?: string | null
+          sender_user_id?: string | null
           sent_at?: string | null
           status?: string | null
           thread_id?: string | null
@@ -4342,6 +4389,35 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "sms_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "sms_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_thread_participants: {
+        Row: {
+          first_involved_at: string
+          last_involved_at: string
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          first_involved_at?: string
+          last_involved_at?: string
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          first_involved_at?: string
+          last_involved_at?: string
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_thread_participants_thread_id_fkey"
             columns: ["thread_id"]
             isOneToOne: false
             referencedRelation: "sms_threads"
@@ -5262,6 +5338,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      ensure_sms_thread: {
+        Args: { p_local_number?: string; p_phone: string }
+        Returns: string
+      }
       finish_confirmation_delivery: {
         Args: {
           p_delivery: string
@@ -5487,6 +5567,19 @@ export type Database = {
         }
         Returns: number
       }
+      my_involved_sms_notifications: {
+        Args: never
+        Returns: {
+          clinic_name: string
+          display_name: string
+          last_message_at: string
+          last_message_preview: string
+          phone: string
+          thread_id: string
+          unread_count: number
+        }[]
+      }
+      my_personal_sms_sender: { Args: { p_mms?: boolean }; Returns: string }
       normalize_phone: { Args: { p: string }; Returns: string }
       norwood_preview_live_action: {
         Args: {
