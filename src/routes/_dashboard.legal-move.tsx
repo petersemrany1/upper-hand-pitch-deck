@@ -52,8 +52,8 @@ function LegalMovePage() {
         }
         all[t.name] = rows;
         let copied = 0;
-        for (let i = 0; i < rows.length; i += 200) {
-          const res = await importRows({ data: { table: t.name, rows: rows.slice(i, i + 200), pass: "rows" } });
+        for (let i = 0; i === 0 || i < rows.length; i += 200) {
+          const res = await importRows({ data: { table: t.name, rows: rows.slice(i, i + 200), pass: "rows", first: i === 0 } });
           copied += res.written;
           update(t.name, { legal: rows.length, copied });
         }

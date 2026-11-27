@@ -20,20 +20,31 @@ const tableName = z.string().refine((t) => LEGAL_TABLE_NAMES.has(t), "Unknown Le
 /** Upsert one batch of Legal rows. Deferred links are left empty until the second pass. */
 export const importLegalRowsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { table: string; rows: Record<string, unknown>[]; pass: "rows" | "links" }) =>
-    z
-      .object({
-        table: tableName,
-        rows: z.array(z.record(z.string(), z.unknown())).max(1000),
-        pass: z.enum(["rows", "links"]),
-      })
-      .parse(input),
+  .inputValidator(
+    (input: { table: string; rows: Record<string, unknown>[]; pass: "rows" | "links"; first?: boolean }) =>
+      z
+        .object({
+          table: tableName,
+          rows: z.array(z.record(z.string(), z.unknown())).max(1000),
+          pass: z.enum(["rows", "links"]),
+          first: z.boolean().optional(),
+        })
+        .parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase as never);
     const spec = LEGAL_TABLES.find((t) => t.name === data.table)!;
-    if (!data.rows.length) return { written: 0 };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Keys the database numbers itself can't be copied, so re-runs would add
+    // duplicates: those tables (only this copy of them) are refilled from scratch.
+    const renumbered = spec.key.some((k) => spec.skip.includes(k));
+    if (renumbered && data.pass === "rows" && data.first) {
+      const { error } = await (supabaseAdmin.from(`legal_${data.table}` as never) as any)
+        .delete()
+        .not(spec.key[0], "is", null);
+      if (error) throw new Error(`${data.table}: ${error.message}`);
+    }
+    if (!data.rows.length) return { written: 0 };
     const rows = data.rows.map((row) => {
       const out: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(row)) {
@@ -60,7 +71,9 @@ export const importLegalRowsFn = createServerFn({ method: "POST" })
       }
       return { written: linked.length };
     }
-    const { error } = await target.upsert(rows, { onConflict: spec.key.join(",") });
+    const { error } = renumbered
+      ? await (target as unknown as { insert: (r: unknown[]) => PromiseLike<{ error: { message: string } | null }> }).insert(rows)
+      : await target.upsert(rows, { onConflict: spec.key.join(",") });
     if (error) throw new Error(`${data.table}: ${error.message}`);
     return { written: rows.length };
   });
