@@ -1,10 +1,11 @@
-import { DollarSign, Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy, ChevronDown, Calendar, BarChart3, GraduationCap, BookOpen, UserSearch, PhoneCall, Brain, Monitor, Bell, FileAudio, Megaphone } from "lucide-react";
+import { DollarSign, Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy, ChevronDown, Calendar, BarChart3, GraduationCap, UserSearch, Monitor, Bell, FileAudio, Megaphone } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
+  SidebarGroupLabel,
   SidebarGroupContent,
   SidebarMenu,
   SidebarMenuButton,
@@ -22,47 +23,61 @@ import type { TabKey } from "@/lib/tab-access";
 type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; tab: TabKey };
 type NavFolder = { title: string; items: NavItem[]; repIcon: NavItem["icon"]; repUrl: string };
 
-const topItem: NavItem = { title: "Dashboard", url: "/", icon: LayoutDashboard, tab: "dashboard" };
-
 const ALL_FOLDERS: NavFolder[] = [
   {
-    title: "Sales",
-    repIcon: Headphones,
-    repUrl: "/sales-call",
+    title: "Workspace",
+    repIcon: LayoutDashboard,
+    repUrl: "/",
     items: [
-      { title: "Sales Portal", url: "/sales-call", icon: Headphones, tab: "sales_portal" },
-      { title: "Training", url: "/training", icon: GraduationCap, tab: "training" },
-      { title: "Leaderboard", url: "/leaderboard", icon: Trophy, tab: "leaderboard" },
+      { title: "Dashboard", url: "/", icon: LayoutDashboard, tab: "dashboard" },
+      { title: "Sales Call", url: "/sales-call", icon: Headphones, tab: "sales_portal" },
+      { title: "Messages & Phone", url: "/inbox", icon: Phone, tab: "phone" },
       { title: "Appointments", url: "/booked-appointments", icon: Calendar, tab: "appointments" },
-      { title: "Leads", url: "/leads", icon: Users, tab: "leads" },
-      { title: "Analytics", url: "/analytics", icon: BarChart3, tab: "analytics" },
-      { title: "Numbers", url: "/numbers", icon: DollarSign, tab: "numbers" },
-      { title: "Meta Ads", url: "/meta-ads", icon: Megaphone, tab: "meta_ads" },
-      { title: "Numbers Game", url: "/numbers-game", icon: Monitor, tab: "numbers_game" },
-      { title: "Phone", url: "/inbox", icon: Phone, tab: "phone" },
       { title: "Chase Queue", url: "/chase-queue", icon: Bell, tab: "chase_queue" },
-      { title: "My Recordings", url: "/my-recordings", icon: FileAudio, tab: "recordings" },
-      { title: "Invoices", url: "/invoices", icon: DollarSign, tab: "invoices" },
+      { title: "Numbers", url: "/numbers", icon: DollarSign, tab: "numbers" },
     ],
   },
   {
-    title: "Clinic Acquisition",
-    repIcon: Presentation,
-    repUrl: "/pitch-deck",
+    title: "Growth",
+    repIcon: Megaphone,
+    repUrl: "/clinics",
     items: [
-      { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation, tab: "pitch_deck" },
       { title: "Clinics CRM", url: "/clinics", icon: Building2, tab: "clinics" },
-      { title: "Partner Portal", url: "/partner-clinics", icon: Building2, tab: "partner_clinics" },
+      { title: "Meta Ads", url: "/meta-ads", icon: Megaphone, tab: "meta_ads" },
+      { title: "Pitch Decks", url: "/pitch-deck", icon: Presentation, tab: "pitch_deck" },
       { title: "Sent Links", url: "/sent-links", icon: Send, tab: "sent_links" },
+    ],
+  },
+  {
+    title: "Partners",
+    repIcon: Building2,
+    repUrl: "/partner-clinics",
+    items: [
+      { title: "Partner Portals", url: "/partner-clinics", icon: Building2, tab: "partner_clinics" },
       { title: "Clinic Meta Leads", url: "/sales-test-leads", icon: UserSearch, tab: "sales_test_leads" },
     ],
   },
-
+  {
+    title: "Sales Team",
+    repIcon: Users,
+    repUrl: "/leads",
+    items: [
+      { title: "Leads", url: "/leads", icon: Users, tab: "leads" },
+      { title: "Leaderboard", url: "/leaderboard", icon: Trophy, tab: "leaderboard" },
+      { title: "My Recordings", url: "/my-recordings", icon: FileAudio, tab: "recordings" },
+      { title: "Training", url: "/training", icon: GraduationCap, tab: "training" },
+      { title: "Invoices", url: "/invoices", icon: DollarSign, tab: "invoices" },
+      { title: "Analytics", url: "/analytics", icon: BarChart3, tab: "analytics" },
+      { title: "Numbers Game", url: "/numbers-game", icon: Monitor, tab: "numbers_game" },
+    ],
+  },
 ];
 
-const trainingItem: NavItem = { title: "Training", url: "/training", icon: GraduationCap, tab: "training" };
-
 const settingsItem = { title: "Settings", url: "/settings", icon: SettingsIcon };
+
+function pathMatchesItem(pathname: string, url: string): boolean {
+  return pathname === url || (url !== "/" && pathname.startsWith(`${url}/`));
+}
 
 function initialsFromName(name: string | null | undefined, fallbackEmail?: string | null): string {
   const cleaned = (name ?? "").trim();
@@ -80,7 +95,7 @@ export function AppSidebar() {
   const currentPath = location.pathname;
   const { isMobile, setOpenMobile } = useSidebar();
   const { signOut, role, user, allowedTabs } = useAuth();
-  const { unreadSmsCount, missedCount } = useNotifications();
+  const { unreadSmsCount } = useNotifications();
   const unreadSms = unreadSmsCount;
   const [repName, setRepName] = useState<string | null>(null);
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
@@ -116,38 +131,33 @@ export function AppSidebar() {
   const allowed = new Set<TabKey>(allowedTabs);
   const canSee = (tab: TabKey) => tab === "meta_ads" ? role === "admin" : role === "admin" || allowed.has(tab);
   const folders: NavFolder[] = ALL_FOLDERS
-    .map((f) => ({ ...f, items: f.items.filter((i) => canSee(i.tab)) }))
+    .map((f) => ({ ...f, items: f.items.filter((i) => canSee(i.tab) && !(role === "caller" && i.tab === "dashboard")) }))
     .filter((f) => f.items.length > 0);
 
-  const isActive = (path: string) => currentPath === path;
+  const isActive = (path: string) => pathMatchesItem(currentPath, path);
 
-  const [openFolders, setOpenFolders] = useState<Record<string, boolean>>(() => {
-    const init: Record<string, boolean> = {};
-    for (const f of folders) {
-      init[f.title] = f.items.some((i) => i.url === currentPath);
-    }
-    return init;
-  });
+  const [openFolders, setOpenFolders] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(ALL_FOLDERS.map((folder) => [folder.title, true])),
+  );
 
   useEffect(() => {
     setOpenFolders((prev) => {
-      const next = { ...prev };
-      for (const f of folders) {
-        if (f.items.some((i) => i.url === currentPath)) next[f.title] = true;
-      }
-      return next;
+      const activeFolder = ALL_FOLDERS.find((folder) => folder.items.some((item) => pathMatchesItem(currentPath, item.url)));
+      if (!activeFolder || prev[activeFolder.title]) return prev;
+      return { ...prev, [activeFolder.title]: true };
     });
   }, [currentPath]);
 
   // unread SMS count now comes from the global NotificationsProvider.
 
-  const renderItem = (item: Omit<NavItem, "tab"> & { tab?: TabKey }, indent = false, forceActive = false) => {
-    const active = forceActive || isActive(item.url);
+  const renderItem = (item: NavItem) => {
+    const active = isActive(item.url);
     return (
       <SidebarMenuItem key={item.title}>
         <SidebarMenuButton
           asChild
           isActive={active}
+          tooltip={item.title}
           className="!rounded-none"
           style={{
             borderLeft: active ? "2px solid #f4522d" : "2px solid transparent",
@@ -163,6 +173,7 @@ export function AppSidebar() {
           <Link
             to={item.url}
             className="relative"
+            aria-current={active ? "page" : undefined}
             onClick={() => { if (isMobile) setOpenMobile(false); }}
             onMouseEnter={(e) => {
               if (!active) e.currentTarget.style.background = "#f5f5f5";
@@ -170,11 +181,11 @@ export function AppSidebar() {
             onMouseLeave={(e) => {
               if (!active) e.currentTarget.style.background = "transparent";
             }}
-            style={{ cursor: "pointer", transition: "background 0.15s ease", paddingLeft: indent ? 24 : undefined }}
+            style={{ cursor: "pointer", transition: "background 0.15s ease" }}
           >
             <item.icon className="h-4 w-4" style={{ color: active ? "#f4522d" : "#111111" }} />
             <span className="flex-1">{item.title}</span>
-            {item.title === "Phone" && unreadSms > 0 && (
+            {item.tab === "phone" && unreadSms > 0 && (
               <>
                 <span
                   className="ml-auto inline-flex items-center justify-center h-[18px] min-w-[18px] px-1.5 rounded-full text-[10px] font-medium group-data-[collapsible=icon]:hidden"
@@ -222,58 +233,43 @@ export function AppSidebar() {
           </div>
         </div>
 
-        <SidebarGroup className="pt-2">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {role !== "caller" && canSee("dashboard") && renderItem(topItem)}
+        <nav aria-label="Main navigation" className="space-y-3 pb-2 group-data-[collapsible=icon]:space-y-0">
+          {folders.map((folder) => {
+            const open = openFolders[folder.title];
+            const activeItem = folder.items.find((item) => isActive(item.url));
+            const representative = activeItem ?? folder.items.find((item) => item.url === folder.repUrl) ?? folder.items[0];
+            const folderId = `sidebar-folder-${folder.title.toLowerCase().replaceAll(" ", "-")}`;
 
-              {folders.map((folder) => {
-                const open = openFolders[folder.title];
-                const folderActive = folder.items.some((i) => isActive(i.url));
-                return (
-                  <div key={folder.title}>
-                    {/* Expanded: folder header (clickable to toggle) */}
-                    <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
-                      <SidebarMenuButton
-                        className="!rounded-none"
-                        onClick={() => setOpenFolders((p) => ({ ...p, [folder.title]: !p[folder.title] }))}
-                        style={{
-                          background: "transparent",
-                          color: "#6b6b6b",
-                          fontSize: 11,
-                          fontWeight: 500,
-                          letterSpacing: "0.04em",
-                          textTransform: "uppercase",
-                          height: 32,
-                          cursor: "pointer",
-                        }}
-                      >
-                        <span className="flex-1 text-left">{folder.title}</span>
-                        <ChevronDown
-                          className="h-3.5 w-3.5"
-                          style={{
-                            transition: "transform 0.15s ease",
-                            transform: open ? "rotate(0deg)" : "rotate(-90deg)",
-                            color: "#6b6b6b",
-                          }}
-                        />
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    {/* Expanded: child items (only when folder open) */}
-                    <div className="group-data-[collapsible=icon]:hidden">
-                      {open && folder.items.map((item) => renderItem(item, true))}
-                    </div>
-                    {/* Collapsed: single representative icon for the whole folder */}
-                    <div className="hidden group-data-[collapsible=icon]:block">
-                      {renderItem({ title: folder.title, url: folder.repUrl, icon: folder.repIcon }, false, folderActive)}
-                    </div>
-                  </div>
-                );
-              })}
-
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+            return (
+              <SidebarGroup key={folder.title} className="py-0">
+                <SidebarGroupLabel asChild className="mb-1 group-data-[collapsible=icon]:hidden">
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    aria-controls={folderId}
+                    onClick={() => setOpenFolders((previous) => ({ ...previous, [folder.title]: !previous[folder.title] }))}
+                    className="cursor-pointer hover:bg-neutral-50"
+                    style={{ color: "#777777", fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}
+                  >
+                    <span className="flex-1 text-left">{folder.title}</span>
+                    <ChevronDown
+                      aria-hidden="true"
+                      style={{ width: 13, height: 13, transition: "transform 0.15s ease", transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}
+                    />
+                  </button>
+                </SidebarGroupLabel>
+                <SidebarGroupContent id={folderId} hidden={!open} className="group-data-[collapsible=icon]:hidden">
+                  <SidebarMenu>
+                    {folder.items.map((item) => renderItem(item))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+                <SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
+                  {renderItem({ ...representative, title: folder.title, icon: folder.repIcon })}
+                </SidebarMenu>
+              </SidebarGroup>
+            );
+          })}
+        </nav>
 
         {/* Settings (icon only) + Sign out + avatar at bottom */}
         <div className="mt-auto px-3 pb-4 flex flex-col items-center gap-2" style={{ borderTop: "0.5px solid #f5f5f5", paddingTop: 10 }}>
