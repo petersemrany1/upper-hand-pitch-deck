@@ -1,12 +1,13 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { usePersonalPhoneLine } from "@/hooks/usePersonalPhoneLine";
+import { useConversationNotificationPreference } from "@/hooks/useConversationNotificationPreference";
+import { openMessenger, useMessenger } from "@/hooks/useMessenger";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 // Global listener for inbound SMS. Shows a top-left toast on any page,
-// click to jump straight into the matching thread on the Inbox page.
+// click to open the existing conversation in the phone/message widget.
 type InboundMessage = {
   id: string;
   thread_id: string;
@@ -17,7 +18,10 @@ type InboundMessage = {
 
 export function SmsNotifier() {
   const { user } = useAuth();
-  const { line, ready } = usePersonalPhoneLine();
+  const { involvedOnly, ready } = useConversationNotificationPreference();
+  const messenger = useMessenger();
+  const messengerRef = useRef(messenger);
+  messengerRef.current = messenger;
   const navigate = useNavigate();
   const location = useLocation();
   const locRef = useRef(location.pathname);
@@ -68,7 +72,7 @@ export function SmsNotifier() {
           const m = payload.new as InboundMessage;
           if (m.direction !== "inbound") return;
 
-          if (line) {
+          if (involvedOnly) {
             const { data, error } = await supabase.from("sms_thread_participants")
               .select("thread_id").eq("thread_id", m.thread_id).eq("user_id", user.id).maybeSingle();
             if (error || !data || !current) return;
@@ -78,7 +82,7 @@ export function SmsNotifier() {
           playMessageTone();
 
           // Skip toast if already on the inbox page
-          if (locRef.current === "/inbox") return;
+          if (locRef.current === "/inbox" || (messengerRef.current.open && messengerRef.current.threadId === m.thread_id)) return;
 
           // Look up sender display
           const { data: thread } = await supabase
@@ -86,24 +90,25 @@ export function SmsNotifier() {
             .select("phone, display_name, clinic:clinics(clinic_name)")
             .eq("id", m.thread_id)
             .maybeSingle();
+          if (!current) return;
           const t = thread as { phone: string; display_name: string | null; clinic: { clinic_name: string } | null } | null;
           const sender = t?.display_name || t?.clinic?.clinic_name || t?.phone || m.from_number || "Unknown";
           const preview = m.body?.trim() || "📷 Media message";
 
           toast(`New message from ${sender}`, {
             description: preview.length > 80 ? preview.slice(0, 80) + "…" : preview,
-            position: "top-left",
+            position: involvedOnly ? "bottom-left" : "top-left",
             duration: 8000,
             action: {
               label: "Open",
-              onClick: () => navigate({ to: "/inbox", search: { thread: m.thread_id } }),
+              onClick: () => involvedOnly ? openMessenger(m.thread_id) : navigate({ to: "/inbox", search: { thread: m.thread_id } }),
             },
           });
         },
       )
       .subscribe();
     return () => { current = false; void supabase.removeChannel(ch); };
-  }, [navigate, user?.id, ready, line?.id]);
+  }, [navigate, user?.id, ready, involvedOnly]);
 
   return null;
 }

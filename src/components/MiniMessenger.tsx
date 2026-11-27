@@ -1,3 +1,4 @@
+import { ConversationNotificationsButton } from "@/components/ConversationNotificationsButton";
 import { PersonalPhoneLineBadge } from "@/components/PersonalPhoneLineBadge";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -290,6 +291,7 @@ export function MiniMessenger() {
               <div className="text-[10px] opacity-70 truncate">{active.phone}</div>
             )}
           </div>
+          {threadId && <ConversationNotificationsButton key={threadId} threadId={threadId} compact />}
           {showConversation && activePhone && (
             <>
               <button

@@ -54,6 +54,14 @@ INSERT INTO call_records(phone,rep_id,direction,status,called_at) VALUES('+61412
 await db.exec(readFileSync(new URL('../supabase/migrations/20260510101625_2d4ebde9-5d8d-4be3-be46-0cadec8934af.sql',import.meta.url),'utf8'));
 await db.exec('GRANT SELECT,INSERT,UPDATE ON notification_acknowledgements TO authenticated');
 await db.exec(readFileSync(new URL('../supabase/migrations/20261127002548_personal_phone_lines.sql',import.meta.url),'utf8'));
+await db.exec("INSERT INTO auth.users(id,email) VALUES('d9db9a1a-1c88-4668-9aee-72e2f4c3e66f','petersemrany1@gmail.com')");
+await db.exec(readFileSync(new URL('../supabase/migrations/20261127010000_involved_conversation_alerts.sql',import.meta.url),'utf8'));
+await db.exec("SET ROLE authenticated; SELECT set_config('test.uid','d9db9a1a-1c88-4668-9aee-72e2f4c3e66f',false)");
+assert.equal((await db.query('SELECT involved_only FROM sms_notification_preferences')).rows[0].involved_only,true,'requested account is opted in without any personal number');
+await db.exec(`SELECT set_config('test.uid','${id(2)}',false)`);
+assert.equal((await db.query('SELECT count(*) n FROM sms_notification_preferences')).rows[0].n,0,'other accounts cannot read this preference');
+await assert.rejects(db.exec('UPDATE sms_notification_preferences SET involved_only=false'),/permission denied/);
+await db.exec("RESET ROLE; SELECT set_config('test.uid','',false)");
 const query=async(sql,args=[])=>(await db.query(sql,args)).rows;
 const claim=async(n,phone='0412000001',rep=1)=>(await query('SELECT claim_outbound_call($1,$2,$3) r',[sid(n),phone,id(rep)]))[0].r;
 const inbound=async(n,phone,to)=>(await query('SELECT resolve_inbound_voice($1,$2,$3) r',[phone,sid(n),to]))[0].r;
@@ -68,6 +76,11 @@ assert.deepEqual(await participants(id(101)),[{user_id:id(owner)}],'existing cal
 assert.equal(await ensure('+61412000001',personal),id(101),'canonical formats reuse the same existing conversation');
 assert.equal(await ensure('0412 000 001',shared),id(101),'number changes do not create another thread');
 assert.equal((await query('SELECT count(*) n FROM sms_messages'))[0].n,1,'existing message history untouched');
+await sms(id(101),'inbound','+61412000001',shared);
+await auth(owner);
+assert.equal((await notifications())[0].thread_id,id(101),'involved conversation alerts work without a personal number');
+await server();
+assert.equal((await query('SELECT count(*) n FROM personal_phone_lines'))[0].n,0,'no lease is needed for involved alerts');
 await assert.rejects(query('INSERT INTO personal_phone_lines(user_id,rep_id,number,twilio_sid) VALUES($1,$2,$3,$4)',[id(1),id(2),personal,'PN'+'a'.repeat(32)]),/verified active/);
 await assert.rejects(query('INSERT INTO personal_phone_lines(user_id,rep_id,number,twilio_sid) VALUES($1,$2,$3,$4)',[id(1),id(1),shared,'PN'+'a'.repeat(32)]),/shared or retired/);
 await query('INSERT INTO personal_phone_lines(user_id,rep_id,number,twilio_sid,outbound_daily_limit) VALUES($1,$1,$2,$3,10)',[id(1),personal,'PN'+'a'.repeat(32)]);
