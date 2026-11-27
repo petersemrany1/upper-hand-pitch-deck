@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "@tanstack/react-router";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { LEGAL_APP_ORIGIN } from "@/lib/legal/client";
 
@@ -9,7 +10,11 @@ import { LEGAL_APP_ORIGIN } from "@/lib/legal/client";
 // remembers it after that.
 export function LegalFrame({ path, title }: { path: string; title: string }) {
   const [loaded, setLoaded] = useState(false);
-  const src = `${LEGAL_APP_ORIGIN}${path}`;
+  // Carry the portal's query (e.g. ?lead=…) through to the Legal page, minus the switch itself.
+  const params = new URLSearchParams(useLocation().searchStr);
+  params.delete("biz");
+  const query = params.toString();
+  const src = `${LEGAL_APP_ORIGIN}${path}${query ? `?${query}` : ""}`;
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col">
       {!loaded && (

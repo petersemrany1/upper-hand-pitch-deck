@@ -1,0 +1,190 @@
+/* Legal Group look, scoped to Legal views inside the Upper Hand portal.
+ * Tokens copied from family-law-floater/src/styles.css; nothing here applies
+ * outside .legal-scope / .legal-pitch-deck-root, so hair pages are untouched. */
+
+.legal-scope {
+  --radius: 0.625rem;
+
+  /* Brand palette (Bold): electric blue, navy, lavender-white, violet/magenta accents. */
+  --background: oklch(0.985 0.006 280);
+  --foreground: oklch(0.18 0.07 278);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.07 278);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.07 278);
+  --primary: oklch(0.5 0.28 268);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.955 0.012 280);
+  --secondary-foreground: oklch(0.24 0.07 278);
+  --muted: oklch(0.955 0.012 280);
+  --muted-foreground: oklch(0.55 0.06 280);
+  --accent: oklch(0.945 0.02 275);
+  --accent-foreground: oklch(0.24 0.07 278);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.93 0.018 280);
+  --input: oklch(0.93 0.018 280);
+  --ring: oklch(0.62 0.2 268);
+  --chart-1: oklch(0.5 0.28 268);
+  --chart-2: oklch(0.63 0.24 300);
+  --chart-3: oklch(0.66 0.25 340);
+  --chart-4: oklch(0.35 0.1 278);
+  --chart-5: oklch(0.7 0.14 240);
+  --sidebar: oklch(0.975 0.008 280);
+  --sidebar-foreground: oklch(0.18 0.07 278);
+  --sidebar-primary: oklch(0.5 0.28 268);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.94 0.02 278);
+  --sidebar-accent-foreground: oklch(0.24 0.07 278);
+  --sidebar-border: oklch(0.93 0.018 280);
+  --sidebar-ring: oklch(0.62 0.2 268);
+  --stage-new: oklch(0.55 0.25 268);
+  --stage-no-answer: oklch(0.66 0.13 200);
+  --stage-follow-up: oklch(0.65 0.19 320);
+  --stage-zoom-booked: oklch(0.68 0.14 165);
+  --stage-calendly-booked: oklch(0.62 0.16 155);
+  --stage-proposal-sent: oklch(0.74 0.14 85);
+  --stage-signed: oklch(0.64 0.16 145);
+  --stage-dead: oklch(0.66 0.03 265);
+  --stage-waiting: oklch(0.72 0.15 75);
+  /* Accent used for eyebrows, "say this" bars and step numbering: brand blue. */
+  --coral: oklch(0.5 0.28 268);
+  --accent-violet: oklch(0.63 0.24 300);
+  --accent-magenta: oklch(0.66 0.25 340);
+  --font-heading: "Outfit", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "DM Sans", "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+}
+.legal-scope h1, .legal-scope h2, .legal-scope h3 { font-family: var(--font-heading); }
+.legal-scope * { border-color: var(--border); }
+
+/* Utilities the Legal pages use that the portal's Tailwind theme doesn't define. */
+.legal-scope .bg-popover { background-color: var(--popover); }
+.legal-scope .text-popover-foreground { color: var(--popover-foreground); }
+.legal-scope .text-destructive-foreground { color: var(--destructive-foreground); }
+.legal-scope .font-heading { font-family: var(--font-heading); }
+
+/* ---------------------------------------------------------------
+ * Pitch deck theme — scoped so it never bleeds into the rest of the app.
+ * --------------------------------------------------------------- */
+.legal-pitch-deck-root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.19 0.04 275);
+  --card: oklch(0.975 0.006 275);
+  --muted: oklch(0.93 0.008 275);
+  --primary: oklch(0.48 0.28 268);
+  --primary-foreground: oklch(1 0 0);
+  --muted-foreground: #475467;
+  --border: oklch(0.91 0.01 275);
+  --input: oklch(0.975 0.006 275);
+  --ring: oklch(0.48 0.28 268);
+  --accent-violet: oklch(0.56 0.24 300);
+  --accent-magenta: oklch(0.66 0.25 340);
+  /* Pre-rebrand values for tokens the deck relies on but does not set above. */
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.129 0.042 264.695);
+  --secondary: oklch(0.968 0.007 247.896);
+  --secondary-foreground: oklch(0.208 0.042 265.755);
+  --accent: oklch(0.968 0.007 247.896);
+  --accent-foreground: oklch(0.208 0.042 265.755);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --coral: oklch(0.68 0.17 30);
+  --font-heading: "Outfit", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "DM Sans", "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--background);
+  color: var(--foreground);
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-body);
+}
+
+.legal-pitch-deck-root h1,
+.legal-pitch-deck-root h2,
+.legal-pitch-deck-root h3 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+}
+
+.legal-pitch-deck-root * {
+  border-color: var(--border);
+}
+
+.legal-pitch-deck-root input,
+.legal-pitch-deck-root select,
+.legal-pitch-deck-root textarea {
+  background-color: var(--input);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.legal-pitch-deck-root input:focus,
+.legal-pitch-deck-root select:focus,
+.legal-pitch-deck-root textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.legal-pitch-deck-root option {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .legal-pitch-deck-root *,
+  .legal-pitch-deck-root *::before,
+  .legal-pitch-deck-root *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+.legal-pitch-deck-root .deck-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 17px;
+}
+.legal-pitch-deck-root .deck-range::-webkit-slider-runnable-track {
+  height: 2px;
+  background: color-mix(in oklab, var(--foreground) 18%, transparent);
+  border-radius: 999px;
+}
+.legal-pitch-deck-root .deck-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 17px;
+  height: 17px;
+  margin-top: -7.5px;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 3px var(--card);
+  cursor: pointer;
+}
+.legal-pitch-deck-root .deck-range::-moz-range-track {
+  height: 2px;
+  background: color-mix(in oklab, var(--foreground) 18%, transparent);
+  border-radius: 999px;
+}
+.legal-pitch-deck-root .deck-range::-moz-range-thumb {
+  width: 17px;
+  height: 17px;
+  border: 3px solid var(--card);
+  border-radius: 999px;
+  background: var(--primary);
+  cursor: pointer;
+}
+.legal-pitch-deck-root .deck-range:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+  border-radius: 999px;
+}

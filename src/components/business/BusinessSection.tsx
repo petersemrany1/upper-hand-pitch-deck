@@ -11,6 +11,7 @@ import {
 } from "@/lib/business";
 import { BusinessSwitch } from "./BusinessSwitch";
 import { LegalFrame } from "./LegalFrame";
+import { hasNativeLegalPage, LegalView } from "@/legal/LegalView";
 
 export function useBusinessView(section: SwitchableSection | null): [BusinessView, (next: BusinessView) => void] {
   const location = useLocation();
@@ -62,20 +63,23 @@ export function BusinessSection({
 }) {
   const [view, setView] = useBusinessView(section);
   const title = sectionTitle(section);
+  const legalBody = hasNativeLegalPage(section.path) ? (
+    <LegalView path={section.path} fullscreen={floating} />
+  ) : (
+    <LegalFrame path={section.legalPath} title={title} />
+  );
 
   const body =
     view === "hair" ? (
       children
     ) : view === "legal" ? (
-      <LegalFrame path={section.legalPath} title={title} />
+      legalBody
     ) : (
       // Both: each business's own page, side by side, so every figure is the
       // exact one that business's page shows.
       <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-2">
         <BothPane business="hair">{children}</BothPane>
-        <BothPane business="legal">
-          <LegalFrame path={section.legalPath} title={title} />
-        </BothPane>
+        <BothPane business="legal">{legalBody}</BothPane>
       </div>
     );
 
@@ -86,7 +90,7 @@ export function BusinessSection({
         <div className="fixed left-1/2 top-3 z-[60] -translate-x-1/2">
           <BusinessSwitch value={view} onChange={setView} size="sm" />
         </div>
-        {view === "legal" ? <div className="h-screen w-full bg-white pt-12">{body}</div> : body}
+        {view === "legal" && !hasNativeLegalPage(section.path) ? <div className="h-screen w-full bg-white pt-12">{body}</div> : body}
       </div>
     );
   }
