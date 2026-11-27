@@ -1,7 +1,9 @@
 -- Personal lines are separate leases, never members of the rotating pool.
+-- Managed Auth IDs are verified at assignment, without cross-schema foreign
+-- keys (Lovable Cloud owns auth.users and prohibits external FKs into it).
 CREATE TABLE public.personal_phone_lines (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL UNIQUE REFERENCES auth.users(id),
+  user_id uuid NOT NULL UNIQUE,
   rep_id uuid NOT NULL UNIQUE REFERENCES public.sales_reps(id),
   number text NOT NULL UNIQUE CHECK (number ~ '^\+614[0-9]{8}$'),
   twilio_sid text NOT NULL UNIQUE CHECK (twilio_sid ~ '^PN[0-9a-fA-F]{32}$'),
@@ -43,7 +45,7 @@ BEGIN
   IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Authentication required'; END IF;
   SELECT * INTO line FROM personal_phone_lines WHERE user_id=auth.uid();
   IF NOT FOUND THEN RETURN NULL; END IF;
-  IF NOT line.enabled OR NOT EXISTS(SELECT 1 FROM sales_reps WHERE id=line.rep_id AND is_active) THEN
+  IF NOT line.enabled OR NOT EXISTS(SELECT 1 FROM auth.users WHERE id=line.user_id) OR NOT EXISTS(SELECT 1 FROM sales_reps WHERE id=line.rep_id AND is_active) THEN
     RAISE EXCEPTION 'Your personal line is unavailable; no shared number will be substituted';
   END IF;
   IF p_mms AND NOT line.mms_enabled THEN RAISE EXCEPTION 'Your personal line does not support images'; END IF;
@@ -56,7 +58,7 @@ GRANT EXECUTE ON FUNCTION public.my_personal_sms_sender(boolean) TO authenticate
 -- notifications only; messages and conversation history are never split/moved.
 CREATE TABLE public.sms_thread_participants (
   thread_id uuid NOT NULL REFERENCES sms_threads(id) ON DELETE CASCADE,
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
   first_involved_at timestamptz NOT NULL DEFAULT now(),
   last_involved_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (thread_id,user_id)
@@ -68,7 +70,7 @@ GRANT SELECT ON sms_thread_participants TO authenticated;
 GRANT ALL ON sms_thread_participants TO service_role;
 CREATE POLICY own_conversation_participation ON sms_thread_participants FOR SELECT TO authenticated
   USING(user_id=(SELECT auth.uid()));
-ALTER TABLE sms_messages ADD COLUMN sender_user_id uuid REFERENCES auth.users(id);
+ALTER TABLE sms_messages ADD COLUMN sender_user_id uuid;
 
 CREATE FUNCTION public.ensure_sms_thread(p_phone text,p_local_number text DEFAULT NULL) RETURNS uuid
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public SET lock_timeout='1500ms' AS $$
@@ -162,7 +164,7 @@ BEGIN
   SELECT * INTO d FROM public.voice_dial_decisions WHERE call_sid=p_call_sid;
   IF FOUND THEN
     IF d.phone<>k THEN RAISE EXCEPTION 'CallSid destination mismatch'; END IF;
-    IF d.allowed AND NOT EXISTS(SELECT 1 FROM public.phone_numbers WHERE number=d.caller_id AND status='active') AND NOT EXISTS(SELECT 1 FROM public.personal_phone_lines WHERE number=d.caller_id AND rep_id=p_rep_id AND enabled) THEN
+    IF d.allowed AND NOT EXISTS(SELECT 1 FROM public.phone_numbers WHERE number=d.caller_id AND status='active') AND NOT EXISTS(SELECT 1 FROM public.personal_phone_lines WHERE number=d.caller_id AND rep_id=p_rep_id AND enabled AND EXISTS(SELECT 1 FROM auth.users WHERE id=personal_phone_lines.user_id) AND EXISTS(SELECT 1 FROM sales_reps WHERE id=p_rep_id AND is_active)) THEN
       RETURN jsonb_build_object('allowed',false,'reason','no_active_number');
     END IF;
     RETURN jsonb_build_object('allowed',d.allowed,'reason',d.reason,'caller_id',d.caller_id,'retry_at',d.retry_at,'phone',d.phone);
@@ -180,7 +182,7 @@ BEGIN
   SELECT * INTO personal FROM public.personal_phone_lines WHERE rep_id=p_rep_id;
   IF why='allowed' AND personal.id IS NOT NULL THEN
     PERFORM pg_advisory_xact_lock(hashtextextended('personal-voice:'||personal.id::text,0));
-    IF NOT personal.enabled THEN why:='personal_line_unavailable';
+    IF NOT personal.enabled OR NOT EXISTS(SELECT 1 FROM auth.users WHERE id=personal.user_id) THEN why:='personal_line_unavailable';
     ELSIF (SELECT count(*) FROM call_records WHERE from_number=personal.number AND direction='outbound' AND status IS DISTINCT FROM 'blocked' AND called_at>=now()-interval '24 hours') >= personal.outbound_daily_limit THEN why:='personal_line_daily_limit';
     ELSE caller:=personal.number;
     END IF;
@@ -232,7 +234,7 @@ BEGIN
     SELECT id FROM public.sales_reps WHERE is_active AND (id=c.rep_id OR (c.rep_id IS NULL AND role='admin')) ORDER BY CASE WHEN id=c.rep_id THEN 0 ELSE 1 END,id LIMIT 10
   ) r;
   IF personal.id IS NOT NULL THEN
-    SELECT array_agg(id) INTO reps FROM sales_reps WHERE id=personal.rep_id AND is_active AND personal.enabled;
+    SELECT array_agg(id) INTO reps FROM sales_reps WHERE id=personal.rep_id AND is_active AND personal.enabled AND EXISTS(SELECT 1 FROM auth.users WHERE id=personal.user_id);
     c.rep_id:=personal.rep_id;
   END IF;
   lead:=c.lead_id;

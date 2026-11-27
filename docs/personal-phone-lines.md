@@ -1,5 +1,7 @@
 # Personal phone lines and existing conversations
 
+Managed Auth identities are validated when a line is assigned. Cloud does not allow foreign keys into its managed Auth table, so application rows store verified UUIDs without cross-schema constraints.
+
 A personal line is a separate Twilio mobile lease assigned to one authenticated user and their verified active sales rep. It is excluded from the rotating pool, retirement jobs, and replacement allowance. All manual portal SMS/MMS paths and server-authorized outbound calls use that line. An unavailable line, unsupported MMS or exhausted daily call allowance stops the request instead of substituting a shared number. Automated reminders retain their existing sender.
 
 Each contact retains the same `sms_threads` record. Incoming messages to an old shared number and the personal number append to that conversation. Participation is restored from historical calls and recorded for new calls and manual messages. Replies trigger personal toasts and Messages & Phone badges only for involved conversations; opening a shared conversation under another account does not clear the owner's notification. Older text-only history has no sender attribution, so the owner can use **Notify me** on an existing conversation. These are in-portal alerts; this change does not register operating-system push notifications while the portal is closed.
