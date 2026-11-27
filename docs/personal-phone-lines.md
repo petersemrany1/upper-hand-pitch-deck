@@ -1,4 +1,15 @@
-# Personal phone lines and existing conversations
+# Conversation reply notifications
+
+Peter's notification preference is independent of phone-number ownership. `20261127010000_involved_conversation_alerts.sql` enables involved-only alerts for his verified existing account, with owner-only read access. No number rental, caller-ID change or new conversation is needed. Replies create a toast and badge on the existing phone/message widget; **Open** opens the same thread inside that widget. Sending a manual message or making a call records involvement. Existing call involvement is already backfilled, and **Notify me** covers old text-only conversations without historical sender attribution.
+
+Deploy the new preference migration before publishing the frontend. The previously installed participation/RPC/webhook migration remains required. Other accounts keep their existing notification behavior. No real texts or calls are needed for verification.
+
+The isolated database suite verifies the account preference, row access and alerts with zero personal phone lines. `bun scripts/test-personal-phone-alerts.ts` verifies toast filtering and opening the original thread in the widget. TypeScript and the production build also pass.
+
+## Earlier personal-line implementation
+
+The implementation below is inactive unless a personal line is separately assigned. The user's final request is conversation notifications only; no lease is to be purchased or assigned for this release.
+
 
 Managed Auth identities are validated when a line is assigned. Cloud does not allow foreign keys into its managed Auth table, so application rows store verified UUIDs without cross-schema constraints.
 

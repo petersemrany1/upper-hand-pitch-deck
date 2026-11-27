@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getLeadNameIndex, getRepLeadPhoneTails } from "@/utils/lead-phone-cache";
-import { usePersonalPhoneLine } from "@/hooks/usePersonalPhoneLine";
+import { useConversationNotificationPreference } from "@/hooks/useConversationNotificationPreference";
 import { useAuth } from "@/hooks/useAuth";
 
 // Global "sticky until acknowledged" notifications: unread SMS threads and
@@ -127,7 +127,7 @@ function digitsOnly(s: string | null | undefined): string {
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { user, role } = useAuth();
-  const { line: personalLine, ready: phoneReady } = usePersonalPhoneLine();
+  const { involvedOnly, ready: preferenceReady } = useConversationNotificationPreference();
   const isClinicSetter = role === "caller";
   const isRep = role === "rep"; // admins see everything; reps only see their own
   const userId = user?.id ?? null;
@@ -222,8 +222,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       setUnreadThreads([]);
       return;
     }
-    if (!acksReady || !phoneReady) { setUnreadThreads([]); return; }
-    if (personalLine) {
+    if (!acksReady || !preferenceReady) { setUnreadThreads([]); return; }
+    if (involvedOnly) {
       const { data, error } = await supabase.rpc("my_involved_sms_notifications");
       setUnreadThreads(error ? [] : (data ?? []).filter(t => !threadAcksRef.current[t.thread_id] || new Date(t.last_message_at).getTime() > new Date(threadAcksRef.current[t.thread_id]).getTime()));
       return;
@@ -272,26 +272,24 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           last_message_at: t.last_message_at,
         }))
     );
-  }, [acksReady, phoneReady, personalLine, isClinicSetter, isRep, repId, fetchMyLeadPhoneTails]);
+  }, [acksReady, preferenceReady, involvedOnly, isClinicSetter, isRep, repId, fetchMyLeadPhoneTails]);
 
   const fetchMissed = useCallback(async () => {
     if (isClinicSetter) {
       setMissedCalls([]);
       return;
     }
-    if (!acksReady || !phoneReady) { setMissedCalls([]); return; }
-    if (!personalLine && isRep && !repId) { setMissedCalls([]); return; }
-    const myTails = personalLine ? null : await fetchMyLeadPhoneTails();
+    if (!acksReady) return;
+    if (isRep && !repId) { setMissedCalls([]); return; }
+    const myTails = await fetchMyLeadPhoneTails();
     // Pull recent inbound calls; consider missed when duration is null/0 and
     // status is not in-progress / completed.
-    let query = supabase
+    const { data } = await supabase
       .from("call_records")
       .select("id, phone, status, duration, called_at, clinic_id, clinics(clinic_name)")
       .eq("direction", "inbound")
       .order("called_at", { ascending: false })
       .limit(100);
-    if (personalLine) query = query.eq("rep_id", personalLine.rep_id);
-    const { data } = await query;
     if (!data) return;
     type Row = {
       id: string;
@@ -336,7 +334,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         called_at: r.called_at,
       }))
     );
-  }, [acksReady, phoneReady, personalLine, isClinicSetter, isRep, repId, fetchMyLeadPhoneTails]);
+  }, [acksReady, isClinicSetter, isRep, repId, fetchMyLeadPhoneTails]);
 
   const refresh = useCallback(() => {
     void fetchThreads();

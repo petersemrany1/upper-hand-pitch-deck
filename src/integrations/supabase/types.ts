@@ -4396,6 +4396,12 @@ export type Database = {
           },
         ]
       }
+      sms_notification_preferences: {
+        Row: { user_id: string; involved_only: boolean; created_at: string }
+        Insert: { user_id: string; involved_only?: boolean; created_at?: string }
+        Update: { involved_only?: boolean }
+        Relationships: []
+      }
       sms_thread_participants: {
         Row: {
           first_involved_at: string
