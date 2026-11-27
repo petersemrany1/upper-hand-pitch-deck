@@ -19,6 +19,7 @@ export type ClinicSchedule = {
   version: string;
 };
 export type ScheduleConfiguration = Pick<ClinicSchedule, "consultation_minutes" | "buffer_minutes" | "blocks" | "overrides" | "trading">;
+export const clinicTimingLocked = (clinicId: string) => clinicId === "9ac8fa05-c4b0-4faa-b519-f6a347956fb1";
 export type ScheduleCommand =
   | { action: "settings"; consultation_minutes: number; buffer_minutes: number; apply_to_existing?: boolean; trading?: TradingHours[] }
   | { action: "block"; dates: string[]; start: string; end: string; id?: string; scope?: "date" | "series"; source_date?: string }
@@ -148,6 +149,10 @@ function rejectBooked(s: ClinicSchedule, dates: string[], from: number, until: n
 /** Used for immediate form validation and the isolated approval preview.
  * Production repeats these checks inside one locked database transaction. */
 export function applyScheduleCommand(current: ClinicSchedule, command: ScheduleCommand): ClinicSchedule {
+  const timing = command.action === "settings" ? command : command.action === "restore" ? command.configuration : null;
+  if (clinicTimingLocked(current.clinic_id) && timing && (timing.consultation_minutes !== 60 || timing.buffer_minutes !== 30)) {
+    throw new Error("Boss Clinic is locked to 60-minute consultations and a 30-minute buffer between patients.");
+  }
   const next = structuredClone(current);
   if (command.action === "settings") {
     const { consultation_minutes: duration, buffer_minutes: buffer } = command;
