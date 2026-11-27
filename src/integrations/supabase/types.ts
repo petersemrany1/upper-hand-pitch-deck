@@ -3569,6 +3569,48 @@ export type Database = {
         }
         Relationships: []
       }
+      portal_todos: {
+        Row: {
+          assignee_email: string | null
+          business: string
+          created_at: string
+          created_by: string | null
+          created_by_email: string | null
+          done_at: string | null
+          due_date: string | null
+          id: string
+          notes: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assignee_email?: string | null
+          business?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_email?: string | null
+          done_at?: string | null
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assignee_email?: string | null
+          business?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_email?: string | null
+          done_at?: string | null
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       practice_call_recordings: {
         Row: {
           audio_path: string
