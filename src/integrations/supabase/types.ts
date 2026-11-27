@@ -3278,7 +3278,15 @@ export type Database = {
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_call_hook_insights_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: true
+            referencedRelation: "legal_call_records"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_call_records: {
         Row: {
@@ -3332,7 +3340,22 @@ export type Database = {
           twilio_call_sid?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_call_records_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "legal_client_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_call_records_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "legal_sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_client_asset_calculations: {
         Row: {
@@ -3356,7 +3379,15 @@ export type Database = {
           updated_at?: string
           updated_by?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_client_asset_calculations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "legal_client_leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_client_leads: {
         Row: {
@@ -3491,7 +3522,36 @@ export type Database = {
           stripe_payment_intent_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_client_leads_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_client_leads_lawyer_id_fkey"
+            columns: ["lawyer_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_lawyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_client_leads_previous_lead_id_fkey"
+            columns: ["previous_lead_id"]
+            isOneToOne: false
+            referencedRelation: "legal_client_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_client_leads_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "legal_sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_cold_calling_audit_log: {
         Row: {
@@ -3518,7 +3578,15 @@ export type Database = {
           id?: string
           prospect_firm_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_cold_calling_audit_log_prospect_firm_id_fkey"
+            columns: ["prospect_firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_prospect_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_daily_phone_assignments: {
         Row: {
@@ -3566,7 +3634,15 @@ export type Database = {
           selected_at?: string
           work_date?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_daily_phone_assignments_outbound_caller_id_id_fkey"
+            columns: ["outbound_caller_id_id"]
+            isOneToOne: false
+            referencedRelation: "legal_phone_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_deck_settings: {
         Row: {
@@ -3641,7 +3717,15 @@ export type Database = {
           application_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_application_call_sheets_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: true
+            referencedRelation: "legal_firm_applications"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_application_calls: {
         Row: {
@@ -3707,7 +3791,22 @@ export type Database = {
           transcript?: string | null
           twilio_call_sid?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_application_calls_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_firm_application_calls_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "legal_sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_application_messages: {
         Row: {
@@ -3755,7 +3854,15 @@ export type Database = {
           status?: string
           twilio_sid?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_application_messages_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_applications"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_application_notes: {
         Row: {
@@ -3782,7 +3889,22 @@ export type Database = {
           id?: string
           kind?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_application_notes_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_firm_application_notes_firm_call_id_fkey"
+            columns: ["firm_call_id"]
+            isOneToOne: true
+            referencedRelation: "legal_firm_application_calls"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_applications: {
         Row: {
@@ -3884,7 +4006,22 @@ export type Database = {
           firm_id?: string
           id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_appointment_notes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_firm_appointment_notes_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_appointments: {
         Row: {
@@ -4025,7 +4162,57 @@ export type Database = {
           stripe_refund_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_appointment_office_belongs_to_firm"
+            columns: ["firm_id", "location_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_locations"
+            referencedColumns: ["firm_id", "id"]
+          },
+          {
+            foreignKeyName: "legal_firm_appointments_booking_rep_id_fkey"
+            columns: ["booking_rep_id"]
+            isOneToOne: false
+            referencedRelation: "legal_sales_reps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_firm_appointments_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_firm_appointments_lawyer_id_fkey"
+            columns: ["lawyer_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_lawyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_firm_appointments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "legal_client_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_firm_appointments_offer_pack_id_fkey"
+            columns: ["offer_pack_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_firm_appointments_rebooked_from_fkey"
+            columns: ["rebooked_from"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_appointments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_availability: {
         Row: {
@@ -4058,7 +4245,15 @@ export type Database = {
           start_time?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_availability_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_blocked_slots: {
         Row: {
@@ -4115,7 +4310,15 @@ export type Database = {
           start_time?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_blocked_slots_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_booking_follow_ups: {
         Row: {
@@ -4151,7 +4354,15 @@ export type Database = {
           step?: number
           twilio_sid?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_booking_follow_ups_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_applications"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_calendar_history: {
         Row: {
@@ -4190,7 +4401,15 @@ export type Database = {
           operation?: string
           recorded_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_calendar_history_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_callback_recipients: {
         Row: {
@@ -4211,7 +4430,15 @@ export type Database = {
           owner_id?: string
           session_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_callback_recipients_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_application_calls"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_callback_settings: {
         Row: {
@@ -4265,7 +4492,15 @@ export type Database = {
           kind?: string
           provider_event_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_contract_events_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_contracts: {
         Row: {
@@ -4421,7 +4656,15 @@ export type Database = {
           updated_at?: string
           void_reason?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_contracts_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_lawyers: {
         Row: {
@@ -4469,7 +4712,15 @@ export type Database = {
           what_makes_them_different?: string | null
           years_experience?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_lawyers_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_locations: {
         Row: {
@@ -4514,7 +4765,15 @@ export type Database = {
           state?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_locations_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_offer_events: {
         Row: {
@@ -4562,7 +4821,15 @@ export type Database = {
           offer_id?: string
           review_required?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_offer_milestones_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: true
+            referencedRelation: "legal_firm_offers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_offer_operations: {
         Row: {
@@ -4589,7 +4856,15 @@ export type Database = {
           result?: Json | null
           state?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_offer_operations_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_offers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_offer_outbox: {
         Row: {
@@ -4622,7 +4897,15 @@ export type Database = {
           step?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_offer_outbox_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_offers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_offer_rate_limits: {
         Row: {
@@ -4658,7 +4941,15 @@ export type Database = {
           offer_id?: string
           token_hash?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_offer_sessions_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_offers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_offers: {
         Row: {
@@ -4694,7 +4985,15 @@ export type Database = {
           token_hash?: string | null
           version?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_offers_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_applications"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_pack_orders: {
         Row: {
@@ -4742,7 +5041,22 @@ export type Database = {
           request_id?: string
           requested_by?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_pack_orders_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_firm_pack_orders_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: true
+            referencedRelation: "legal_firm_packs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_packs: {
         Row: {
@@ -4787,7 +5101,22 @@ export type Database = {
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_packs_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_firm_packs_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: true
+            referencedRelation: "legal_firm_offers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_pipeline_portals: {
         Row: {
@@ -4805,7 +5134,22 @@ export type Database = {
           created_at?: string
           firm_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_pipeline_portals_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: true
+            referencedRelation: "legal_firm_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_firm_pipeline_portals_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_portal_users: {
         Row: {
@@ -4826,7 +5170,15 @@ export type Database = {
           firm_id?: string
           id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_portal_users_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_profile_items: {
         Row: {
@@ -4853,7 +5205,15 @@ export type Database = {
           sort_order?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_profile_items_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firm_profile_sections"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_profile_sections: {
         Row: {
@@ -4880,7 +5240,15 @@ export type Database = {
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_profile_sections_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_public_holidays: {
         Row: {
@@ -4934,7 +5302,15 @@ export type Database = {
           timezone?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_reminder_settings_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: true
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firm_trading_hours: {
         Row: {
@@ -4973,7 +5349,15 @@ export type Database = {
           slot_times?: string[] | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_firm_trading_hours_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_firms: {
         Row: {
@@ -5156,7 +5540,15 @@ export type Database = {
           reason?: string
           source?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_phone_suppressions_prospect_firm_id_fkey"
+            columns: ["prospect_firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_prospect_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_practice_call_recordings: {
         Row: {
@@ -5306,7 +5698,50 @@ export type Database = {
           twilio_child_call_sid?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_prospect_call_attempts_assignment_fk"
+            columns: ["daily_phone_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "legal_daily_phone_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_prospect_call_attempts_call_record_id_fkey"
+            columns: ["call_record_id"]
+            isOneToOne: false
+            referencedRelation: "legal_call_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_prospect_call_attempts_caller_rep_id_fkey"
+            columns: ["caller_rep_id"]
+            isOneToOne: false
+            referencedRelation: "legal_sales_reps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_prospect_call_attempts_outbound_caller_id_id_fkey"
+            columns: ["outbound_caller_id_id"]
+            isOneToOne: false
+            referencedRelation: "legal_phone_numbers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_prospect_call_attempts_prospect_contact_id_fkey"
+            columns: ["prospect_contact_id"]
+            isOneToOne: false
+            referencedRelation: "legal_prospect_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_prospect_call_attempts_prospect_firm_id_fkey"
+            columns: ["prospect_firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_prospect_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_prospect_contacts: {
         Row: {
@@ -5354,7 +5789,15 @@ export type Database = {
           prospect_firm_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_prospect_contacts_prospect_firm_id_fkey"
+            columns: ["prospect_firm_id"]
+            isOneToOne: false
+            referencedRelation: "legal_prospect_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_prospect_firms: {
         Row: {
@@ -5606,7 +6049,15 @@ export type Database = {
           valuations_indicator?: boolean | null
           website?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_prospect_firms_primary_contact_fk"
+            columns: ["primary_contact_id"]
+            isOneToOne: false
+            referencedRelation: "legal_prospect_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_prospect_import_batches: {
         Row: {
@@ -5744,7 +6195,15 @@ export type Database = {
           started_at?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_rep_sessions_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "legal_sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_reporting_hour_overrides: {
         Row: {
@@ -5768,7 +6227,15 @@ export type Database = {
           updated_at?: string
           work_date?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_reporting_hour_overrides_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "legal_sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_reporting_rep_rates: {
         Row: {
@@ -5786,7 +6253,15 @@ export type Database = {
           hourly_rate?: number | null
           rep_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_reporting_rep_rates_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: true
+            referencedRelation: "legal_sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_sales_lead_claims: {
         Row: {
@@ -5804,7 +6279,22 @@ export type Database = {
           lead_id?: string
           session_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_sales_lead_claims_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "legal_client_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_sales_lead_claims_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "legal_rep_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_sales_reps: {
         Row: {
@@ -5867,7 +6357,22 @@ export type Database = {
           session_id?: string
           visited_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_sales_session_visits_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "legal_client_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_sales_session_visits_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "legal_rep_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_sms_messages: {
         Row: {
@@ -5906,7 +6411,22 @@ export type Database = {
           twilio_sid?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_sms_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "legal_client_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_sms_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "legal_sms_threads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_sms_threads: {
         Row: {
@@ -5933,7 +6453,15 @@ export type Database = {
           phone?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_sms_threads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "legal_client_leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_user_roles: {
         Row: {
@@ -8179,6 +8707,15 @@ export type Database = {
           pack_type: string | null
           show_no: number | null
           unpurchased: boolean | null
+        }
+        Relationships: []
+      }
+      legal_firm_conversation_overview: {
+        Row: {
+          application_id: string | null
+          last_activity_at: string | null
+          preview: string | null
+          unread_count: number | null
         }
         Relationships: []
       }

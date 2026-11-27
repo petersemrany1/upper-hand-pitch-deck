@@ -127,6 +127,20 @@
       "when": 1795758849764,
       "tag": "0017_20261127160006_legal_schema_part06",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795759116531,
+      "tag": "0018_20261127160007_legal_schema_part07",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795759257534,
+      "tag": "0019_20261127160008_legal_schema_part08",
+      "breakpoints": true
     }
   ]
 }
