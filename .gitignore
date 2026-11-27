@@ -37,3 +37,4 @@ dist-ssr
 !.env.example
 scene-src/node_modules
 .claude/launch.json
+.legal-move/

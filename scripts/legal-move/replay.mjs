@@ -23,7 +23,7 @@ CREATE TABLE auth.users(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email tex
   encrypted_password text, confirmed_at timestamptz, updated_at timestamptz, is_anonymous boolean DEFAULT false,
   instance_id uuid, aud text, role text, recovery_token text, confirmation_token text, email_change text,
   email_change_token_new text, recovery_sent_at timestamptz, is_super_admin boolean, is_sso_user boolean DEFAULT false);
-CREATE TABLE auth.identities(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, provider text, identity_data jsonb);
+CREATE TABLE auth.identities(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, provider text, provider_id text, identity_data jsonb, last_sign_in_at timestamptz, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now(), email text);
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$SELECT nullif(current_setting('test.uid',true),'')::uuid$$;
 CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$SELECT coalesce(nullif(current_setting('test.role',true),''),'authenticated')$$;
 CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$SELECT coalesce(nullif(current_setting('test.jwt',true),''),'{}')::jsonb$$;
@@ -78,7 +78,7 @@ export async function replay(paths, { quiet = false, keepGoing = false } = {}) {
     try {
       await db.exec(localise(await readFile(f, "utf8")));
     } catch (e) {
-      if (keepGoing) { skipped.push({ file: f, error: e.message }); continue; }
+      if (keepGoing) { skipped.push({ file: f, error: e.message }); try { await db.exec("ROLLBACK"); } catch {} continue; }
       return { ok: false, db, file: f, error: e.message, done: list.indexOf(f), total: list.length };
     }
   }
