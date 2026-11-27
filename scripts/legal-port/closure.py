@@ -16,6 +16,8 @@ def closure(start):
         if f in seen or f.startswith('MISSING'): continue
         seen.add(f)
         if not f.endswith(('.ts','.tsx')): continue
+        # Server modules are bridged or skipped, so don't follow their imports.
+        if f!=start and ('.server' in f or '.functions' in f): continue
         src=open(f).read()
         for m in imp.finditer(src):
             s=m.group(1) or m.group(2) or m.group(3)

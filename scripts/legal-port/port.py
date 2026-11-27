@@ -6,8 +6,13 @@ DST='/Users/peter/Developer/upper-hand-legal/src/legal'
 exec(open(os.path.join(os.path.dirname(__file__),'closure.py')).read().split('for route in')[0].replace("ROOT=os.path.expanduser('~/Documents/GitHub/family-law-floater/src')","ROOT=SRC"))
 SKIP={'integrations/supabase/client.ts','integrations/supabase/previewAuthStorage.ts'}
 HEADER='// Ported from the Legal app (family-law-floater/src/{rel}). Re-run the port script to refresh.\n'
+# Server modules with a portal replacement in src/legal/bridge/ (they read the
+# Legal database through admin-only database functions instead of server keys).
+BRIDGES={'lib/leaderboard.functions':'bridge/leaderboard'}
 def transform(text, rel):
-    text=re.sub(r'''(['"])@/''', r'\1@/legal/', text)
+    for frm,to in BRIDGES.items():
+        text=text.replace(f'"@/{frm}"',f'"@/legal/{to}"')
+    text=re.sub(r'''(['"])@/(?!legal/)''', r'\1@/legal/', text)
     text=text.replace('pitch-deck-root','legal-pitch-deck-root')
     return text
 copied=[]
@@ -16,7 +21,8 @@ for route in sys.argv[1:]:
         rel=os.path.relpath(f,SRC)
         if rel in SKIP or f.startswith('MISSING'): continue
         if '.server' in rel or '.functions' in rel:
-            print('SERVER DEP, not copied:',rel); continue
+            bridged=rel.rsplit('.',1)[0] in BRIDGES
+            print('bridged:' if bridged else 'SERVER DEP, not copied:',rel); continue
         out=os.path.join(DST, 'pages/'+rel.split('routes/_authenticated/')[1] if rel.startswith('routes/') else rel)
         os.makedirs(os.path.dirname(out),exist_ok=True)
         data=open(f).read()

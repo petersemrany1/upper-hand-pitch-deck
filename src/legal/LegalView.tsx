@@ -9,6 +9,7 @@ import "./legal.css";
 const NATIVE: Record<string, () => Promise<{ LegalPage: ComponentType }>> = {
   "/leads": () => import("./pages/leads"),
   "/pitch-deck": () => import("./pages/pitch-deck"),
+  "/leaderboard": () => import("./pages/leaderboard"),
 };
 
 const pages = new Map<string, ComponentType>();
