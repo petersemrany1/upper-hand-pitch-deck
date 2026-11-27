@@ -136,6 +136,8 @@ function tableGrants(name, acl) {
     const privs = [...letters].map((l) => PRIVS[l]).filter(Boolean);
     if (privs.length) out.push(`GRANT ${privs.join(", ")} ON public.${name} TO ${grantee};`);
   }
+  // Lovable Cloud requires every table to carry a grant: server-only tables get the service role.
+  if (out.length === 1) out.push(`GRANT ALL ON public.${name} TO service_role;`);
   return out;
 }
 

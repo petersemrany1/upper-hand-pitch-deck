@@ -1116,6 +1116,7 @@ GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.le
 GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.legal_firm_booking_follow_ups TO authenticated;
 GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.legal_firm_booking_follow_ups TO service_role;
 REVOKE ALL ON public.legal_firm_calendar_history FROM anon, authenticated;
+GRANT ALL ON public.legal_firm_calendar_history TO service_role;
 REVOKE ALL ON public.legal_firm_callback_recipients FROM anon, authenticated;
 GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.legal_firm_callback_recipients TO service_role;
 GRANT SELECT ON public.legal_firm_callback_recipients TO authenticated;
