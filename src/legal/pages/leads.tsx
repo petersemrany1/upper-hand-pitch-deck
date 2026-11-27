@@ -45,7 +45,23 @@ import {
 } from "@/legal/lib/client-leads";
 
 // Rendered inside the Upper Hand portal when Legal is selected.
+import { legalRoute } from "@/legal/bridge/route";
 export { LeadsPage as LegalPage };
+export const Route = legalRoute({
+  head: () => ({
+    meta: [
+      { title: "Leads — Legal Group Portal" },
+      { name: "description", content: "Assign incoming divorce enquiry leads to sales reps." },
+      { property: "og:title", content: "Leads — Legal Group Portal" },
+      {
+        property: "og:description",
+        content: "Assign incoming divorce enquiry leads to sales reps.",
+      },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
+  component: LeadsPage,
+});
 
 const UNASSIGNED = "__unassigned__";
 const ALL = "__all__";
@@ -192,7 +208,7 @@ function LeadRow({
         </Select>
         {rep ? null : <span className="sr-only">Unassigned</span>}
         <Button asChild variant="outline" size="sm">
-          <Link to="/my-recordings" search={{ biz: "legal", lead: lead.id } as never} aria-label={`Transcripts for ${leadName(lead)}`}>
+          <Link to="/my-recordings" search={{ biz: "legal", ...({ lead: lead.id }) } as never} aria-label={`Transcripts for ${leadName(lead)}`}>
             <FileText className="mr-1 size-4" /> Transcripts
           </Link>
         </Button>
@@ -205,7 +221,7 @@ function LeadRow({
           aria-label={`Open ${leadName(lead)} in the sales call workspace`}
           title="Open in sales call"
         >
-          <Link to="/sales-call" search={{ biz: "legal", lead: lead.id } as never}>
+          <Link to="/sales-call" search={{ biz: "legal", ...({ lead: lead.id }) } as never}>
             <PhoneCall className="h-4 w-4" />
           </Link>
         </Button>

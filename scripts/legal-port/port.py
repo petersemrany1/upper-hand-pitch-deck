@@ -8,7 +8,7 @@ SKIP={'integrations/supabase/client.ts','integrations/supabase/previewAuthStorag
 HEADER='// Ported from the Legal app (family-law-floater/src/{rel}). Re-run the port script to refresh.\n'
 # Server modules with a portal replacement in src/legal/bridge/ (they read the
 # Legal database through admin-only database functions instead of server keys).
-BRIDGES={'lib/leaderboard.functions':'bridge/leaderboard'}
+BRIDGES={'lib/leaderboard.functions':'bridge/leaderboard','lib/call-review.functions':'bridge/call-review'}
 def transform(text, rel):
     for frm,to in BRIDGES.items():
         text=text.replace(f'"@/{frm}"',f'"@/legal/{to}"')
@@ -51,17 +51,32 @@ for route in sys.argv[1:]:
         i+=1
     body=s[m.end()-1:i+1]
     comp=re.search(r'component:\s*(\w+)', body).group(1)
-    end=s.index(';', i)+1 if s[i+1:i+3].startswith(');') else i+2
-    s=s[:m.start()]+f'// Rendered inside the Upper Hand portal when Legal is selected.\nexport {{ {comp} as LegalPage }};'+s[end:]
+    # Keep the route options (validateSearch etc.) on a portal stand-in so
+    # Route.useSearch() / Route.useRouteContext() keep working.
+    s=s[:m.start()]+'export const Route = legalRoute('+s[m.end()-1:]
+    s=s.replace('export const Route = legalRoute(', f'// Rendered inside the Upper Hand portal when Legal is selected.\nexport {{ {comp} as LegalPage }};\nexport const Route = legalRoute(',1)
     s=re.sub(r'import \{\s*createFileRoute\s*\} from "@tanstack/react-router";\n','',s)
-    s=s.replace('createFileRoute, ','')
+    s=s.replace('createFileRoute, ','').replace(', createFileRoute','')
+    s=s.replace('\nexport { '+comp, '\nimport { legalRoute } from "@/legal/bridge/route";\nexport { '+comp,1) if 'legalRoute } from' not in s else s
     # Links into other Legal pages go to the matching portal section on its Legal side.
-    def link(mm):
-        to=mm.group(1); tgt=LINK_MAP.get(to)
-        if not tgt: return mm.group(0)
-        search=mm.group(2)
-        inner=search[2:-2].strip() if search else ''
-        return f'to="{tgt}" search={{{{ biz: "legal"{", "+inner if inner else ""} }} as never}}'
-    s=re.sub(r'to="(/[a-z\-]+)"(?:\s+search=(\{\{[^}]*\}\}))?', link, s)
+    out=[]; pos=0
+    for mm in re.finditer(r'to="(/[a-z\-]+)"', s):
+        tgt=LINK_MAP.get(mm.group(1))
+        if not tgt or mm.start()<pos: continue
+        out.append(s[pos:mm.start()]); j=mm.end()
+        sm=re.match(r'\s+search=\{', s[j:])
+        expr=None
+        if sm:
+            k=j+sm.end()-1; depth=0
+            while True:
+                if s[k]=='{': depth+=1
+                elif s[k]=='}':
+                    depth-=1
+                    if depth==0: break
+                k+=1
+            expr=s[j+sm.end():k].strip(); j=k+1
+        extra=f', ...({expr})' if expr else ''
+        out.append(f'to="{tgt}" search={{{{ biz: "legal"{extra} }} as never}}'); pos=j
+    out.append(s[pos:]); s=''.join(out)
     open(p,'w').write(s)
     print('page',route,'->',comp)

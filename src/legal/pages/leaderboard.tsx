@@ -6,7 +6,21 @@ import { Crown, Trophy } from "lucide-react";
 import { getLeaderboardFn, type LeaderboardRangeInput } from "@/legal/bridge/leaderboard";
 
 // Rendered inside the Upper Hand portal when Legal is selected.
+import { legalRoute } from "@/legal/bridge/route";
 export { LeaderboardPage as LegalPage };
+export const Route = legalRoute({
+  head: () => ({
+    meta: [
+      { title: "Leaderboard — Legal Group Portal" },
+      {
+        name: "description",
+        content: "How the sales team is going: calls, conversations, bookings.",
+      },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
+  component: LeaderboardPage,
+});
 
 type Preset = Exclude<LeaderboardRangeInput, { from: string; to: string }>;
 const PRESETS: { key: Preset; label: string }[] = [

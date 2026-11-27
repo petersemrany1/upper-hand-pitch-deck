@@ -23,7 +23,28 @@ import {
 } from "@/legal/components/pitch/slides";
 
 // Rendered inside the Upper Hand portal when Legal is selected.
+import { legalRoute } from "@/legal/bridge/route";
 export { PitchDeckPage as LegalPage };
+export const Route = legalRoute({
+  head: () => ({
+    meta: [
+      { title: "Legal Group — Pitch Deck for Family Law Firms" },
+      {
+        name: "description",
+        content:
+          "Legal Group's presentation deck: vetted, deposit-paid family law clients booked straight into your diary.",
+      },
+      { property: "og:title", content: "Legal Group — Pitch Deck for Family Law Firms" },
+      {
+        property: "og:description",
+        content:
+          "Vetted, deposit-paid family law clients booked into your diary. Packages, numbers and how it works.",
+      },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
+  component: PitchDeckPage,
+});
 
 function PitchDeckPage() {
   const deckRef = useRef<HTMLDivElement>(null);
