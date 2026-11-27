@@ -1,6 +1,6 @@
 // Ported from the Legal app (family-law-floater/src/routes/_authenticated/transcripts.tsx). Re-run the port script to refresh.
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "@/legal/runtime/router";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";

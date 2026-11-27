@@ -1,0 +1,140 @@
+.legal-reporting {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-body, system-ui);
+  height: 100%;
+  overflow-y: auto;
+  padding: 32px 40px;
+}
+.legal-reporting .dashboard-overview-shell {
+  max-width: 1400px;
+  margin: auto;
+}
+.legal-reporting .dashboard-overview-heading h1 {
+  color: var(--foreground);
+  font-family: var(--font-heading, inherit);
+}
+.legal-reporting .booking-performance {
+  --bp-ink: var(--foreground);
+  --bp-muted: var(--muted-foreground);
+  --bp-border: var(--border);
+  --bp-accent: var(--primary);
+}
+.legal-reporting .booking-stat.selected {
+  border-color: var(--primary);
+  background: var(--accent);
+}
+.legal-reporting .booking-stat:hover {
+  border-color: var(--primary);
+}
+.legal-reporting .booking-stat.selected .booking-stat-icon,
+.legal-reporting .booking-tabs button[aria-selected="true"] .booking-tab-count {
+  background: var(--accent);
+  color: var(--primary);
+}
+.legal-reporting .dashboard-overview-card {
+  border-color: var(--border);
+  background: var(--card);
+}
+.legal-reporting .dashboard-lead-avatar,
+.legal-reporting .dashboard-small-icon {
+  color: var(--primary);
+  background: var(--accent);
+}
+.legal-reporting button:focus-visible,
+.legal-reporting a:focus-visible,
+.legal-reporting select:focus-visible,
+.legal-reporting input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.legal-reporting button {
+  cursor: pointer;
+}
+.legal-reporting button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+.legal-reporting h2 svg {
+  display: inline;
+  vertical-align: middle;
+  margin-right: 5px;
+}
+.legal-rep-filter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+.legal-reporting select,
+.legal-reporting input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--card);
+  color: var(--foreground);
+  max-width: 100%;
+}
+.legal-definition {
+  padding: 12px 24px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  border-top: 1px solid var(--border);
+}
+.legal-definition summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.legal-definition p {
+  margin-top: 10px;
+  line-height: 1.65;
+}
+.legal-table-scroll {
+  overflow: auto;
+}
+.legal-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+.legal-report-table th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
+}
+.legal-report-table td,
+.legal-report-table th {
+  padding: 13px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.legal-large-number {
+  font-size: 36px;
+  letter-spacing: -0.04em;
+}
+.legal-reporting .dashboard-goal-track > span {
+  background: var(--primary);
+}
+@media (max-width: 700px) {
+  .legal-reporting {
+    padding: 20px 14px;
+  }
+  .legal-rep-filter {
+    justify-content: flex-start;
+  }
+  .legal-reporting .dashboard-capacity-row {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .legal-reporting * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

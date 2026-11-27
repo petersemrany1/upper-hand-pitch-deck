@@ -90,3 +90,7 @@ export async function getClientTranscriptsFn({ data }: { data: { leadId: string;
   const input = z.object({ leadId: z.string().uuid(), offset: z.number().int().nonnegative() }).parse(data);
   return loadClientTranscripts(supabase, input.leadId, input.offset);
 }
+
+// The rest of the Legal call-review functions run on the moved Legal engine
+// (portal database); only the Transcripts list above still reads the Legal app.
+export { getCallReviewFn, getCallRecordingFn, getSalesCallSummaryFn } from "@/legal/lib/call-review.functions";

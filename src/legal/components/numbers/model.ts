@@ -1,0 +1,761 @@
+// Ported from the Legal app (family-law-floater/src/components/numbers/model.ts). Re-run the port script to refresh.
+import type {
+  AdPerformanceRow,
+  LabourRow,
+  LocationSummaryRow,
+  RevenueRow,
+} from "@/legal/lib/numbers.types";
+import { perUnit, ratio, type Tone } from "./format";
+
+// One row of "how is this city doing" — the same shape whether it is a
+// single city or the whole account, so every tab can treat them alike.
+/**
+ * Peter's rule (2026-09-23): a booking counts as a show from the moment it is
+ * made. Only marking it a no-show takes it out. So shows = confirmed shows +
+ * consults still to come + past consults with no outcome saved yet.
+ */
+export const expectedShows = (r: {
+  showed: number;
+  upcoming: number;
+  needs_outcome: number;
+}): number => r.showed + r.upcoming + r.needs_outcome;
+
+export type CityStats = {
+  key: string;
+  /** False means imported spend is incomplete; never display it as a complete cost. */
+  spendVerified?: boolean;
+  revenueVerified?: boolean;
+  // Funnel
+  spend: number;
+  leads: number;
+  booked: number;
+  /** Confirmed shows only. */
+  showed: number;
+  noshow: number;
+  upcoming: number;
+  needsOutcome: number;
+  disqualified: number;
+  /** Bookings not marked no-show: the divisor for every per-show cost. See expectedShows. */
+  shows: number;
+  costPerLead: number | null;
+  /** Rep wages + booking bonuses ÷ leads. Null when we have no hours. */
+  labourPerLead: number | null;
+  /** Ad spend + labour ÷ leads. Null when we have no hours. */
+  totalCostPerLead: number | null;
+  costPerBooked: number | null;
+  adCostPerShow: number | null;
+  bookRate: number | null;
+  showRate: number | null;
+  // Labour
+  hours: number;
+  hourlyCost: number;
+  bonusCost: number;
+  labourCost: number;
+  hoursOk: boolean;
+  hoursMissingRate: number;
+  hoursFallback: number;
+  bonusMissingRate: number;
+  // Money
+  totalCost: number;
+  revenue: number;
+  profit: number;
+  costPct: number | null;
+  marketingShare: number | null;
+  labourPerShow: number | null;
+  trueCostPerShow: number | null;
+  hoursPerBooking: number | null;
+  leadsPerBooking: number | null;
+};
+
+/** Keep the observed funnel visible while withholding only costs that lack verified inputs. */
+export function withReportingCoverage(
+  stats: CityStats,
+  coverage: { spend: boolean; labour: boolean; revenue: boolean },
+): CityStats {
+  const labour = coverage.labour && stats.hoursOk;
+  const total = coverage.spend && labour;
+  return {
+    ...stats,
+    spendVerified: coverage.spend,
+    revenueVerified: coverage.revenue,
+    hoursOk: labour,
+    hoursPerBooking: labour ? stats.hoursPerBooking : null,
+    costPerLead: coverage.spend ? stats.costPerLead : null,
+    costPerBooked: coverage.spend ? stats.costPerBooked : null,
+    adCostPerShow: coverage.spend ? stats.adCostPerShow : null,
+    labourPerLead: labour ? stats.labourPerLead : null,
+    labourPerShow: labour ? stats.labourPerShow : null,
+    totalCostPerLead: total ? stats.totalCostPerLead : null,
+    trueCostPerShow: total ? stats.trueCostPerShow : null,
+    marketingShare: total ? stats.marketingShare : null,
+    costPct: total && coverage.revenue ? stats.costPct : null,
+  };
+}
+
+export const hasCompleteCosts = (stats: CityStats) =>
+  stats.spendVerified !== false && stats.hoursOk;
+export const hasCompleteContribution = (stats: CityStats) =>
+  hasCompleteCosts(stats) && stats.revenueVerified !== false;
+
+const EMPTY_LOC: Omit<LocationSummaryRow, "location"> = {
+  spend: 0,
+  leads: 0,
+  booked: 0,
+  showed: 0,
+  noshow: 0,
+  upcoming: 0,
+  needs_outcome: 0,
+  disqualified: 0,
+};
+
+function finish(
+  base: Omit<
+    CityStats,
+    | "costPerLead"
+    | "costPerBooked"
+    | "adCostPerShow"
+    | "bookRate"
+    | "showRate"
+    | "labourCost"
+    | "hoursOk"
+    | "totalCost"
+    | "profit"
+    | "costPct"
+    | "marketingShare"
+    | "labourPerShow"
+    | "trueCostPerShow"
+    | "hoursPerBooking"
+    | "leadsPerBooking"
+    | "labourPerLead"
+    | "totalCostPerLead"
+    | "shows"
+  >,
+): CityStats {
+  const labourCost = base.hourlyCost + base.bonusCost;
+  const hoursOk = base.hours > 0 && base.hoursMissingRate === 0 && base.bonusMissingRate === 0;
+  const totalCost = base.spend + labourCost;
+  const shows = expectedShows({
+    showed: base.showed,
+    upcoming: base.upcoming,
+    needs_outcome: base.needsOutcome,
+  });
+  return {
+    ...base,
+    shows,
+    costPerLead: perUnit(base.spend, base.leads),
+    labourPerLead: hoursOk ? perUnit(labourCost, base.leads) : null,
+    totalCostPerLead: hoursOk ? perUnit(totalCost, base.leads) : null,
+    costPerBooked: perUnit(base.spend, base.booked),
+    adCostPerShow: perUnit(base.spend, shows),
+    bookRate: ratio(base.booked, base.leads),
+    showRate: ratio(base.showed, base.showed + base.noshow),
+    labourCost,
+    hoursOk,
+    totalCost,
+    profit: base.revenue - totalCost,
+    costPct: base.revenue > 0 && hoursOk ? totalCost / base.revenue : null,
+    marketingShare: totalCost > 0 ? base.spend / totalCost : null,
+    labourPerShow: hoursOk ? perUnit(labourCost, shows) : null,
+    trueCostPerShow: hoursOk ? perUnit(totalCost, shows) : null,
+    hoursPerBooking: hoursOk ? perUnit(base.hours, base.booked) : null,
+    leadsPerBooking: perUnit(base.leads, base.booked),
+  };
+}
+
+export function buildCityStats(
+  key: string,
+  loc: LocationSummaryRow | null,
+  lab: LabourRow | null,
+  rev: RevenueRow | null,
+): CityStats {
+  const l = loc ?? { ...EMPTY_LOC, location: key };
+  return finish({
+    key,
+    spend: l.spend,
+    leads: l.leads,
+    booked: l.booked,
+    showed: l.showed,
+    noshow: l.noshow,
+    upcoming: l.upcoming,
+    needsOutcome: l.needs_outcome,
+    disqualified: l.disqualified,
+    hours: lab?.hours ?? 0,
+    hourlyCost: lab?.hourly_cost ?? 0,
+    bonusCost: lab?.bonus_cost ?? 0,
+    hoursMissingRate: lab?.hours_missing_rate ?? 0,
+    hoursFallback: lab?.hours_fallback ?? 0,
+    bonusMissingRate: lab?.bonus_missing_rate ?? 0,
+    revenue: rev?.revenue ?? 0,
+  });
+}
+
+/** Adds rows together (plus any labour that couldn't be tied to a city). */
+export function sumCityStats(
+  key: string,
+  rows: CityStats[],
+  extra: LabourRow | null | (LabourRow | null)[] = null,
+): CityStats {
+  const extras = (Array.isArray(extra) ? extra : [extra]).filter((x): x is LabourRow => !!x);
+  const acc = rows.reduce(
+    (a, r) => ({
+      spend: a.spend + r.spend,
+      leads: a.leads + r.leads,
+      booked: a.booked + r.booked,
+      showed: a.showed + r.showed,
+      noshow: a.noshow + r.noshow,
+      upcoming: a.upcoming + r.upcoming,
+      needsOutcome: a.needsOutcome + r.needsOutcome,
+      disqualified: a.disqualified + r.disqualified,
+      hours: a.hours + r.hours,
+      hourlyCost: a.hourlyCost + r.hourlyCost,
+      bonusCost: a.bonusCost + r.bonusCost,
+      hoursMissingRate: a.hoursMissingRate + r.hoursMissingRate,
+      hoursFallback: a.hoursFallback + r.hoursFallback,
+      bonusMissingRate: a.bonusMissingRate + r.bonusMissingRate,
+      revenue: a.revenue + r.revenue,
+    }),
+    {
+      spend: 0,
+      leads: 0,
+      booked: 0,
+      showed: 0,
+      noshow: 0,
+      upcoming: 0,
+      needsOutcome: 0,
+      disqualified: 0,
+      hours: 0,
+      hourlyCost: 0,
+      bonusCost: 0,
+      hoursMissingRate: 0,
+      hoursFallback: 0,
+      bonusMissingRate: 0,
+      revenue: 0,
+    },
+  );
+  for (const extraLabour of extras) {
+    acc.hours += extraLabour.hours;
+    acc.hourlyCost += extraLabour.hourly_cost;
+    acc.bonusCost += extraLabour.bonus_cost;
+    acc.hoursMissingRate += extraLabour.hours_missing_rate;
+    acc.hoursFallback += extraLabour.hours_fallback;
+    acc.bonusMissingRate += extraLabour.bonus_missing_rate;
+  }
+  return finish({ key, ...acc });
+}
+
+/** Rep work whose recorded lead/campaign information does not identify a city. */
+export const UNALLOCATED = "(unallocated)";
+/** Everything the window holds that no city claims: leads with no city, spend on campaigns that name no city, and the calling time and bonuses on those leads (labour_by_key uses the same key). */
+export const WEBSITE = "website";
+export const WEBSITE_LABEL = "Unallocated enquiries";
+const isCity = (k: string | null | undefined): k is string =>
+  !!k && k.toLowerCase() !== UNALLOCATED && k.toLowerCase() !== WEBSITE;
+
+/** Every city we know about, from spend, leads, labour or revenue. */
+export function cityKeys(
+  locations: LocationSummaryRow[],
+  labour: LabourRow[],
+  revenue: RevenueRow[],
+): string[] {
+  const seen = new Map<string, string>();
+  const add = (k: string | null | undefined) => {
+    if (isCity(k) && !seen.has(k.toLowerCase())) seen.set(k.toLowerCase(), k);
+  };
+  locations.forEach((l) => add(l.location));
+  labour.forEach((l) => add(l.key));
+  revenue.forEach((r) => add(r.key));
+  return Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
+}
+
+export function buildAllCities(
+  locations: LocationSummaryRow[],
+  labour: LabourRow[],
+  revenue: RevenueRow[],
+): {
+  cities: CityStats[];
+  all: CityStats;
+  unallocated: LabourRow | null;
+  website: CityStats | null;
+} {
+  const byLoc = new Map(locations.map((l) => [l.location?.toLowerCase() ?? "", l]));
+  const byLab = new Map(labour.map((l) => [l.key.toLowerCase(), l]));
+  const byRev = new Map(revenue.map((r) => [r.key.toLowerCase(), r]));
+  const cities = cityKeys(locations, labour, revenue).map((k) =>
+    buildCityStats(
+      k,
+      byLoc.get(k.toLowerCase()) ?? null,
+      byLab.get(k.toLowerCase()) ?? null,
+      byRev.get(k.toLowerCase()) ?? null,
+    ),
+  );
+  const unallocated = byLab.get(UNALLOCATED) ?? null;
+  // The Website bucket is not a city, but it is part of the whole: its leads,
+  // spend, shows, labour and revenue all belong in "All cities".
+  const webLoc = byLoc.get(WEBSITE) ?? null,
+    webLab = byLab.get(WEBSITE) ?? null,
+    webRev = byRev.get(WEBSITE) ?? null;
+  const website =
+    webLoc || webLab || webRev ? buildCityStats(WEBSITE_LABEL, webLoc, webLab, webRev) : null;
+  return {
+    cities,
+    all: sumCityStats("All cities", website ? [...cities, website] : cities, unallocated),
+    unallocated,
+    website,
+  };
+}
+
+// ---- Where an ad's leads are in the calling pipeline.
+//
+// Peter's question (2026-09-23): an ad with 13 leads and no bookings is only
+// a bad ad if those leads were actually called. Four stages, read from the
+// lead status the rep sets on every call, with call records as the tiebreak
+// for leads still marked new.
+
+export type PipelineStage = "toCall" | "chasing" | "spoke" | "booked";
+export type Pipeline = {
+  total: number;
+  toCall: number;
+  chasing: number;
+  spoke: number;
+  booked: number;
+};
+export type PipelineLead = { status: string | null; calls: number; booked: boolean };
+
+const SPOKE_STATUSES = new Set([
+  "had_convo_chase_up",
+  "had_convo_no_sale",
+  "not_interested",
+  "dropped",
+  "contacted",
+  "intake",
+  "booked_no_deposit",
+  "booked_deposit_paid",
+  "booked",
+  "cancelled",
+]);
+const CHASING_STATUSES = new Set(["no_answer", "callback_scheduled"]);
+
+export function stageOf(l: PipelineLead): PipelineStage {
+  const s = (l.status ?? "").trim().toLowerCase();
+  if (l.booked) return "booked";
+  if (SPOKE_STATUSES.has(s)) return "spoke";
+  if (CHASING_STATUSES.has(s)) return "chasing";
+  return l.calls > 0 ? "chasing" : "toCall";
+}
+
+export const STAGE_LABEL: Record<PipelineStage, string> = {
+  toCall: "Still to call",
+  chasing: "No answer yet",
+  spoke: "Spoke, no booking",
+  booked: "Booked",
+};
+
+export function pipelineOf(leads: PipelineLead[]): Pipeline {
+  const p: Pipeline = { total: leads.length, toCall: 0, chasing: 0, spoke: 0, booked: 0 };
+  for (const l of leads) p[stageOf(l)] += 1;
+  return p;
+}
+
+/** "13 leads · 9 still to call · 4 no answer yet · 0 spoke, no booking · 0 booked" */
+export function pipelineSentence(p: Pipeline): string {
+  return `${p.total} lead${p.total === 1 ? "" : "s"} · ${p.toCall} still to call · ${p.chasing} no answer yet · ${p.spoke} spoke, no booking · ${p.booked} booked`;
+}
+
+/** Most of the leads have not been called: the ad cannot be judged yet. */
+export function mostlyUncalled(p: Pipeline | null | undefined): boolean {
+  return !!p && p.total > 0 && p.toCall / p.total >= 0.5;
+}
+
+// ---- Ads
+
+export type AdVerdictKey =
+  | "winning"
+  | "ok"
+  | "poor"
+  | "notBooking"
+  | "uncalled"
+  | "early"
+  | "noName"
+  | "pending"
+  | "unmatched";
+
+export type AdVerdict = { key: AdVerdictKey; label: string; rank: number };
+
+export type AdStats = AdPerformanceRow & {
+  spendVerified?: boolean;
+  /** Bookings not marked no-show. See expectedShows. */
+  shows: number;
+  /** Where this ad's leads are in the calling pipeline; null when not loaded. */
+  pipeline: Pipeline | null;
+  costPerLead: number | null;
+  costPerBooked: number | null;
+  adCostPerShow: number | null;
+  bookRate: number | null;
+  showRate: number | null;
+  verdict: AdVerdict;
+};
+
+const VERDICTS: Record<AdVerdictKey, AdVerdict> = {
+  pending: { key: "pending", label: "Awaiting spend", rank: 4 },
+  unmatched: { key: "unmatched", label: "Unmatched ad", rank: 4 },
+  winning: { key: "winning", label: "Winning", rank: 0 },
+  ok: { key: "ok", label: "Average", rank: 1 },
+  poor: { key: "poor", label: "Poor", rank: 2 },
+  notBooking: { key: "notBooking", label: "Not booking", rank: 3 },
+  uncalled: { key: "uncalled", label: "Not called yet", rank: 3 },
+  early: { key: "early", label: "Too early", rank: 4 },
+  noName: { key: "noName", label: "Website", rank: 5 },
+};
+
+/**
+ * A plain-word verdict per ad. Judged on ad cost per show against the average
+ * across the ads on screen: 20% cheaper = winning, 20% dearer = poor. A show
+ * here is any booking not marked no-show (see expectedShows). Fewer than 3
+ * is too early to call — unless the ad has burned through 10+ leads without
+ * a single booking. And that is only "not booking" if the leads were called:
+ * when most are still to call, the verdict is "not called yet".
+ */
+export function judgeAd(
+  a: AdPerformanceRow,
+  avgCostPerShow: number | null,
+  pipeline: Pipeline | null = null,
+): AdVerdict {
+  if (a.unattributed) return VERDICTS.noName;
+  const shows = expectedShows(a);
+  const cps = perUnit(a.spend, shows);
+  if (shows < 3) {
+    if (a.leads >= 10 && a.booked === 0)
+      return mostlyUncalled(pipeline) ? VERDICTS.uncalled : VERDICTS.notBooking;
+    return VERDICTS.early;
+  }
+  if (cps === null || avgCostPerShow === null) return VERDICTS.early;
+  if (cps <= avgCostPerShow * 0.8) return VERDICTS.winning;
+  if (cps <= avgCostPerShow * 1.2) return VERDICTS.ok;
+  return VERDICTS.poor;
+}
+
+/** Key for an ad's pipeline: the ad name, or the shared website bucket. */
+export const pipelineKey = (adName: string, unattributed: boolean): string =>
+  unattributed ? "__website" : adName.trim().toLowerCase();
+
+/** A named ad with no imported match is still an ad, not a website enquiry. */
+export const isUntrackedAd = (ad: AdPerformanceRow) =>
+  ad.unattributed &&
+  (ad.website_enquiry ||
+    (ad.reporting_key
+      ? ad.reporting_key === "__unattributed" || ad.reporting_key.startsWith("__unattributed:")
+      : ad.ad_name === "Unattributed enquiries"));
+
+export function buildAdStats(
+  ads: AdPerformanceRow[],
+  pipelines: Record<string, Pipeline> = {},
+  spendVerified = true,
+): { rows: AdStats[]; avgCostPerShow: number | null } {
+  const attributed = ads.filter((a) => !a.unattributed);
+  const spend = attributed.reduce((s, a) => s + a.spend, 0);
+  const shows = attributed.reduce((s, a) => s + expectedShows(a), 0);
+  const avgCostPerShow = spendVerified ? perUnit(spend, shows) : null;
+  const rows = ads.map((a) => ({
+    ...a,
+    spendVerified,
+    shows: expectedShows(a),
+    pipeline: pipelines[a.reporting_key ?? pipelineKey(a.ad_name, a.unattributed)] ?? null,
+    costPerLead: !spendVerified || a.unattributed ? null : perUnit(a.spend, a.leads),
+    costPerBooked: !spendVerified || a.unattributed ? null : perUnit(a.spend, a.booked),
+    adCostPerShow: !spendVerified || a.unattributed ? null : perUnit(a.spend, expectedShows(a)),
+    bookRate: ratio(a.booked, a.leads),
+    showRate: ratio(a.showed, a.showed + a.noshow),
+    verdict:
+      !spendVerified && !isUntrackedAd(a)
+        ? VERDICTS.pending
+        : a.unattributed && !isUntrackedAd(a)
+          ? VERDICTS.unmatched
+          : judgeAd(
+              a,
+              avgCostPerShow,
+              pipelines[a.reporting_key ?? pipelineKey(a.ad_name, a.unattributed)] ?? null,
+            ),
+  }));
+  return { rows, avgCostPerShow };
+}
+
+// ---- Benchmarks: every city figure is read against the account average so
+// the eye finds the outlier without reading every number.
+
+export type Benchmark = {
+  ratio: number | null; // value ÷ average
+  tone: Tone;
+  label: string; // "2.2× avg", "+18% vs avg", "−20% vs avg", "on par", "—"
+};
+
+/**
+ * Compare a figure with the average. `lowerIsBetter` for costs and
+ * hours-per-booking; rates like booking % and show rate want higher.
+ */
+export function compareToAvg(
+  value: number | null,
+  avg: number | null,
+  lowerIsBetter: boolean,
+): Benchmark {
+  if (value === null || avg === null || avg <= 0 || !Number.isFinite(value / avg)) {
+    return { ratio: null, tone: "grey", label: "—" };
+  }
+  const ratio = value / avg;
+  // "worse" is a multiplier above 1 whichever direction is good.
+  const worse = lowerIsBetter ? ratio : ratio === 0 ? Infinity : 1 / ratio;
+  const tone: Tone =
+    worse <= 0.85 ? "green" : worse <= 1.2 ? "grey" : worse <= 1.5 ? "amber" : "red";
+  let label: string;
+  if (ratio >= 1.5) label = `${ratio.toFixed(1)}× avg`;
+  else if (Math.abs(ratio - 1) < 0.05) label = "on par";
+  else label = `${ratio > 1 ? "+" : "−"}${Math.round(Math.abs(ratio - 1) * 100)}% vs avg`;
+  return { ratio, tone, label };
+}
+
+export type SignalKey = "marketing" | "labour" | "shows";
+
+export type Signal = {
+  key: SignalKey;
+  title: string; // "Marketing", "Labour", "Shows"
+  value: string; // the city figure, formatted by the caller
+  detail: string; // one line of evidence
+  tone: Tone;
+  bad: boolean;
+};
+
+export type DiagnosisKey =
+  "healthy" | "marketing" | "labour" | "shows" | "mixed" | "early" | "nodata" | "pending";
+
+export type Diagnosis = {
+  key: DiagnosisKey;
+  short: string; // rail label: "On track", "Labour", "Marketing", "No-shows", "Mixed", "Too early"
+  headline: string; // "Byron Bay is struggling with labour"
+  tone: Tone;
+  signals: Signal[];
+};
+
+const MIN_LEADS = 10;
+const MIN_APPTS_FOR_SHOW_RATE = 5;
+/** Leads costing this much more than average is a marketing problem (1.1 = 10% over). */
+export const MARKETING_OVER_AVG = 1.1;
+/** Reps needing this much more time or leads per booking is a labour problem. */
+export const LABOUR_OVER_AVG = 1.3;
+/** Show rate this far under average is a no-show problem. */
+export const SHOWS_UNDER_AVG = 0.8;
+
+/**
+ * Reads a city against the account average and names the weak link:
+ *  - marketing: leads cost a lot more than average (or spend with no leads)
+ *  - labour:    reps need far more hours, or far more leads, per booking
+ *  - shows:     people book but don't turn up
+ */
+export function diagnoseCity(
+  c: CityStats,
+  avg: CityStats,
+  fmt: {
+    money: (n: number) => string;
+    pct: (r: number | null) => string;
+    oneDp: (n: number | null) => string;
+  },
+): Diagnosis {
+  const name = c.key;
+  if (c.spend <= 0 && c.leads <= 0 && c.booked <= 0) {
+    return {
+      key: "nodata",
+      short: "No data",
+      headline: `${name} has nothing in this range`,
+      tone: "grey",
+      signals: [],
+    };
+  }
+
+  // Marketing: cost per lead vs average.
+  const cpl = compareToAvg(c.costPerLead, avg.costPerLead, true);
+  const noLeads = c.spendVerified !== false && c.spend > 0 && c.leads === 0;
+  const marketingBad = noLeads || (cpl.ratio !== null && cpl.ratio >= MARKETING_OVER_AVG);
+  const marketing: Signal = {
+    key: "marketing",
+    title: "Marketing",
+    value: noLeads
+      ? "no leads"
+      : c.costPerLead === null
+        ? "—"
+        : `${fmt.money(c.costPerLead)} / lead`,
+    detail: noLeads
+      ? `${fmt.money(c.spend)} spent and no leads came in`
+      : c.costPerLead === null
+        ? c.spendVerified === false
+          ? "awaiting verified ad spend"
+          : "no ad spend recorded"
+        : `${cpl.label}${avg.costPerLead !== null ? ` · avg ${fmt.money(avg.costPerLead)}` : ""}`,
+    tone: noLeads ? "red" : marketingBad && cpl.tone === "grey" ? "amber" : cpl.tone,
+    bad: marketingBad,
+  };
+
+  // Labour: hours per booking (if we have hours) and leads per booking.
+  const hpb = compareToAvg(c.hoursPerBooking, avg.hoursPerBooking, true);
+  const lpb = compareToAvg(c.leadsPerBooking, avg.leadsPerBooking, true);
+  const noBookings = c.leads >= MIN_LEADS && c.booked === 0;
+  const labourBad =
+    noBookings ||
+    (hpb.ratio !== null && hpb.ratio >= LABOUR_OVER_AVG) ||
+    (lpb.ratio !== null && lpb.ratio >= LABOUR_OVER_AVG);
+  const labourTone: Tone = noBookings ? "red" : worstTone(hpb.tone, lpb.tone);
+  const labour: Signal = {
+    key: "labour",
+    title: "Labour",
+    value: noBookings
+      ? "no bookings"
+      : c.hoursPerBooking !== null
+        ? `${fmt.oneDp(c.hoursPerBooking)} h / booking`
+        : c.leadsPerBooking !== null
+          ? `1 in ${fmt.oneDp(c.leadsPerBooking)} books`
+          : "—",
+    detail: noBookings
+      ? `${c.leads} leads and not one booked`
+      : c.hoursPerBooking !== null
+        ? `${hpb.label}${avg.hoursPerBooking !== null ? ` · avg ${fmt.oneDp(avg.hoursPerBooking)} h` : ""} · 1 in ${fmt.oneDp(c.leadsPerBooking)} leads books (${lpb.label})`
+        : c.leadsPerBooking !== null
+          ? `${lpb.label}${avg.leadsPerBooking !== null ? ` · avg 1 in ${fmt.oneDp(avg.leadsPerBooking)}` : ""}`
+          : "no bookings yet",
+    tone: labourTone,
+    bad: labourBad,
+  };
+
+  // Shows: show rate vs average, only once there are enough appointments.
+  const appts = c.showed + c.noshow;
+  const sr = compareToAvg(c.showRate, avg.showRate, false);
+  const enoughAppts = appts >= MIN_APPTS_FOR_SHOW_RATE;
+  const showsBad = enoughAppts && sr.ratio !== null && sr.ratio <= SHOWS_UNDER_AVG;
+  const shows: Signal = {
+    key: "shows",
+    title: "Shows",
+    value: c.showRate === null ? "—" : `${fmt.pct(c.showRate)} show up`,
+    detail: !enoughAppts
+      ? `${appts} appointment${appts === 1 ? "" : "s"} with an outcome — too few to judge`
+      : `${c.showed} showed, ${c.noshow} no-show · ${sr.label}${avg.showRate !== null ? ` · avg ${fmt.pct(avg.showRate)}` : ""}`,
+    tone: !enoughAppts ? "grey" : sr.tone,
+    bad: showsBad,
+  };
+
+  const signals = [marketing, labour, shows];
+  if (c.spendVerified === false)
+    return {
+      key: "pending",
+      short: "Awaiting spend",
+      headline: `${name}: awaiting ad spend`,
+      tone: "grey",
+      signals,
+    };
+
+  if (c.leads < MIN_LEADS && !noLeads) {
+    return {
+      key: "early",
+      short: "Too early",
+      headline: `${name}: too early to judge`,
+      tone: "grey",
+      signals,
+    };
+  }
+
+  const bad = signals.filter((s) => s.bad).map((s) => s.key);
+  if (bad.length === 0) {
+    return {
+      key: "healthy",
+      short: "On track",
+      headline: `${name} is on track`,
+      tone: "green",
+      signals,
+    };
+  }
+  if (bad.length >= 2) {
+    const words = bad.map((k) => (k === "shows" ? "no-shows" : k));
+    return {
+      key: "mixed",
+      short: "Mixed",
+      headline: `${name} is struggling with ${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`,
+      tone: "red",
+      signals,
+    };
+  }
+  const k = bad[0]!;
+  const short = k === "marketing" ? "Marketing" : k === "labour" ? "Labour" : "No-shows";
+  const headline =
+    k === "shows" ? `${name} is losing people to no-shows` : `${name} is struggling with ${k}`;
+  const tone = signals.find((s) => s.key === k)?.tone ?? "amber";
+  return { key: k, short, headline, tone: tone === "grey" ? "amber" : tone, signals };
+}
+
+const TONE_RANK: Record<Tone, number> = { green: 0, grey: 1, amber: 2, red: 3 };
+function worstTone(a: Tone, b: Tone): Tone {
+  return TONE_RANK[a] >= TONE_RANK[b] ? a : b;
+}
+
+/** "1 in 7.9" from a rate, or "—". */
+export function oneIn(rate: number | null): string {
+  if (rate === null || rate <= 0) return "—";
+  const x = 1 / rate;
+  return `1 in ${x < 10 ? x.toFixed(1) : Math.round(x)}`;
+}
+
+export type LabourSentence = { headline: string; detail: string; tone: Tone };
+
+/**
+ * The one sentence under the marketing vs labour bar: is this city hard or
+ * easy to convert, and which side of the split is costing more than average.
+ * Rep hours per booking is the judge; cost per lead decides where the money
+ * is going.
+ */
+export function labourSentence(
+  c: CityStats,
+  avg: CityStats,
+  name: string,
+  isAll: boolean,
+  fmt: { oneDp: (n: number | null) => string },
+): LabourSentence | null {
+  if (!c.hoursOk || c.spendVerified === false) return null;
+
+  if (isAll) {
+    if (c.hoursPerBooking === null) return null;
+    return {
+      headline: "Across all cities:",
+      detail: `${fmt.oneDp(c.hoursPerBooking)} hours of rep time per booking.`,
+      tone: "grey",
+    };
+  }
+
+  if (c.booked === 0) {
+    if (c.leads >= MIN_LEADS) {
+      return {
+        headline: `${name} isn't converting.`,
+        detail: `${c.leads} leads and not one booking yet.`,
+        tone: "red",
+      };
+    }
+    return { headline: "Too early to judge conversion.", detail: "No bookings yet.", tone: "grey" };
+  }
+
+  const rel = (v: number | null, a: number | null) =>
+    v !== null && a !== null && a > 0 ? v / a : null;
+  const hpb = rel(c.hoursPerBooking, avg.hoursPerBooking);
+  const cpl = rel(c.costPerLead, avg.costPerLead);
+  const labourBad = hpb !== null && hpb >= LABOUR_OVER_AVG;
+  const labourGood = hpb !== null && hpb <= 1 / LABOUR_OVER_AVG;
+  const adsBad = cpl !== null && cpl >= MARKETING_OVER_AVG;
+
+  const hours = `${fmt.oneDp(c.hoursPerBooking)} hours of rep time per booking, average is ${fmt.oneDp(avg.hoursPerBooking)}.`;
+  const where =
+    labourBad && adsBad
+      ? "Both the ads and the calling cost more than average."
+      : labourBad
+        ? "The cost is in the calling."
+        : adsBad
+          ? "The cost is in the ads."
+          : "Both sides are at or under average.";
+
+  if (labourBad)
+    return { headline: `${name} is hard to convert.`, detail: `${hours} ${where}`, tone: "red" };
+  if (labourGood)
+    return { headline: `${name} is easy to convert.`, detail: `${hours} ${where}`, tone: "green" };
+  return { headline: `${name} converts about average.`, detail: `${hours} ${where}`, tone: "grey" };
+}

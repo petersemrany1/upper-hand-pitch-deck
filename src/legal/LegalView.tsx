@@ -13,7 +13,8 @@ import {
   RequireLegal,
   useLegalSession,
 } from "@/components/business/LegalConnect";
-import { LegalUserContext } from "./bridge/route";
+import { LegalContext, type LegalRouteContext } from "./runtime/context";
+import { resolveRole } from "./lib/roles";
 import "./legal.css";
 
 // Legal pages that now run natively inside the portal, keyed by the portal
@@ -81,12 +82,19 @@ function useLegalFonts() {
 // Legal pages read the signed-in Legal user from their route context.
 function LegalUser({ children }: { children: ReactNode }) {
   const { session } = useLegalSession();
-  if (!session) return null;
-  return (
-    <LegalUserContext.Provider value={session.user}>
-      {children}
-    </LegalUserContext.Provider>
-  );
+  const [ctx, setCtx] = useState<LegalRouteContext | null>(null);
+  const user = session?.user ?? null;
+  useEffect(() => {
+    if (!user) return setCtx(null);
+    let alive = true;
+    // The Legal role (admin, rep, firm...) decides what Legal pages show.
+    resolveRole().then((role) => alive && setCtx({ user, role }));
+    return () => {
+      alive = false;
+    };
+  }, [user]);
+  if (!ctx) return null;
+  return <LegalContext.Provider value={ctx}>{children}</LegalContext.Provider>;
 }
 
 export function LegalView({

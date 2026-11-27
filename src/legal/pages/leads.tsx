@@ -1,6 +1,6 @@
 // Ported from the Legal app (family-law-floater/src/routes/_authenticated/leads.tsx). Re-run the port script to refresh.
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "@/legal/runtime/router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { FileText, PhoneCall, Trash2 } from "lucide-react";
