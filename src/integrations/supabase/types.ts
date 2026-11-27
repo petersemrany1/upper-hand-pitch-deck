@@ -3468,12 +3468,6 @@ export type Database = {
         }
         Relationships: []
       }
-      personal_phone_lines: {
-        Row: { id: string; user_id: string; rep_id: string; number: string; twilio_sid: string; enabled: boolean; mms_enabled: boolean; outbound_daily_limit: number; created_at: string }
-        Insert: { id?: string; user_id: string; rep_id: string; number: string; twilio_sid: string; enabled?: boolean; mms_enabled?: boolean; outbound_daily_limit?: number; created_at?: string }
-        Update: { enabled?: boolean; outbound_daily_limit?: number }
-        Relationships: []
-      }
       phone_numbers: {
         Row: {
           call_count: number
@@ -4298,7 +4292,6 @@ export type Database = {
       }
       sms_messages: {
         Row: {
-          sender_user_id: string | null
           body: string | null
           created_at: string
           direction: string
@@ -4315,7 +4308,6 @@ export type Database = {
           twilio_message_sid: string | null
         }
         Insert: {
-          sender_user_id?: string | null
           body?: string | null
           created_at?: string
           direction: string
@@ -4332,7 +4324,6 @@ export type Database = {
           twilio_message_sid?: string | null
         }
         Update: {
-          sender_user_id?: string | null
           body?: string | null
           created_at?: string
           direction?: string
@@ -4357,12 +4348,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      sms_thread_participants: {
-        Row: { thread_id: string; user_id: string; first_involved_at: string; last_involved_at: string }
-        Insert: { thread_id: string; user_id: string; first_involved_at?: string; last_involved_at?: string }
-        Update: { last_involved_at?: string }
-        Relationships: []
       }
       sms_threads: {
         Row: {
@@ -4907,13 +4892,6 @@ export type Database = {
       }
     }
     Functions: {
-      my_involved_sms_notifications: {
-        Args: Record<PropertyKey, never>
-        Returns: { thread_id: string; phone: string; display_name: string | null; clinic_name: string | null; unread_count: number; last_message_preview: string | null; last_message_at: string }[]
-      }
-      my_personal_sms_sender: { Args: { p_mms?: boolean }; Returns: string | null }
-      ensure_sms_thread: { Args: { p_phone: string; p_local_number?: string | null }; Returns: string }
-
       ad_cost_per_show_monthly: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
