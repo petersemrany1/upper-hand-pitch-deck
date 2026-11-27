@@ -74,7 +74,18 @@ We move it in stages. Each stage is checked before the next one starts.
   table/function/bucket translation), `runtime/env.ts` (LEGAL_ settings only),
   `runtime/router.tsx` (Legal links to portal sections), `runtime/mode.ts`
   (each page reads the Legal app's database until switched to "portal").
-- Next in Stage 2: match Legal staff to their Upper Hand logins in the copied
-  data, mount Legal's API routes under `/api/public/legal/…` (disabled), copy
-  the 15 stored files, then switch the first page (Leads) to "portal" mode and
-  compare it with the Legal app. Stage 3 (accounts) with Peter after that.
+- **2026-11-28 — People matched, files copied, first screen proven.** The
+  copier matches Legal staff to portal logins by email (the admin running it is
+  linked to their own portal login even with a different email; that wins over
+  an email match). Matched: Peter (admin123@admin.com) and Bec. No portal login
+  yet: Nina (nina@bold-marketing.com.au), rep.test, solutionslanehq,
+  solotuionslanehq, and Peter's second Legal login (petersemrany1@gmail.com).
+  Stored files: 13 copied into private `legal-` buckets (12 training, 1
+  practice recording); the 2 firm-offer files can't be read with an admin
+  sign-in and still need copying. Leads tried on the copied records
+  (`/leads?biz=legal&legalData=portal`) matches the Legal app line for line
+  (228 leads). No page is switched for everyone: the copy is a snapshot, so
+  pages switch at switch-over (or once the copy is kept live).
+- Next: give Nina a portal login, then re-run the copy; try the other screens
+  with `legalData=portal`; mount Legal's API routes under `/api/public/legal/…`
+  (disabled); apply the `legal-` storage rules; Stage 3 (accounts) with Peter.
