@@ -34,6 +34,7 @@ import { Route as DashboardInboxRouteImport } from './routes/_dashboard.inbox'
 import { Route as DashboardInvoicesRouteImport } from './routes/_dashboard.invoices'
 import { Route as DashboardLeaderboardRouteImport } from './routes/_dashboard.leaderboard'
 import { Route as DashboardLeadsRouteImport } from './routes/_dashboard.leads'
+import { Route as DashboardLegalMoveRouteImport } from './routes/_dashboard.legal-move'
 import { Route as DashboardLetterCampaignRouteImport } from './routes/_dashboard.letter-campaign'
 import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
 import { Route as DashboardMetaAdsRouteImport } from './routes/_dashboard.meta-ads'
@@ -212,6 +213,11 @@ const DashboardLeaderboardRoute = DashboardLeaderboardRouteImport.update({
 const DashboardLeadsRoute = DashboardLeadsRouteImport.update({
   id: '/leads',
   path: '/leads',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardLegalMoveRoute = DashboardLegalMoveRouteImport.update({
+  id: '/legal-move',
+  path: '/legal-move',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardLetterCampaignRoute = DashboardLetterCampaignRouteImport.update({
@@ -521,6 +527,7 @@ export interface FileRoutesByFullPath {
   '/invoices': typeof DashboardInvoicesRoute
   '/leaderboard': typeof DashboardLeaderboardRoute
   '/leads': typeof DashboardLeadsRoute
+  '/legal-move': typeof DashboardLegalMoveRoute
   '/letter-campaign': typeof DashboardLetterCampaignRoute
   '/logs': typeof DashboardLogsRoute
   '/meta-ads': typeof DashboardMetaAdsRoute
@@ -595,6 +602,7 @@ export interface FileRoutesByTo {
   '/invoices': typeof DashboardInvoicesRoute
   '/leaderboard': typeof DashboardLeaderboardRoute
   '/leads': typeof DashboardLeadsRoute
+  '/legal-move': typeof DashboardLegalMoveRoute
   '/letter-campaign': typeof DashboardLetterCampaignRoute
   '/logs': typeof DashboardLogsRoute
   '/meta-ads': typeof DashboardMetaAdsRoute
@@ -671,6 +679,7 @@ export interface FileRoutesById {
   '/_dashboard/invoices': typeof DashboardInvoicesRoute
   '/_dashboard/leaderboard': typeof DashboardLeaderboardRoute
   '/_dashboard/leads': typeof DashboardLeadsRoute
+  '/_dashboard/legal-move': typeof DashboardLegalMoveRoute
   '/_dashboard/letter-campaign': typeof DashboardLetterCampaignRoute
   '/_dashboard/logs': typeof DashboardLogsRoute
   '/_dashboard/meta-ads': typeof DashboardMetaAdsRoute
@@ -749,6 +758,7 @@ export interface FileRouteTypes {
     | '/invoices'
     | '/leaderboard'
     | '/leads'
+    | '/legal-move'
     | '/letter-campaign'
     | '/logs'
     | '/meta-ads'
@@ -823,6 +833,7 @@ export interface FileRouteTypes {
     | '/invoices'
     | '/leaderboard'
     | '/leads'
+    | '/legal-move'
     | '/letter-campaign'
     | '/logs'
     | '/meta-ads'
@@ -898,6 +909,7 @@ export interface FileRouteTypes {
     | '/_dashboard/invoices'
     | '/_dashboard/leaderboard'
     | '/_dashboard/leads'
+    | '/_dashboard/legal-move'
     | '/_dashboard/letter-campaign'
     | '/_dashboard/logs'
     | '/_dashboard/meta-ads'
@@ -1160,6 +1172,13 @@ declare module '@tanstack/react-router' {
       path: '/leads'
       fullPath: '/leads'
       preLoaderRoute: typeof DashboardLeadsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/legal-move': {
+      id: '/_dashboard/legal-move'
+      path: '/legal-move'
+      fullPath: '/legal-move'
+      preLoaderRoute: typeof DashboardLegalMoveRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/letter-campaign': {
@@ -1558,6 +1577,7 @@ interface DashboardRouteChildren {
   DashboardInvoicesRoute: typeof DashboardInvoicesRoute
   DashboardLeaderboardRoute: typeof DashboardLeaderboardRoute
   DashboardLeadsRoute: typeof DashboardLeadsRoute
+  DashboardLegalMoveRoute: typeof DashboardLegalMoveRoute
   DashboardLetterCampaignRoute: typeof DashboardLetterCampaignRoute
   DashboardLogsRoute: typeof DashboardLogsRoute
   DashboardMetaAdsRoute: typeof DashboardMetaAdsRoute
@@ -1591,6 +1611,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardInvoicesRoute: DashboardInvoicesRoute,
   DashboardLeaderboardRoute: DashboardLeaderboardRoute,
   DashboardLeadsRoute: DashboardLeadsRoute,
+  DashboardLegalMoveRoute: DashboardLegalMoveRoute,
   DashboardLetterCampaignRoute: DashboardLetterCampaignRoute,
   DashboardLogsRoute: DashboardLogsRoute,
   DashboardMetaAdsRoute: DashboardMetaAdsRoute,
