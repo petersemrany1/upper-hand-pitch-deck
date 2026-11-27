@@ -1,5 +1,5 @@
 // Ported from the Legal app (family-law-floater/src/lib/client-leads.server.ts). Re-run the port script to refresh.
-// Server-only ingestion for the public client-lead webhook (/api/public/legal-client-leads).
+// Server-only ingestion for the public client-lead webhook (/api/public/legal/legal-client-leads).
 // Rule #1: never reject a request. Always return 200. Never touch `status`.
 
 import { CLIENT_INTAKE_ANSWER_ALIASES as ANSWER_ALIASES } from "./client-intake-aliases";

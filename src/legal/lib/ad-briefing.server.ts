@@ -24,7 +24,7 @@ import {
 
 // These private tables are intentionally absent from the client-generated schema.
 const db = supabaseAdmin as SupabaseClient;
-export const BRIEF_HOOK = "/api/public/hooks/ad-briefing-voice";
+export const BRIEF_HOOK = "/api/public/legal/hooks/ad-briefing-voice";
 type Settings = {
   owner_id: string;
   enabled: boolean;

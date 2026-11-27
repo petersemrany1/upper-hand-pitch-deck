@@ -71,6 +71,12 @@ const TRIAL: Record<string, PageModule> = {
   "/legal/ad-briefing": () => import("./pages/ad-briefing"),
   "/legal/handover-check": () => import("./pages/handover-check"),
   "/legal/settings": () => import("./pages/settings"),
+  "/legal/firm-portal": () => import("./pages/public/firm-portal"),
+  "/legal/firm-offer": () => import("./pages/public/firm-offer"),
+  "/legal/firm-offer-complete": () => import("./pages/public/firm-offer-complete"),
+  "/legal/deposit-confirmed": () => import("./pages/public/deposit-confirmed"),
+  "/legal/deposit-cancelled": () => import("./pages/public/deposit-cancelled"),
+  "/legal/set-password": () => import("./pages/public/set-password"),
 };
 
 function moduleFor(path: string): PageModule | undefined {

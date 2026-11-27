@@ -80,11 +80,35 @@ import { Route as ApiPublicHooksRefundNotificationsRouteImport } from './routes/
 import { Route as ApiPublicHooksSpendStaleCheckRouteImport } from './routes/api.public.hooks.spend-stale-check'
 import { Route as ApiPublicHooksStripeDepositRouteImport } from './routes/api.public.hooks.stripe-deposit'
 import { Route as ApiPublicHooksTwilioMessageStatusRouteImport } from './routes/api.public.hooks.twilio-message-status'
+import { Route as ApiPublicLegalConflictRouteImport } from './routes/api.public.legal.conflict'
+import { Route as ApiPublicLegalLegalClientLeadsRouteImport } from './routes/api.public.legal.legal-client-leads'
+import { Route as ApiPublicLegalLegalFirmLeadsRouteImport } from './routes/api.public.legal.legal-firm-leads'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api.public.payments.webhook'
 import { Route as ApiPublicSquareWebhookRouteImport } from './routes/api.public.square.webhook'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
+import { Route as ApiPublicLegalFirmOffersHooksRouteImport } from './routes/api.public.legal.firm-offers.hooks'
+import { Route as ApiPublicLegalFirmOffersSmsStatusRouteImport } from './routes/api.public.legal.firm-offers.sms-status'
+import { Route as ApiPublicLegalFirmOffersWorkerRouteImport } from './routes/api.public.legal.firm-offers.worker'
+import { Route as ApiPublicLegalFirmOffersWorkspaceRouteImport } from './routes/api.public.legal.firm-offers.workspace'
+import { Route as ApiPublicLegalHooksAdBriefingVoiceRouteImport } from './routes/api.public.legal.hooks.ad-briefing-voice'
+import { Route as ApiPublicLegalHooksAnnatureRouteImport } from './routes/api.public.legal.hooks.annature'
+import { Route as ApiPublicLegalHooksAutoAnalyseCallRouteImport } from './routes/api.public.legal.hooks.auto-analyse-call'
+import { Route as ApiPublicLegalHooksBoldStripeRouteImport } from './routes/api.public.legal.hooks.bold-stripe'
+import { Route as ApiPublicLegalHooksImportLegalMetaSpendRouteImport } from './routes/api.public.legal.hooks.import-legal-meta-spend'
+import { Route as ApiPublicLegalHooksProcessCallHooksRouteImport } from './routes/api.public.legal.hooks.process-call-hooks'
+import { Route as ApiPublicLegalHooksProspectCallTranscribedRouteImport } from './routes/api.public.legal.hooks.prospect-call-transcribed'
+import { Route as ApiPublicLegalHooksSendRemindersRouteImport } from './routes/api.public.legal.hooks.send-reminders'
+import { Route as ApiPublicLegalHooksSquareDepositRouteImport } from './routes/api.public.legal.hooks.square-deposit'
+import { Route as ApiPublicLegalHooksSyncLegalMetaSpendRouteImport } from './routes/api.public.legal.hooks.sync-legal-meta-spend'
+import { Route as ApiPublicLegalHooksTwilioRecordingRouteImport } from './routes/api.public.legal.hooks.twilio-recording'
+import { Route as ApiPublicLegalHooksTwilioSmsInboundRouteImport } from './routes/api.public.legal.hooks.twilio-sms-inbound'
+import { Route as ApiPublicLegalHooksTwilioSmsStatusRouteImport } from './routes/api.public.legal.hooks.twilio-sms-status'
+import { Route as ApiPublicLegalHooksTwilioStatusRouteImport } from './routes/api.public.legal.hooks.twilio-status'
+import { Route as ApiPublicLegalHooksTwilioVoiceInboundRouteImport } from './routes/api.public.legal.hooks.twilio-voice-inbound'
+import { Route as ApiPublicLegalHooksTwilioVoiceOutboundRouteImport } from './routes/api.public.legal.hooks.twilio-voice-outbound'
+import { Route as ApiPublicLegalFunctionsV1LegalFirmLeadsRouteImport } from './routes/api.public.legal.functions.v1.legal-firm-leads'
 
 const DashboardRoute = DashboardRouteImport.update({
   id: '/_dashboard',
@@ -478,6 +502,23 @@ const ApiPublicHooksTwilioMessageStatusRoute =
     path: '/api/public/hooks/twilio-message-status',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicLegalConflictRoute = ApiPublicLegalConflictRouteImport.update({
+  id: '/api/public/legal/conflict',
+  path: '/api/public/legal/conflict',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicLegalLegalClientLeadsRoute =
+  ApiPublicLegalLegalClientLeadsRouteImport.update({
+    id: '/api/public/legal/legal-client-leads',
+    path: '/api/public/legal/legal-client-leads',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalLegalFirmLeadsRoute =
+  ApiPublicLegalLegalFirmLeadsRouteImport.update({
+    id: '/api/public/legal/legal-firm-leads',
+    path: '/api/public/legal/legal-firm-leads',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPaymentsWebhookRoute =
   ApiPublicPaymentsWebhookRouteImport.update({
     id: '/api/public/payments/webhook',
@@ -505,6 +546,132 @@ const LovableEmailTransactionalSendRoute =
   LovableEmailTransactionalSendRouteImport.update({
     id: '/lovable/email/transactional/send',
     path: '/lovable/email/transactional/send',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalFirmOffersHooksRoute =
+  ApiPublicLegalFirmOffersHooksRouteImport.update({
+    id: '/api/public/legal/firm-offers/hooks',
+    path: '/api/public/legal/firm-offers/hooks',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalFirmOffersSmsStatusRoute =
+  ApiPublicLegalFirmOffersSmsStatusRouteImport.update({
+    id: '/api/public/legal/firm-offers/sms-status',
+    path: '/api/public/legal/firm-offers/sms-status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalFirmOffersWorkerRoute =
+  ApiPublicLegalFirmOffersWorkerRouteImport.update({
+    id: '/api/public/legal/firm-offers/worker',
+    path: '/api/public/legal/firm-offers/worker',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalFirmOffersWorkspaceRoute =
+  ApiPublicLegalFirmOffersWorkspaceRouteImport.update({
+    id: '/api/public/legal/firm-offers/workspace',
+    path: '/api/public/legal/firm-offers/workspace',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksAdBriefingVoiceRoute =
+  ApiPublicLegalHooksAdBriefingVoiceRouteImport.update({
+    id: '/api/public/legal/hooks/ad-briefing-voice',
+    path: '/api/public/legal/hooks/ad-briefing-voice',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksAnnatureRoute =
+  ApiPublicLegalHooksAnnatureRouteImport.update({
+    id: '/api/public/legal/hooks/annature',
+    path: '/api/public/legal/hooks/annature',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksAutoAnalyseCallRoute =
+  ApiPublicLegalHooksAutoAnalyseCallRouteImport.update({
+    id: '/api/public/legal/hooks/auto-analyse-call',
+    path: '/api/public/legal/hooks/auto-analyse-call',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksBoldStripeRoute =
+  ApiPublicLegalHooksBoldStripeRouteImport.update({
+    id: '/api/public/legal/hooks/bold-stripe',
+    path: '/api/public/legal/hooks/bold-stripe',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksImportLegalMetaSpendRoute =
+  ApiPublicLegalHooksImportLegalMetaSpendRouteImport.update({
+    id: '/api/public/legal/hooks/import-legal-meta-spend',
+    path: '/api/public/legal/hooks/import-legal-meta-spend',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksProcessCallHooksRoute =
+  ApiPublicLegalHooksProcessCallHooksRouteImport.update({
+    id: '/api/public/legal/hooks/process-call-hooks',
+    path: '/api/public/legal/hooks/process-call-hooks',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksProspectCallTranscribedRoute =
+  ApiPublicLegalHooksProspectCallTranscribedRouteImport.update({
+    id: '/api/public/legal/hooks/prospect-call-transcribed',
+    path: '/api/public/legal/hooks/prospect-call-transcribed',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksSendRemindersRoute =
+  ApiPublicLegalHooksSendRemindersRouteImport.update({
+    id: '/api/public/legal/hooks/send-reminders',
+    path: '/api/public/legal/hooks/send-reminders',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksSquareDepositRoute =
+  ApiPublicLegalHooksSquareDepositRouteImport.update({
+    id: '/api/public/legal/hooks/square-deposit',
+    path: '/api/public/legal/hooks/square-deposit',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksSyncLegalMetaSpendRoute =
+  ApiPublicLegalHooksSyncLegalMetaSpendRouteImport.update({
+    id: '/api/public/legal/hooks/sync-legal-meta-spend',
+    path: '/api/public/legal/hooks/sync-legal-meta-spend',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksTwilioRecordingRoute =
+  ApiPublicLegalHooksTwilioRecordingRouteImport.update({
+    id: '/api/public/legal/hooks/twilio-recording',
+    path: '/api/public/legal/hooks/twilio-recording',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksTwilioSmsInboundRoute =
+  ApiPublicLegalHooksTwilioSmsInboundRouteImport.update({
+    id: '/api/public/legal/hooks/twilio-sms-inbound',
+    path: '/api/public/legal/hooks/twilio-sms-inbound',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksTwilioSmsStatusRoute =
+  ApiPublicLegalHooksTwilioSmsStatusRouteImport.update({
+    id: '/api/public/legal/hooks/twilio-sms-status',
+    path: '/api/public/legal/hooks/twilio-sms-status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksTwilioStatusRoute =
+  ApiPublicLegalHooksTwilioStatusRouteImport.update({
+    id: '/api/public/legal/hooks/twilio-status',
+    path: '/api/public/legal/hooks/twilio-status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksTwilioVoiceInboundRoute =
+  ApiPublicLegalHooksTwilioVoiceInboundRouteImport.update({
+    id: '/api/public/legal/hooks/twilio-voice-inbound',
+    path: '/api/public/legal/hooks/twilio-voice-inbound',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalHooksTwilioVoiceOutboundRoute =
+  ApiPublicLegalHooksTwilioVoiceOutboundRouteImport.update({
+    id: '/api/public/legal/hooks/twilio-voice-outbound',
+    path: '/api/public/legal/hooks/twilio-voice-outbound',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalFunctionsV1LegalFirmLeadsRoute =
+  ApiPublicLegalFunctionsV1LegalFirmLeadsRouteImport.update({
+    id: '/api/public/legal/functions/v1/legal-firm-leads',
+    path: '/api/public/legal/functions/v1/legal-firm-leads',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -578,12 +745,36 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/spend-stale-check': typeof ApiPublicHooksSpendStaleCheckRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
+  '/api/public/legal/conflict': typeof ApiPublicLegalConflictRoute
+  '/api/public/legal/legal-client-leads': typeof ApiPublicLegalLegalClientLeadsRoute
+  '/api/public/legal/legal-firm-leads': typeof ApiPublicLegalLegalFirmLeadsRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/square/webhook': typeof ApiPublicSquareWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/training/sales-framework/': typeof DashboardTrainingSalesFrameworkIndexRoute
+  '/api/public/legal/firm-offers/hooks': typeof ApiPublicLegalFirmOffersHooksRoute
+  '/api/public/legal/firm-offers/sms-status': typeof ApiPublicLegalFirmOffersSmsStatusRoute
+  '/api/public/legal/firm-offers/worker': typeof ApiPublicLegalFirmOffersWorkerRoute
+  '/api/public/legal/firm-offers/workspace': typeof ApiPublicLegalFirmOffersWorkspaceRoute
+  '/api/public/legal/hooks/ad-briefing-voice': typeof ApiPublicLegalHooksAdBriefingVoiceRoute
+  '/api/public/legal/hooks/annature': typeof ApiPublicLegalHooksAnnatureRoute
+  '/api/public/legal/hooks/auto-analyse-call': typeof ApiPublicLegalHooksAutoAnalyseCallRoute
+  '/api/public/legal/hooks/bold-stripe': typeof ApiPublicLegalHooksBoldStripeRoute
+  '/api/public/legal/hooks/import-legal-meta-spend': typeof ApiPublicLegalHooksImportLegalMetaSpendRoute
+  '/api/public/legal/hooks/process-call-hooks': typeof ApiPublicLegalHooksProcessCallHooksRoute
+  '/api/public/legal/hooks/prospect-call-transcribed': typeof ApiPublicLegalHooksProspectCallTranscribedRoute
+  '/api/public/legal/hooks/send-reminders': typeof ApiPublicLegalHooksSendRemindersRoute
+  '/api/public/legal/hooks/square-deposit': typeof ApiPublicLegalHooksSquareDepositRoute
+  '/api/public/legal/hooks/sync-legal-meta-spend': typeof ApiPublicLegalHooksSyncLegalMetaSpendRoute
+  '/api/public/legal/hooks/twilio-recording': typeof ApiPublicLegalHooksTwilioRecordingRoute
+  '/api/public/legal/hooks/twilio-sms-inbound': typeof ApiPublicLegalHooksTwilioSmsInboundRoute
+  '/api/public/legal/hooks/twilio-sms-status': typeof ApiPublicLegalHooksTwilioSmsStatusRoute
+  '/api/public/legal/hooks/twilio-status': typeof ApiPublicLegalHooksTwilioStatusRoute
+  '/api/public/legal/hooks/twilio-voice-inbound': typeof ApiPublicLegalHooksTwilioVoiceInboundRoute
+  '/api/public/legal/hooks/twilio-voice-outbound': typeof ApiPublicLegalHooksTwilioVoiceOutboundRoute
+  '/api/public/legal/functions/v1/legal-firm-leads': typeof ApiPublicLegalFunctionsV1LegalFirmLeadsRoute
 }
 export interface FileRoutesByTo {
   '/calendar-preview': typeof CalendarPreviewRoute
@@ -654,12 +845,36 @@ export interface FileRoutesByTo {
   '/api/public/hooks/spend-stale-check': typeof ApiPublicHooksSpendStaleCheckRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
+  '/api/public/legal/conflict': typeof ApiPublicLegalConflictRoute
+  '/api/public/legal/legal-client-leads': typeof ApiPublicLegalLegalClientLeadsRoute
+  '/api/public/legal/legal-firm-leads': typeof ApiPublicLegalLegalFirmLeadsRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/square/webhook': typeof ApiPublicSquareWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/training/sales-framework': typeof DashboardTrainingSalesFrameworkIndexRoute
+  '/api/public/legal/firm-offers/hooks': typeof ApiPublicLegalFirmOffersHooksRoute
+  '/api/public/legal/firm-offers/sms-status': typeof ApiPublicLegalFirmOffersSmsStatusRoute
+  '/api/public/legal/firm-offers/worker': typeof ApiPublicLegalFirmOffersWorkerRoute
+  '/api/public/legal/firm-offers/workspace': typeof ApiPublicLegalFirmOffersWorkspaceRoute
+  '/api/public/legal/hooks/ad-briefing-voice': typeof ApiPublicLegalHooksAdBriefingVoiceRoute
+  '/api/public/legal/hooks/annature': typeof ApiPublicLegalHooksAnnatureRoute
+  '/api/public/legal/hooks/auto-analyse-call': typeof ApiPublicLegalHooksAutoAnalyseCallRoute
+  '/api/public/legal/hooks/bold-stripe': typeof ApiPublicLegalHooksBoldStripeRoute
+  '/api/public/legal/hooks/import-legal-meta-spend': typeof ApiPublicLegalHooksImportLegalMetaSpendRoute
+  '/api/public/legal/hooks/process-call-hooks': typeof ApiPublicLegalHooksProcessCallHooksRoute
+  '/api/public/legal/hooks/prospect-call-transcribed': typeof ApiPublicLegalHooksProspectCallTranscribedRoute
+  '/api/public/legal/hooks/send-reminders': typeof ApiPublicLegalHooksSendRemindersRoute
+  '/api/public/legal/hooks/square-deposit': typeof ApiPublicLegalHooksSquareDepositRoute
+  '/api/public/legal/hooks/sync-legal-meta-spend': typeof ApiPublicLegalHooksSyncLegalMetaSpendRoute
+  '/api/public/legal/hooks/twilio-recording': typeof ApiPublicLegalHooksTwilioRecordingRoute
+  '/api/public/legal/hooks/twilio-sms-inbound': typeof ApiPublicLegalHooksTwilioSmsInboundRoute
+  '/api/public/legal/hooks/twilio-sms-status': typeof ApiPublicLegalHooksTwilioSmsStatusRoute
+  '/api/public/legal/hooks/twilio-status': typeof ApiPublicLegalHooksTwilioStatusRoute
+  '/api/public/legal/hooks/twilio-voice-inbound': typeof ApiPublicLegalHooksTwilioVoiceInboundRoute
+  '/api/public/legal/hooks/twilio-voice-outbound': typeof ApiPublicLegalHooksTwilioVoiceOutboundRoute
+  '/api/public/legal/functions/v1/legal-firm-leads': typeof ApiPublicLegalFunctionsV1LegalFirmLeadsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -733,12 +948,36 @@ export interface FileRoutesById {
   '/api/public/hooks/spend-stale-check': typeof ApiPublicHooksSpendStaleCheckRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
+  '/api/public/legal/conflict': typeof ApiPublicLegalConflictRoute
+  '/api/public/legal/legal-client-leads': typeof ApiPublicLegalLegalClientLeadsRoute
+  '/api/public/legal/legal-firm-leads': typeof ApiPublicLegalLegalFirmLeadsRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/square/webhook': typeof ApiPublicSquareWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/_dashboard/training/sales-framework/': typeof DashboardTrainingSalesFrameworkIndexRoute
+  '/api/public/legal/firm-offers/hooks': typeof ApiPublicLegalFirmOffersHooksRoute
+  '/api/public/legal/firm-offers/sms-status': typeof ApiPublicLegalFirmOffersSmsStatusRoute
+  '/api/public/legal/firm-offers/worker': typeof ApiPublicLegalFirmOffersWorkerRoute
+  '/api/public/legal/firm-offers/workspace': typeof ApiPublicLegalFirmOffersWorkspaceRoute
+  '/api/public/legal/hooks/ad-briefing-voice': typeof ApiPublicLegalHooksAdBriefingVoiceRoute
+  '/api/public/legal/hooks/annature': typeof ApiPublicLegalHooksAnnatureRoute
+  '/api/public/legal/hooks/auto-analyse-call': typeof ApiPublicLegalHooksAutoAnalyseCallRoute
+  '/api/public/legal/hooks/bold-stripe': typeof ApiPublicLegalHooksBoldStripeRoute
+  '/api/public/legal/hooks/import-legal-meta-spend': typeof ApiPublicLegalHooksImportLegalMetaSpendRoute
+  '/api/public/legal/hooks/process-call-hooks': typeof ApiPublicLegalHooksProcessCallHooksRoute
+  '/api/public/legal/hooks/prospect-call-transcribed': typeof ApiPublicLegalHooksProspectCallTranscribedRoute
+  '/api/public/legal/hooks/send-reminders': typeof ApiPublicLegalHooksSendRemindersRoute
+  '/api/public/legal/hooks/square-deposit': typeof ApiPublicLegalHooksSquareDepositRoute
+  '/api/public/legal/hooks/sync-legal-meta-spend': typeof ApiPublicLegalHooksSyncLegalMetaSpendRoute
+  '/api/public/legal/hooks/twilio-recording': typeof ApiPublicLegalHooksTwilioRecordingRoute
+  '/api/public/legal/hooks/twilio-sms-inbound': typeof ApiPublicLegalHooksTwilioSmsInboundRoute
+  '/api/public/legal/hooks/twilio-sms-status': typeof ApiPublicLegalHooksTwilioSmsStatusRoute
+  '/api/public/legal/hooks/twilio-status': typeof ApiPublicLegalHooksTwilioStatusRoute
+  '/api/public/legal/hooks/twilio-voice-inbound': typeof ApiPublicLegalHooksTwilioVoiceInboundRoute
+  '/api/public/legal/hooks/twilio-voice-outbound': typeof ApiPublicLegalHooksTwilioVoiceOutboundRoute
+  '/api/public/legal/functions/v1/legal-firm-leads': typeof ApiPublicLegalFunctionsV1LegalFirmLeadsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -812,12 +1051,36 @@ export interface FileRouteTypes {
     | '/api/public/hooks/spend-stale-check'
     | '/api/public/hooks/stripe-deposit'
     | '/api/public/hooks/twilio-message-status'
+    | '/api/public/legal/conflict'
+    | '/api/public/legal/legal-client-leads'
+    | '/api/public/legal/legal-firm-leads'
     | '/api/public/payments/webhook'
     | '/api/public/square/webhook'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
     | '/training/sales-framework/'
+    | '/api/public/legal/firm-offers/hooks'
+    | '/api/public/legal/firm-offers/sms-status'
+    | '/api/public/legal/firm-offers/worker'
+    | '/api/public/legal/firm-offers/workspace'
+    | '/api/public/legal/hooks/ad-briefing-voice'
+    | '/api/public/legal/hooks/annature'
+    | '/api/public/legal/hooks/auto-analyse-call'
+    | '/api/public/legal/hooks/bold-stripe'
+    | '/api/public/legal/hooks/import-legal-meta-spend'
+    | '/api/public/legal/hooks/process-call-hooks'
+    | '/api/public/legal/hooks/prospect-call-transcribed'
+    | '/api/public/legal/hooks/send-reminders'
+    | '/api/public/legal/hooks/square-deposit'
+    | '/api/public/legal/hooks/sync-legal-meta-spend'
+    | '/api/public/legal/hooks/twilio-recording'
+    | '/api/public/legal/hooks/twilio-sms-inbound'
+    | '/api/public/legal/hooks/twilio-sms-status'
+    | '/api/public/legal/hooks/twilio-status'
+    | '/api/public/legal/hooks/twilio-voice-inbound'
+    | '/api/public/legal/hooks/twilio-voice-outbound'
+    | '/api/public/legal/functions/v1/legal-firm-leads'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/calendar-preview'
@@ -888,12 +1151,36 @@ export interface FileRouteTypes {
     | '/api/public/hooks/spend-stale-check'
     | '/api/public/hooks/stripe-deposit'
     | '/api/public/hooks/twilio-message-status'
+    | '/api/public/legal/conflict'
+    | '/api/public/legal/legal-client-leads'
+    | '/api/public/legal/legal-firm-leads'
     | '/api/public/payments/webhook'
     | '/api/public/square/webhook'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
     | '/training/sales-framework'
+    | '/api/public/legal/firm-offers/hooks'
+    | '/api/public/legal/firm-offers/sms-status'
+    | '/api/public/legal/firm-offers/worker'
+    | '/api/public/legal/firm-offers/workspace'
+    | '/api/public/legal/hooks/ad-briefing-voice'
+    | '/api/public/legal/hooks/annature'
+    | '/api/public/legal/hooks/auto-analyse-call'
+    | '/api/public/legal/hooks/bold-stripe'
+    | '/api/public/legal/hooks/import-legal-meta-spend'
+    | '/api/public/legal/hooks/process-call-hooks'
+    | '/api/public/legal/hooks/prospect-call-transcribed'
+    | '/api/public/legal/hooks/send-reminders'
+    | '/api/public/legal/hooks/square-deposit'
+    | '/api/public/legal/hooks/sync-legal-meta-spend'
+    | '/api/public/legal/hooks/twilio-recording'
+    | '/api/public/legal/hooks/twilio-sms-inbound'
+    | '/api/public/legal/hooks/twilio-sms-status'
+    | '/api/public/legal/hooks/twilio-status'
+    | '/api/public/legal/hooks/twilio-voice-inbound'
+    | '/api/public/legal/hooks/twilio-voice-outbound'
+    | '/api/public/legal/functions/v1/legal-firm-leads'
   id:
     | '__root__'
     | '/_dashboard'
@@ -966,12 +1253,36 @@ export interface FileRouteTypes {
     | '/api/public/hooks/spend-stale-check'
     | '/api/public/hooks/stripe-deposit'
     | '/api/public/hooks/twilio-message-status'
+    | '/api/public/legal/conflict'
+    | '/api/public/legal/legal-client-leads'
+    | '/api/public/legal/legal-firm-leads'
     | '/api/public/payments/webhook'
     | '/api/public/square/webhook'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
     | '/_dashboard/training/sales-framework/'
+    | '/api/public/legal/firm-offers/hooks'
+    | '/api/public/legal/firm-offers/sms-status'
+    | '/api/public/legal/firm-offers/worker'
+    | '/api/public/legal/firm-offers/workspace'
+    | '/api/public/legal/hooks/ad-briefing-voice'
+    | '/api/public/legal/hooks/annature'
+    | '/api/public/legal/hooks/auto-analyse-call'
+    | '/api/public/legal/hooks/bold-stripe'
+    | '/api/public/legal/hooks/import-legal-meta-spend'
+    | '/api/public/legal/hooks/process-call-hooks'
+    | '/api/public/legal/hooks/prospect-call-transcribed'
+    | '/api/public/legal/hooks/send-reminders'
+    | '/api/public/legal/hooks/square-deposit'
+    | '/api/public/legal/hooks/sync-legal-meta-spend'
+    | '/api/public/legal/hooks/twilio-recording'
+    | '/api/public/legal/hooks/twilio-sms-inbound'
+    | '/api/public/legal/hooks/twilio-sms-status'
+    | '/api/public/legal/hooks/twilio-status'
+    | '/api/public/legal/hooks/twilio-voice-inbound'
+    | '/api/public/legal/hooks/twilio-voice-outbound'
+    | '/api/public/legal/functions/v1/legal-firm-leads'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1002,11 +1313,35 @@ export interface RootRouteChildren {
   ApiPublicHooksSpendStaleCheckRoute: typeof ApiPublicHooksSpendStaleCheckRoute
   ApiPublicHooksStripeDepositRoute: typeof ApiPublicHooksStripeDepositRoute
   ApiPublicHooksTwilioMessageStatusRoute: typeof ApiPublicHooksTwilioMessageStatusRoute
+  ApiPublicLegalConflictRoute: typeof ApiPublicLegalConflictRoute
+  ApiPublicLegalLegalClientLeadsRoute: typeof ApiPublicLegalLegalClientLeadsRoute
+  ApiPublicLegalLegalFirmLeadsRoute: typeof ApiPublicLegalLegalFirmLeadsRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   ApiPublicSquareWebhookRoute: typeof ApiPublicSquareWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
   LovableEmailTransactionalSendRoute: typeof LovableEmailTransactionalSendRoute
+  ApiPublicLegalFirmOffersHooksRoute: typeof ApiPublicLegalFirmOffersHooksRoute
+  ApiPublicLegalFirmOffersSmsStatusRoute: typeof ApiPublicLegalFirmOffersSmsStatusRoute
+  ApiPublicLegalFirmOffersWorkerRoute: typeof ApiPublicLegalFirmOffersWorkerRoute
+  ApiPublicLegalFirmOffersWorkspaceRoute: typeof ApiPublicLegalFirmOffersWorkspaceRoute
+  ApiPublicLegalHooksAdBriefingVoiceRoute: typeof ApiPublicLegalHooksAdBriefingVoiceRoute
+  ApiPublicLegalHooksAnnatureRoute: typeof ApiPublicLegalHooksAnnatureRoute
+  ApiPublicLegalHooksAutoAnalyseCallRoute: typeof ApiPublicLegalHooksAutoAnalyseCallRoute
+  ApiPublicLegalHooksBoldStripeRoute: typeof ApiPublicLegalHooksBoldStripeRoute
+  ApiPublicLegalHooksImportLegalMetaSpendRoute: typeof ApiPublicLegalHooksImportLegalMetaSpendRoute
+  ApiPublicLegalHooksProcessCallHooksRoute: typeof ApiPublicLegalHooksProcessCallHooksRoute
+  ApiPublicLegalHooksProspectCallTranscribedRoute: typeof ApiPublicLegalHooksProspectCallTranscribedRoute
+  ApiPublicLegalHooksSendRemindersRoute: typeof ApiPublicLegalHooksSendRemindersRoute
+  ApiPublicLegalHooksSquareDepositRoute: typeof ApiPublicLegalHooksSquareDepositRoute
+  ApiPublicLegalHooksSyncLegalMetaSpendRoute: typeof ApiPublicLegalHooksSyncLegalMetaSpendRoute
+  ApiPublicLegalHooksTwilioRecordingRoute: typeof ApiPublicLegalHooksTwilioRecordingRoute
+  ApiPublicLegalHooksTwilioSmsInboundRoute: typeof ApiPublicLegalHooksTwilioSmsInboundRoute
+  ApiPublicLegalHooksTwilioSmsStatusRoute: typeof ApiPublicLegalHooksTwilioSmsStatusRoute
+  ApiPublicLegalHooksTwilioStatusRoute: typeof ApiPublicLegalHooksTwilioStatusRoute
+  ApiPublicLegalHooksTwilioVoiceInboundRoute: typeof ApiPublicLegalHooksTwilioVoiceInboundRoute
+  ApiPublicLegalHooksTwilioVoiceOutboundRoute: typeof ApiPublicLegalHooksTwilioVoiceOutboundRoute
+  ApiPublicLegalFunctionsV1LegalFirmLeadsRoute: typeof ApiPublicLegalFunctionsV1LegalFirmLeadsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1508,6 +1843,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksTwilioMessageStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/legal/conflict': {
+      id: '/api/public/legal/conflict'
+      path: '/api/public/legal/conflict'
+      fullPath: '/api/public/legal/conflict'
+      preLoaderRoute: typeof ApiPublicLegalConflictRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/legal-client-leads': {
+      id: '/api/public/legal/legal-client-leads'
+      path: '/api/public/legal/legal-client-leads'
+      fullPath: '/api/public/legal/legal-client-leads'
+      preLoaderRoute: typeof ApiPublicLegalLegalClientLeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/legal-firm-leads': {
+      id: '/api/public/legal/legal-firm-leads'
+      path: '/api/public/legal/legal-firm-leads'
+      fullPath: '/api/public/legal/legal-firm-leads'
+      preLoaderRoute: typeof ApiPublicLegalLegalFirmLeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/payments/webhook': {
       id: '/api/public/payments/webhook'
       path: '/api/public/payments/webhook'
@@ -1541,6 +1897,153 @@ declare module '@tanstack/react-router' {
       path: '/lovable/email/transactional/send'
       fullPath: '/lovable/email/transactional/send'
       preLoaderRoute: typeof LovableEmailTransactionalSendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/firm-offers/hooks': {
+      id: '/api/public/legal/firm-offers/hooks'
+      path: '/api/public/legal/firm-offers/hooks'
+      fullPath: '/api/public/legal/firm-offers/hooks'
+      preLoaderRoute: typeof ApiPublicLegalFirmOffersHooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/firm-offers/sms-status': {
+      id: '/api/public/legal/firm-offers/sms-status'
+      path: '/api/public/legal/firm-offers/sms-status'
+      fullPath: '/api/public/legal/firm-offers/sms-status'
+      preLoaderRoute: typeof ApiPublicLegalFirmOffersSmsStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/firm-offers/worker': {
+      id: '/api/public/legal/firm-offers/worker'
+      path: '/api/public/legal/firm-offers/worker'
+      fullPath: '/api/public/legal/firm-offers/worker'
+      preLoaderRoute: typeof ApiPublicLegalFirmOffersWorkerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/firm-offers/workspace': {
+      id: '/api/public/legal/firm-offers/workspace'
+      path: '/api/public/legal/firm-offers/workspace'
+      fullPath: '/api/public/legal/firm-offers/workspace'
+      preLoaderRoute: typeof ApiPublicLegalFirmOffersWorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/ad-briefing-voice': {
+      id: '/api/public/legal/hooks/ad-briefing-voice'
+      path: '/api/public/legal/hooks/ad-briefing-voice'
+      fullPath: '/api/public/legal/hooks/ad-briefing-voice'
+      preLoaderRoute: typeof ApiPublicLegalHooksAdBriefingVoiceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/annature': {
+      id: '/api/public/legal/hooks/annature'
+      path: '/api/public/legal/hooks/annature'
+      fullPath: '/api/public/legal/hooks/annature'
+      preLoaderRoute: typeof ApiPublicLegalHooksAnnatureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/auto-analyse-call': {
+      id: '/api/public/legal/hooks/auto-analyse-call'
+      path: '/api/public/legal/hooks/auto-analyse-call'
+      fullPath: '/api/public/legal/hooks/auto-analyse-call'
+      preLoaderRoute: typeof ApiPublicLegalHooksAutoAnalyseCallRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/bold-stripe': {
+      id: '/api/public/legal/hooks/bold-stripe'
+      path: '/api/public/legal/hooks/bold-stripe'
+      fullPath: '/api/public/legal/hooks/bold-stripe'
+      preLoaderRoute: typeof ApiPublicLegalHooksBoldStripeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/import-legal-meta-spend': {
+      id: '/api/public/legal/hooks/import-legal-meta-spend'
+      path: '/api/public/legal/hooks/import-legal-meta-spend'
+      fullPath: '/api/public/legal/hooks/import-legal-meta-spend'
+      preLoaderRoute: typeof ApiPublicLegalHooksImportLegalMetaSpendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/process-call-hooks': {
+      id: '/api/public/legal/hooks/process-call-hooks'
+      path: '/api/public/legal/hooks/process-call-hooks'
+      fullPath: '/api/public/legal/hooks/process-call-hooks'
+      preLoaderRoute: typeof ApiPublicLegalHooksProcessCallHooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/prospect-call-transcribed': {
+      id: '/api/public/legal/hooks/prospect-call-transcribed'
+      path: '/api/public/legal/hooks/prospect-call-transcribed'
+      fullPath: '/api/public/legal/hooks/prospect-call-transcribed'
+      preLoaderRoute: typeof ApiPublicLegalHooksProspectCallTranscribedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/send-reminders': {
+      id: '/api/public/legal/hooks/send-reminders'
+      path: '/api/public/legal/hooks/send-reminders'
+      fullPath: '/api/public/legal/hooks/send-reminders'
+      preLoaderRoute: typeof ApiPublicLegalHooksSendRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/square-deposit': {
+      id: '/api/public/legal/hooks/square-deposit'
+      path: '/api/public/legal/hooks/square-deposit'
+      fullPath: '/api/public/legal/hooks/square-deposit'
+      preLoaderRoute: typeof ApiPublicLegalHooksSquareDepositRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/sync-legal-meta-spend': {
+      id: '/api/public/legal/hooks/sync-legal-meta-spend'
+      path: '/api/public/legal/hooks/sync-legal-meta-spend'
+      fullPath: '/api/public/legal/hooks/sync-legal-meta-spend'
+      preLoaderRoute: typeof ApiPublicLegalHooksSyncLegalMetaSpendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/twilio-recording': {
+      id: '/api/public/legal/hooks/twilio-recording'
+      path: '/api/public/legal/hooks/twilio-recording'
+      fullPath: '/api/public/legal/hooks/twilio-recording'
+      preLoaderRoute: typeof ApiPublicLegalHooksTwilioRecordingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/twilio-sms-inbound': {
+      id: '/api/public/legal/hooks/twilio-sms-inbound'
+      path: '/api/public/legal/hooks/twilio-sms-inbound'
+      fullPath: '/api/public/legal/hooks/twilio-sms-inbound'
+      preLoaderRoute: typeof ApiPublicLegalHooksTwilioSmsInboundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/twilio-sms-status': {
+      id: '/api/public/legal/hooks/twilio-sms-status'
+      path: '/api/public/legal/hooks/twilio-sms-status'
+      fullPath: '/api/public/legal/hooks/twilio-sms-status'
+      preLoaderRoute: typeof ApiPublicLegalHooksTwilioSmsStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/twilio-status': {
+      id: '/api/public/legal/hooks/twilio-status'
+      path: '/api/public/legal/hooks/twilio-status'
+      fullPath: '/api/public/legal/hooks/twilio-status'
+      preLoaderRoute: typeof ApiPublicLegalHooksTwilioStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/twilio-voice-inbound': {
+      id: '/api/public/legal/hooks/twilio-voice-inbound'
+      path: '/api/public/legal/hooks/twilio-voice-inbound'
+      fullPath: '/api/public/legal/hooks/twilio-voice-inbound'
+      preLoaderRoute: typeof ApiPublicLegalHooksTwilioVoiceInboundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/hooks/twilio-voice-outbound': {
+      id: '/api/public/legal/hooks/twilio-voice-outbound'
+      path: '/api/public/legal/hooks/twilio-voice-outbound'
+      fullPath: '/api/public/legal/hooks/twilio-voice-outbound'
+      preLoaderRoute: typeof ApiPublicLegalHooksTwilioVoiceOutboundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal/functions/v1/legal-firm-leads': {
+      id: '/api/public/legal/functions/v1/legal-firm-leads'
+      path: '/api/public/legal/functions/v1/legal-firm-leads'
+      fullPath: '/api/public/legal/functions/v1/legal-firm-leads'
+      preLoaderRoute: typeof ApiPublicLegalFunctionsV1LegalFirmLeadsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -1691,11 +2194,49 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksStripeDepositRoute: ApiPublicHooksStripeDepositRoute,
   ApiPublicHooksTwilioMessageStatusRoute:
     ApiPublicHooksTwilioMessageStatusRoute,
+  ApiPublicLegalConflictRoute: ApiPublicLegalConflictRoute,
+  ApiPublicLegalLegalClientLeadsRoute: ApiPublicLegalLegalClientLeadsRoute,
+  ApiPublicLegalLegalFirmLeadsRoute: ApiPublicLegalLegalFirmLeadsRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   ApiPublicSquareWebhookRoute: ApiPublicSquareWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
   LovableEmailTransactionalSendRoute: LovableEmailTransactionalSendRoute,
+  ApiPublicLegalFirmOffersHooksRoute: ApiPublicLegalFirmOffersHooksRoute,
+  ApiPublicLegalFirmOffersSmsStatusRoute:
+    ApiPublicLegalFirmOffersSmsStatusRoute,
+  ApiPublicLegalFirmOffersWorkerRoute: ApiPublicLegalFirmOffersWorkerRoute,
+  ApiPublicLegalFirmOffersWorkspaceRoute:
+    ApiPublicLegalFirmOffersWorkspaceRoute,
+  ApiPublicLegalHooksAdBriefingVoiceRoute:
+    ApiPublicLegalHooksAdBriefingVoiceRoute,
+  ApiPublicLegalHooksAnnatureRoute: ApiPublicLegalHooksAnnatureRoute,
+  ApiPublicLegalHooksAutoAnalyseCallRoute:
+    ApiPublicLegalHooksAutoAnalyseCallRoute,
+  ApiPublicLegalHooksBoldStripeRoute: ApiPublicLegalHooksBoldStripeRoute,
+  ApiPublicLegalHooksImportLegalMetaSpendRoute:
+    ApiPublicLegalHooksImportLegalMetaSpendRoute,
+  ApiPublicLegalHooksProcessCallHooksRoute:
+    ApiPublicLegalHooksProcessCallHooksRoute,
+  ApiPublicLegalHooksProspectCallTranscribedRoute:
+    ApiPublicLegalHooksProspectCallTranscribedRoute,
+  ApiPublicLegalHooksSendRemindersRoute: ApiPublicLegalHooksSendRemindersRoute,
+  ApiPublicLegalHooksSquareDepositRoute: ApiPublicLegalHooksSquareDepositRoute,
+  ApiPublicLegalHooksSyncLegalMetaSpendRoute:
+    ApiPublicLegalHooksSyncLegalMetaSpendRoute,
+  ApiPublicLegalHooksTwilioRecordingRoute:
+    ApiPublicLegalHooksTwilioRecordingRoute,
+  ApiPublicLegalHooksTwilioSmsInboundRoute:
+    ApiPublicLegalHooksTwilioSmsInboundRoute,
+  ApiPublicLegalHooksTwilioSmsStatusRoute:
+    ApiPublicLegalHooksTwilioSmsStatusRoute,
+  ApiPublicLegalHooksTwilioStatusRoute: ApiPublicLegalHooksTwilioStatusRoute,
+  ApiPublicLegalHooksTwilioVoiceInboundRoute:
+    ApiPublicLegalHooksTwilioVoiceInboundRoute,
+  ApiPublicLegalHooksTwilioVoiceOutboundRoute:
+    ApiPublicLegalHooksTwilioVoiceOutboundRoute,
+  ApiPublicLegalFunctionsV1LegalFirmLeadsRoute:
+    ApiPublicLegalFunctionsV1LegalFirmLeadsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

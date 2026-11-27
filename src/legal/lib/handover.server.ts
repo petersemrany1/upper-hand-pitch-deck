@@ -110,10 +110,10 @@ export function renderHandoverEmail(data: HandoverData): { subject: string; html
   const clientName = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "New client";
   const intel = cleanIntelNotes(lead.call_notes, clientName);
 
-  const flagUrl = `${publicBaseUrl()}/api/public/conflict?apt=${encodeURIComponent(
+  const flagUrl = `${publicBaseUrl()}/api/public/legal/conflict?apt=${encodeURIComponent(
     data.appointmentId,
   )}&action=flag&sig=${signConflictLink(data.appointmentId, "flag")}`;
-  const clearUrl = `${publicBaseUrl()}/api/public/conflict?apt=${encodeURIComponent(
+  const clearUrl = `${publicBaseUrl()}/api/public/legal/conflict?apt=${encodeURIComponent(
     data.appointmentId,
   )}&action=clear&sig=${signConflictLink(data.appointmentId, "clear")}`;
 

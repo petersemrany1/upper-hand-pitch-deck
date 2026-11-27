@@ -1548,7 +1548,7 @@ export const sendColdSmsFn = createServerFn({ method: "POST" })
       To: to,
       From: from,
       Body: data.body,
-      StatusCallback: `${publicBaseUrl()}/api/public/hooks/twilio-sms-status`,
+      StatusCallback: `${publicBaseUrl()}/api/public/legal/hooks/twilio-sms-status`,
     });
     if (!result.ok)
       throw new Error(String(result.json["message"] ?? "Twilio could not send the text"));

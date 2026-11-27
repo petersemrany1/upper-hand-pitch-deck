@@ -82,9 +82,9 @@ export async function verifyFirmSender(options: { repair?: boolean; fresh?: bool
       "Your Bold number is routed through a Twilio application or SIP trunk. Switch its incoming message and call routing to webhooks in Twilio, then reconnect here.",
     );
   if (
-    number.sms_url !== `${base}/api/public/hooks/twilio-sms-inbound` ||
+    number.sms_url !== `${base}/api/public/legal/hooks/twilio-sms-inbound` ||
     number.sms_method !== "POST" ||
-    number.voice_url !== `${base}/api/public/hooks/twilio-voice-inbound` ||
+    number.voice_url !== `${base}/api/public/legal/hooks/twilio-voice-inbound` ||
     number.voice_method !== "POST"
   ) {
     if (!options.repair)
@@ -102,9 +102,9 @@ export async function verifyFirmSender(options: { repair?: boolean; fresh?: bool
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          SmsUrl: `${base}/api/public/hooks/twilio-sms-inbound`,
+          SmsUrl: `${base}/api/public/legal/hooks/twilio-sms-inbound`,
           SmsMethod: "POST",
-          VoiceUrl: `${base}/api/public/hooks/twilio-voice-inbound`,
+          VoiceUrl: `${base}/api/public/legal/hooks/twilio-voice-inbound`,
           VoiceMethod: "POST",
         }),
         signal: AbortSignal.timeout(10000),
@@ -218,7 +218,7 @@ export async function sendFirmText(input: {
     }
     throw new Error(insertError.message);
   }
-  const callback = new URL("/api/public/hooks/twilio-sms-status", publicBaseUrl());
+  const callback = new URL("/api/public/legal/hooks/twilio-sms-status", publicBaseUrl());
   callback.searchParams.set("firmMessageId", input.id);
   try {
     const result = await twilioForm(

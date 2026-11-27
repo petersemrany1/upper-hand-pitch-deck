@@ -3,7 +3,7 @@ import { createPublicKey, verify, type JsonWebKey } from "node:crypto";
 
 const ISSUER = "https://token.actions.githubusercontent.com";
 export const SPEND_AUDIENCE =
-  "https://boldfamilylaw.com.au/api/public/hooks/import-legal-meta-spend";
+  "https://boldfamilylaw.com.au/api/public/legal/hooks/import-legal-meta-spend";
 const REPO = "petersemrany1/family-law-floater";
 type SigningKey = JsonWebKey & { kid: string; alg?: string; use?: string };
 let cached: { keys: SigningKey[]; at: number } | undefined;

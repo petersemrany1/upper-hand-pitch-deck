@@ -23,6 +23,12 @@ export const TRIAL_PATHS: ReadonlySet<string> = new Set([
   "/legal/ad-briefing",
   "/legal/handover-check",
   "/legal/settings",
+  "/legal/firm-portal",
+  "/legal/firm-offer",
+  "/legal/firm-offer-complete",
+  "/legal/deposit-confirmed",
+  "/legal/deposit-cancelled",
+  "/legal/set-password",
 ]);
 
 export function legalTrialOn(): boolean {

@@ -29,18 +29,47 @@ def transform(text, rel):
     text=text.replace('from "@tanstack/react-router"','from "@/legal/runtime/router"')
     text=re.sub(r'''(['"])@/(?!legal/)''', r'\1@/legal/', text)
     text=text.replace('pitch-deck-root','legal-pitch-deck-root')
+    # Legal's doorbells live under /api/public/legal/… in the portal.
+    text=re.sub(r'/api/public/(?!legal/)','/api/public/legal/',text)
     return text
+ROUTES_DST='/Users/peter/Developer/upper-hand-legal/src/routes'
+def port_api_route(f, rel):
+    """routes/api/public/hooks/x.ts -> src/routes/api.public.legal.hooks.x.ts, switched off until LEGAL_LIVE."""
+    sub=rel[len('routes/'):-3]
+    url='/'+sub
+    url='/api/public/legal'+(url[len('/api/public'):] if url.startswith('/api/public/') else url)
+    name=url.strip('/').replace('/','.')+'.ts'
+    s=transform(open(f).read(),rel)
+    s=s.replace('from "@/legal/runtime/router"','from "@tanstack/react-router"')
+    s=re.sub(r'createFileRoute\("[^"]*"\)', f'createFileRoute("{url}")', s, count=1)
+    # Each handler (GET/POST/…) first checks the master switch; the route
+    # options stay a plain object so the build keeps server code server-side.
+    pat=r'((?:GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s*:\s*async\s*\([^)]*\)\s*(?::\s*[^=]+)?=>\s*\{)'
+    methods=len(re.findall(r'\b(?:GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s*:', s))
+    s,n=re.subn(pat, r'\1\n        const legalOff = legalHookOff();\n        if (legalOff) return legalOff;', s)
+    if n==0 or n!=methods: print(f'CHECK API route {rel}: wrapped {n} of {methods} handlers')
+    s='import { legalHookOff } from "@/legal/runtime/hooks";\n'+s
+    open(os.path.join(ROUTES_DST,name),'w').write(HEADER.format(rel=rel)+s)
+    return name
 copied=[]
 ALL='--all' in sys.argv
+# Legal pages outside the staff area: the firm portal and the pages clients and
+# firms reach from links (offers, deposits, set password). Copied to pages/public/.
+PUBLIC_PAGES={'firm-portal.tsx','firm-offer.tsx','firm-offer-complete.tsx',
+              'deposit-confirmed.tsx','deposit-cancelled.tsx','set-password.tsx'}
 if ALL:
-    pages=[]
+    pages=[]; public_pages=[]
     for dirpath,_,files in os.walk(SRC):
         for fn in files:
             f=os.path.join(dirpath,fn); rel=os.path.relpath(f,SRC)
             if rel in SHIMS or rel in SHELL: continue
+            if rel.startswith(('routes/api/','routes/functions/')) and rel.endswith('.ts'):
+                if port_api_route(f,rel): copied.append(rel)
+                continue
             if rel.startswith('routes/'):
                 # The staff layout (route.tsx) is the Legal app's own shell; the portal has its own.
                 if rel.startswith('routes/_authenticated/') and rel.endswith('.tsx') and rel!='routes/_authenticated/route.tsx': pages.append(rel.split('routes/_authenticated/')[1])
+                elif rel[len('routes/'):] in PUBLIC_PAGES: public_pages.append(rel[len('routes/'):])
                 continue
             out=os.path.join(DST,rel); os.makedirs(os.path.dirname(out),exist_ok=True)
             if f.endswith(('.ts','.tsx','.css')):
@@ -54,8 +83,13 @@ if ALL:
         f=os.path.join(SRC,'routes/_authenticated',page); out=os.path.join(DST,'pages',page)
         os.makedirs(os.path.dirname(out),exist_ok=True)
         open(out,'w').write(HEADER.format(rel='routes/_authenticated/'+page)+transform(open(f).read(),page))
+    for page in public_pages:
+        f=os.path.join(SRC,'routes',page); out=os.path.join(DST,'pages/public',page)
+        os.makedirs(os.path.dirname(out),exist_ok=True)
+        open(out,'w').write(HEADER.format(rel='routes/'+page)+transform(open(f).read(),page))
+    pages=pages+['public/'+p for p in public_pages]
     sys.argv=[sys.argv[0]]+pages
-    print(f'copied {len(copied)} engine files and {len(pages)} pages')
+    print(f'copied {len(copied)} engine files and {len(pages)} pages ({len(public_pages)} public)')
 for route in ([] if ALL else sys.argv[1:]):
     for f in sorted(closure(os.path.join(SRC,'routes/_authenticated',route))):
         rel=os.path.relpath(f,SRC)
