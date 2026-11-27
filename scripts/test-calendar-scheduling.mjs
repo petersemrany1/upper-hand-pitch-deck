@@ -335,6 +335,33 @@ equal(allHistory.some(e=>e.entity_type==='weekly_hours'&&e.operation==='changed'
 equal(allHistory.some(e=>e.entity_type==='hours'&&e.operation==='added'),true,'Date-specific hours recorded');
 equal(allHistory.filter(e=>e.operation==='baseline').every(e=>new Date(e.recorded_at).getTime()===new Date(historyStarted).getTime()),true,'Baselines use installation time, not invented edit times');
 
+// Boss Clinic's lock is enforced by PostgreSQL as well as the calendar UI.
+await db.exec('RESET ROLE');
+const bossId='9ac8fa05-c4b0-4faa-b519-f6a347956fb1';
+await db.query("insert into partner_clinics(id,clinic_name,state,consultation_duration_minutes,buffer_minutes) values($1,'Boss Clinic','WA',60,30)",[bossId]);
+await db.query('insert into clinic_portal_users(id,clinic_id) values($1,$2)',[uid(5),bossId]);
+await db.query("insert into clinic_trading_hours(clinic_id,day_of_week,open_time,close_time,is_closed,consult_duration_mins) select $1,n,'09:00','17:00',false,15 from generate_series(0,6) n",[bossId]);
+const preservedTables=['partner_clinics','clinic_appointments','clinic_trading_hours','clinic_blocked_slots','clinic_availability'];
+const preservedRows=async()=>Promise.all(preservedTables.map(async table=>(await db.query(`select * from ${table} order by id`)).rows));
+const beforeLock=await preservedRows();
+await db.exec(sql('20261127062329_lock_boss_clinic_timing.sql'));
+await db.exec(sql('20261127062329_lock_boss_clinic_timing.sql'));
+equal(await preservedRows(),beforeLock,'Lock installation and replay preserve all clinic/calendar rows');
+await actor(5,'clinic@fixture.test');
+await reject(save({action:'settings',consultation_minutes:90,buffer_minutes:30},undefined,bossId),/boss_clinic_consultation_buffer_locked/);
+await reject(save({action:'settings',consultation_minutes:60,buffer_minutes:0},undefined,bossId),/boss_clinic_consultation_buffer_locked/);
+const bossSchedule=await snapshot(bossId);
+await reject(save({action:'restore',configuration:{...bossSchedule,buffer_minutes:0}},undefined,bossId),/boss_clinic_consultation_buffer_locked/);
+await reject(db.query('update partner_clinics set buffer_minutes=0 where id=$1',[bossId]),/boss_clinic_consultation_buffer_locked/);
+await save({action:'settings',consultation_minutes:60,buffer_minutes:30,trading:bossSchedule.trading},undefined,bossId);
+await save({action:'block',dates:['2099-12-20'],start:'12:00',end:'13:00'},undefined,bossId);
+await save({action:'restore',configuration:bossSchedule},undefined,bossId);
+equal((await snapshot(bossId)).blocks,[],'Boss blocking and undo still work');
+await actor(1,'admin@fixture.test');
+await reject(save({action:'settings',consultation_minutes:30,buffer_minutes:30},undefined,bossId),/boss_clinic_consultation_buffer_locked/);
+await save({action:'settings',consultation_minutes:45,buffer_minutes:15},undefined,uid(11));
+equal((await snapshot(uid(11))).consultation_minutes,45,'Other clinics retain editable timing');
+
 if (nativePg) {
  await db.exec('RESET ROLE');
  const a=nativePg.getPgClient(),b=nativePg.getPgClient();await a.connect();await b.connect();
