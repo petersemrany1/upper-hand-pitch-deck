@@ -71,6 +71,13 @@
       "when": 1795743299139,
       "tag": "0009_20261127010000_involved_conversation_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795743772725,
+      "tag": "0010_restrict_staff_reference_reads",
+      "breakpoints": true
     }
   ]
 }
