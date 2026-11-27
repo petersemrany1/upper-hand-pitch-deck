@@ -57,3 +57,16 @@ We move it in stages. Each stage is checked before the next one starts.
   with its outbound actions turned off by `LEGAL_LIVE=false`.
 - The old Legal app is never changed except for read-only export functions.
 - Each stage is pushed to the preview and checked against the old app first.
+
+## Progress
+
+- **2026-11-27 — Stage 1 done.** Legal layout applied to the Hair database as
+  nine migrations (`*_legal_schema_part01..09.sql`): 76 tables, 84 functions,
+  190 policies, all triggers disabled. Legal storage buckets and their (Legal-
+  bucket-scoped) policies are generated but not yet created
+  (`generate-schema.mjs --storage`).
+- **2026-11-27 — Stage 4 first copy done.** `/legal-move` copied all 76 tables,
+  9,632 records, counts match. Re-run it any time to top up. Not yet copied:
+  the 15 stored files (firm offers, training media, a practice recording).
+- Next: Stage 2 (bring the Legal engine across, starting with the screens that
+  need no outside accounts), then Stage 3 (accounts) with Peter.
