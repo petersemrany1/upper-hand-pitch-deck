@@ -10,6 +10,20 @@ function fixture(): ClinicSchedule {
 }
 const times = (s: ClinicSchedule, date = day) => scheduleSlots(s, date).filter(x => x.available).map(x => x.time);
 const block = (s: ClinicSchedule, start = "10:30", end = "12:00") => applyScheduleCommand(s, { action: "block", dates: [day], start, end });
+test("Boss timing cannot be changed through settings or an old undo, while other calendar edits remain available", () => {
+  const boss = { ...fixture(), clinic_id: "9ac8fa05-c4b0-4faa-b519-f6a347956fb1", consultation_minutes: 60 };
+  for (const [duration, buffer] of [[30, 30], [60, 0], [90, 15]]) {
+    expect(() => applyScheduleCommand(boss, { action: "settings", consultation_minutes: duration, buffer_minutes: buffer })).toThrow("locked");
+    expect(() => applyScheduleCommand(boss, { action: "restore", configuration: { ...configurationOf(boss), consultation_minutes: duration, buffer_minutes: buffer } })).toThrow("locked");
+  }
+  const blocked = block(boss);
+  expect(blocked.blocks).toHaveLength(1);
+  const restored = applyScheduleCommand(blocked, { action: "restore", configuration: configurationOf(boss) });
+  expect(restored.blocks).toEqual(boss.blocks);
+  expect(restored.appointments).toEqual(boss.appointments);
+  expect(applyScheduleCommand(boss, { action: "settings", consultation_minutes: 60, buffer_minutes: 30 }).consultation_minutes).toBe(60);
+  expect(applyScheduleCommand(fixture(), { action: "settings", consultation_minutes: 45, buffer_minutes: 0 }).buffer_minutes).toBe(0);
+});
 test("sales slots allow the exact closing boundary and exclude appointments that finish later", () => {
   for (const [close, duration, last, tooLate] of [["17:00", 90, "15:30", "15:45"], ["16:00", 60, "15:00", "15:30"]] as const) {
     const s = fixture();

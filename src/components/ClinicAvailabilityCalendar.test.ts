@@ -49,6 +49,27 @@ test("calendar history stays accessible on phones and desktop and retries a fail
   }
 });
 
+test("Boss timing is read-only on desktop and phone while operating hours remain editable", async () => {
+  for (const width of [390, 1280]) {
+    browser.happyDOM.setWindowSize({ width, height: 844 });
+    const schedule = { ...calendarPreviewFixture(), clinic_id: "9ac8fa05-c4b0-4faa-b519-f6a347956fb1", consultation_minutes: 60 };
+    schedule.blocks = [];
+    schedule.appointments = [{ id: "boss-patient", appointment_date: "2099-10-12", appointment_time: "09:00", consultation_duration_minutes: 60 }];
+    await act(async () => root.render(h(ClinicAvailabilityCalendar, { key: width, schedule, initialDate: "2099-10-12", onSave: async () => schedule })));
+    await click(host.querySelector<HTMLButtonElement>(width < 600 ? '.availability-settings-summary' : '.availability-settings-trigger')!);
+    const duration = document.querySelector<HTMLInputElement>('[aria-label="Consultation length in minutes"]')!;
+    const buffer = document.querySelector<HTMLInputElement>('[aria-label="Buffer between patients in minutes"]')!;
+    expect(duration.value).toBe("60"); expect(duration.disabled).toBe(true);
+    expect(buffer.value).toBe("30"); expect(buffer.disabled).toBe(true);
+    expect(document.querySelector<HTMLInputElement>('.availability-operating-hours input')!.disabled).toBe(false);
+    await click(button('Cancel'));
+    await click(host.querySelector<HTMLButtonElement>(width < 600 ? '.availability-mobile-entry-buffer' : '.availability-buffer')!);
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('30-minute buffer is locked');
+    expect(button('Change buffer length')).toBeUndefined();
+    await click(document.querySelector<HTMLButtonElement>('[aria-label="Close editor"]')!);
+  }
+});
+
 test("phone layout selects the requested day and keeps all seven days reachable", async () => {
   browser.happyDOM.setWindowSize({ width: 390, height: 844 });
   const schedule = calendarPreviewFixture();
