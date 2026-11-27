@@ -103,7 +103,17 @@ We move it in stages. Each stage is checked before the next one starts.
   training; the only difference is a dashboard chart that is in the Legal
   repo but not yet published there. File access rules for `legal-` buckets
   applied (Lovable); training videos open from the portal.
-- Not yet: the firm portal and public pages (marketing, firm offers,
-  deposits); Legal's 23 API routes ("doorbells") under `/api/public/legal/…`
-  (disabled); the 2 firm-offer files; anything that phones, texts, charges or
-  emails (needs the `LEGAL_` keys, Stage 3, and stays off until switch-over).
+- **2026-11-28 (evening) — doorbells and firm portal in.** Legal's 24
+  webhook/API routes are mounted at `/api/public/legal/…` (port script,
+  `port_api_route`). Each handler first calls `legalHookOff()` and answers 503
+  until `LEGAL_LIVE=true`, checked locally for Twilio, Square, Stripe, the lead
+  form and firm offers. Legal code now builds its callback addresses
+  under `/api/public/legal/`. The firm portal and the offer, deposit and
+  set-password pages open at `/legal/…` with `?legalData=portal`. The port
+  reads the latest Legal code from a clean snapshot: `git archive origin/main`
+  of family-law-floater into `~/Developer/legal-src-snapshot`, then
+  `LEGAL_SRC=…/src python3 scripts/legal-port/port.py --all` (the local
+  family-law-floater checkout is a half-updated mix; don't port from it).
+- Not yet: Peter's ad-briefing phone call (needs websocket handlers);
+  the 2 firm-offer files; Stage 3 keys; then switch-over (firm logins, domain,
+  webhooks, cron, `LEGAL_LIVE=true`).
