@@ -12,7 +12,7 @@ function secretOk(given: string | null): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-export const Route = createFileRoute("/api/public/legal/hooks/auto-analyse-call")({
+export const Route = createFileRoute("/api/public/hooks/auto-analyse-call")({
   server: {
     handlers: {
       POST: async ({ request }) => {

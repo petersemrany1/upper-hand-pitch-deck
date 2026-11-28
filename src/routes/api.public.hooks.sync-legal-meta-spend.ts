@@ -8,7 +8,7 @@ const same = (given: string, expected: string | undefined) =>
   !!expected &&
   Buffer.byteLength(given) === Buffer.byteLength(expected) &&
   timingSafeEqual(Buffer.from(given), Buffer.from(expected));
-export const Route = createFileRoute("/api/public/legal/hooks/sync-legal-meta-spend")({
+export const Route = createFileRoute("/api/public/hooks/sync-legal-meta-spend")({
   server: {
     handlers: {
       POST: async ({ request }) => {

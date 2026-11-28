@@ -27,7 +27,7 @@ const headers = {
   "X-Robots-Tag": "noindex, nofollow",
   "X-Content-Type-Options": "nosniff",
 };
-export const Route = createFileRoute("/api/public/legal/firm-offers/workspace")({
+export const Route = createFileRoute("/api/public/firm-offers/workspace")({
   server: {
     handlers: {
       POST: async ({ request }) => {

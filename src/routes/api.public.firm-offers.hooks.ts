@@ -1,7 +1,7 @@
 // Ported from the Legal app (family-law-floater/src/routes/api/public/firm-offers/hooks.ts). Re-run the port script to refresh.
 import { legalHookOff } from "@/legal/runtime/hooks";
 import { createFileRoute } from "@tanstack/react-router";
-export const Route = createFileRoute("/api/public/legal/firm-offers/hooks")({
+export const Route = createFileRoute("/api/public/firm-offers/hooks")({
   server: {
     handlers: {
       POST: async ({ request }) => {

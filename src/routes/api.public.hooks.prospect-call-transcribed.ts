@@ -13,7 +13,7 @@ function secretOk(given: string | null): boolean {
 }
 
 /** Firm cold calls: transcribe the recording and email the handover if the call set a meeting. */
-export const Route = createFileRoute("/api/public/legal/hooks/prospect-call-transcribed")({
+export const Route = createFileRoute("/api/public/hooks/prospect-call-transcribed")({
   server: {
     handlers: {
       POST: async ({ request }) => {

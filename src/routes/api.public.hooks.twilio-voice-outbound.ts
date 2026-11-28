@@ -2,9 +2,9 @@
 import { legalHookOff } from "@/legal/runtime/hooks";
 import { createFileRoute } from "@tanstack/react-router";
 
-const PATH = "/api/public/legal/hooks/twilio-voice-outbound";
+const PATH = "/api/public/hooks/twilio-voice-outbound";
 
-export const Route = createFileRoute("/api/public/legal/hooks/twilio-voice-outbound")({
+export const Route = createFileRoute("/api/public/hooks/twilio-voice-outbound")({
   server: {
     handlers: {
       POST: async ({ request }) => {
@@ -113,8 +113,8 @@ export const Route = createFileRoute("/api/public/legal/hooks/twilio-voice-outbo
           });
         }
 
-        const statusUrl = `${base}/api/public/legal/hooks/twilio-status`;
-        const recordingUrl = `${base}/api/public/legal/hooks/twilio-recording`;
+        const statusUrl = `${base}/api/public/hooks/twilio-status`;
+        const recordingUrl = `${base}/api/public/hooks/twilio-recording`;
         const actionUrl =
           `${base}${PATH}?attempt=${attempt + 1}&exclude=${encodeURIComponent(from)}` +
           `&to=${encodeURIComponent(to)}`;

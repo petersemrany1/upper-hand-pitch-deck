@@ -135,7 +135,7 @@ export async function declineFirmCallback(ownerId: string, sid: string) {
   if (legacyError) throw new Error(legacyError.message);
 }
 export function firmVoicemailTwiml() {
-  return `<Response><Say voice="alice">Thanks for calling Bold. Our team is unavailable right now. Please leave your name and a message after the tone, and we will call you back.</Say><Record maxLength="120" playBeep="true" recordingStatusCallback="${xmlEscape(`${publicBaseUrl()}/api/public/legal/hooks/twilio-recording`)}" recordingStatusCallbackMethod="POST"/><Hangup/></Response>`;
+  return `<Response><Say voice="alice">Thanks for calling Bold. Our team is unavailable right now. Please leave your name and a message after the tone, and we will call you back.</Say><Record maxLength="120" playBeep="true" recordingStatusCallback="${xmlEscape(`${publicBaseUrl()}/api/public/hooks/twilio-recording`)}" recordingStatusCallbackMethod="POST"/><Hangup/></Response>`;
 }
 /** Called only after matching both the firm and the number it previously called. */
 export async function ringFirmCallback(applicationId: string, sid: string, phone: string) {
@@ -214,7 +214,7 @@ export async function ringFirmCallback(applicationId: string, sid: string, phone
     CallerPhone: phone,
     ParentCallSid: sid,
   };
-  const action = `${publicBaseUrl()}/api/public/legal/hooks/twilio-voice-inbound?firmCallback=complete`;
+  const action = `${publicBaseUrl()}/api/public/hooks/twilio-voice-inbound?firmCallback=complete`;
   const clients = recipients
     .map(
       (recipient) =>
@@ -225,7 +225,7 @@ export async function ringFirmCallback(applicationId: string, sid: string, phone
           .join("")}</Client>`,
     )
     .join("");
-  return `<Response><Dial answerOnBridge="true" timeout="25" record="record-from-answer-dual" recordingStatusCallback="${xmlEscape(`${publicBaseUrl()}/api/public/legal/hooks/twilio-recording`)}" recordingStatusCallbackMethod="POST" recordingStatusCallbackEvent="completed" action="${xmlEscape(action)}" method="POST">${clients}</Dial></Response>`;
+  return `<Response><Dial answerOnBridge="true" timeout="25" record="record-from-answer-dual" recordingStatusCallback="${xmlEscape(`${publicBaseUrl()}/api/public/hooks/twilio-recording`)}" recordingStatusCallbackMethod="POST" recordingStatusCallbackEvent="completed" action="${xmlEscape(action)}" method="POST">${clients}</Dial></Response>`;
 }
 /** Signed Dial action; never send an answered or explicitly declined call to voicemail. */
 export async function finishFirmCallback(params: Record<string, string>) {

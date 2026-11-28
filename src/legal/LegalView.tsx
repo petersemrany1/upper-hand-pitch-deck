@@ -15,7 +15,7 @@ import {
 } from "@/components/business/LegalConnect";
 import { LegalContext, type LegalRouteContext } from "./runtime/context";
 import { resolveRole } from "./lib/roles";
-import { legalTrialOn } from "./runtime/trial";
+import { legalTrialOn, useLegalLive } from "./runtime/trial";
 import { setLegalDataMode, type LegalDataMode } from "./runtime/mode";
 import { supabase as portalSupabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -77,6 +77,8 @@ const TRIAL: Record<string, PageModule> = {
   "/legal/deposit-confirmed": () => import("./pages/public/deposit-confirmed"),
   "/legal/deposit-cancelled": () => import("./pages/public/deposit-cancelled"),
   "/legal/set-password": () => import("./pages/public/set-password"),
+  "/legal/pay-per-show": () => import("./pages/public/pay-per-show"),
+  "/legal/portal-guide": () => import("./pages/public/portal-guide"),
 };
 
 function moduleFor(path: string): PageModule | undefined {
@@ -137,24 +139,35 @@ function useLegalFonts() {
 }
 
 // The signed-in portal user, for pages running on the copied Legal records.
-function usePortalUser(enabled: boolean): User | null {
-  const [user, setUser] = useState<User | null>(null);
+function usePortalUser(enabled: boolean): { user: User | null; checked: boolean } {
+  const [state, setState] = useState<{ user: User | null; checked: boolean }>({ user: null, checked: false });
   useEffect(() => {
     if (!enabled) return;
-    portalSupabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
-    const { data } = portalSupabase.auth.onAuthStateChange((_e, s) => setUser(s?.user ?? null));
+    portalSupabase.auth.getSession().then(({ data }) => setState({ user: data.session?.user ?? null, checked: true }));
+    const { data } = portalSupabase.auth.onAuthStateChange((_e, s) => setState({ user: s?.user ?? null, checked: true }));
     return () => data.subscription.unsubscribe();
   }, [enabled]);
-  return user;
+  return state;
 }
 
+/** Pages people reach from links without signing in (offers, deposits, guides). */
+const OPEN_PAGES = new Set([
+  "/legal/firm-offer",
+  "/legal/firm-offer-complete",
+  "/legal/deposit-confirmed",
+  "/legal/deposit-cancelled",
+  "/legal/set-password",
+  "/legal/pay-per-show",
+  "/legal/portal-guide",
+]);
+
 // Legal pages read the signed-in Legal user from their route context.
-function LegalUser({ mode, children }: { mode: LegalDataMode; children: ReactNode }) {
+function LegalUser({ mode, path, children }: { mode: LegalDataMode; path: string; children: ReactNode }) {
   const { session } = useLegalSession();
-  const portalUser = usePortalUser(mode === "portal");
+  const portal = usePortalUser(mode === "portal");
   const [ctx, setCtx] = useState<LegalRouteContext | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
-  const user = mode === "portal" ? portalUser : (session?.user ?? null);
+  const user = mode === "portal" ? portal.user : (session?.user ?? null);
   useEffect(() => {
     if (!user) return setCtx(null);
     let alive = true;
@@ -167,6 +180,20 @@ function LegalUser({ mode, children }: { mode: LegalDataMode; children: ReactNod
       alive = false;
     };
   }, [user]);
+  if (mode === "portal" && portal.checked && !user) {
+    // Signed out: open pages still work; the rest ask the person to sign in.
+    if (OPEN_PAGES.has(path)) return <>{children}</>;
+    const back = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
+    return (
+      <div className="m-6 text-sm">
+        Please{" "}
+        <a className="underline" href={`/login?redirect=${encodeURIComponent(back)}`}>
+          sign in
+        </a>{" "}
+        to continue.
+      </div>
+    );
+  }
   if (failed) return <div className="m-6 text-sm" style={{ color: "#b83232" }}>{failed}</div>;
   if (!ctx) return null;
   return <LegalContext.Provider value={ctx}>{children}</LegalContext.Provider>;
@@ -180,6 +207,7 @@ export function LegalView({
   fullscreen?: boolean;
 }) {
   useLegalFonts();
+  useLegalLive(); // re-render once we know whether the move is switched over
   const Page = pageFor(path);
   const mode = dataModeFor(path);
   // Set before the page renders so its queries reach the right database.
@@ -212,10 +240,10 @@ export function LegalView({
       className={`legal-scope flex min-h-0 flex-1 flex-col ${fullscreen ? "h-screen" : "min-h-full"}`}
     >
       {mode === "portal" ? (
-        <LegalUser mode={mode}>{body}</LegalUser>
+        <LegalUser mode={mode} path={path}>{body}</LegalUser>
       ) : (
         <RequireLegal>
-          <LegalUser mode={mode}>{body}</LegalUser>
+          <LegalUser mode={mode} path={path}>{body}</LegalUser>
         </RequireLegal>
       )}
     </div>

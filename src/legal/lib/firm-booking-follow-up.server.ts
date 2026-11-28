@@ -120,7 +120,7 @@ export async function checkFirmBookingConnections() {
     phone_number: z.string(), sms_url: z.string().nullable(), sms_method: z.string().nullable(),
     capabilities: z.object({ sms: z.boolean() }),
   })) }).parse(await response.json());
-  const expectedUrl = `${publicBaseUrl()}/api/public/legal/hooks/twilio-sms-inbound`;
+  const expectedUrl = `${publicBaseUrl()}/api/public/hooks/twilio-sms-inbound`;
   const numbers = data.incoming_phone_numbers.filter(n => n.phone_number.startsWith("+614") && n.capabilities.sms)
     .map(n => ({ number: n.phone_number, repliesConfigured: n.sms_url === expectedUrl && n.sms_method === "POST" }));
   const from = toAuE164(legalEnv["FIRM_BOOKING_SMS_FROM"]);
@@ -294,7 +294,7 @@ export async function runFirmBookingFollowUps(now = new Date()) {
         To: phone,
         From: from,
         Body: body,
-        StatusCallback: `${publicBaseUrl()}/api/public/legal/hooks/twilio-sms-status`,
+        StatusCallback: `${publicBaseUrl()}/api/public/hooks/twilio-sms-status`,
       });
       if (!result.ok || typeof result.json["sid"] !== "string" || !result.json["sid"]) {
         throw new Error(

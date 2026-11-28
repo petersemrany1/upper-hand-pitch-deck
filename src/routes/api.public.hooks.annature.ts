@@ -7,9 +7,9 @@ import { createFileRoute } from "@tanstack/react-router";
  * Annature e-signature webhook. Signature-verified (constant-time). Maps
  * recipient_viewed / envelope_completed / recipient_declined / envelope_voided
  * onto firm_contracts. Always 200 on unknown envelopes so Annature stops retrying.
- * Register in Annature → Developers → Webhooks: <APP_URL>/api/public/legal/hooks/annature
+ * Register in Annature → Developers → Webhooks: <APP_URL>/api/public/hooks/annature
  */
-export const Route = createFileRoute("/api/public/legal/hooks/annature")({
+export const Route = createFileRoute("/api/public/hooks/annature")({
   server: {
     handlers: {
       POST: async ({ request }) => {

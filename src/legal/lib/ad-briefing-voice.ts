@@ -1,7 +1,7 @@
 // Ported from the Legal app (family-law-floater/src/lib/ad-briefing-voice.ts). Re-run the port script to refresh.
 import { CALL_GREETING, escapeXml, type AdReport } from "./ad-briefing.ts";
 
-export const RELAY_PATH = "/api/public/legal/hooks/ad-briefing-relay";
+export const RELAY_PATH = "/api/public/hooks/ad-briefing-relay";
 // Lee: ElevenLabs' public middle-aged Australian male voice. Flash is selected
 // for live-call latency; 1.08x keeps the delivery brisk without rushing numbers.
 export const ELEVENLABS_VOICE = "abRFZIdN4pvo8ZPmGxHP-flash_v2_5-1.08_0.6_0.8";
@@ -10,7 +10,7 @@ export function relayTwiml(baseUrl: string, callId: string) {
   const socket = new URL(RELAY_PATH, baseUrl);
   socket.protocol = "wss:";
   socket.searchParams.set("id", callId);
-  const end = `${baseUrl}/api/public/legal/hooks/ad-briefing-voice?id=${callId}&relay-end=1`;
+  const end = `${baseUrl}/api/public/hooks/ad-briefing-voice?id=${callId}&relay-end=1`;
   return `<Response><Connect action="${escapeXml(end)}" method="POST"><ConversationRelay url="${escapeXml(socket.href)}" ttsProvider="ElevenLabs" voice="${ELEVENLABS_VOICE}" ttsLanguage="en-AU" transcriptionProvider="Google" transcriptionLanguage="en-AU" speechModel="telephony" speechTimeout="600" interruptible="any" interruptSensitivity="low" ignoreBackchannel="true" reportInputDuringAgentSpeech="dtmf" dtmfDetection="true" elevenlabsTextNormalization="on" welcomeGreetingInterruptible="none" welcomeGreeting="${escapeXml(CALL_GREETING)}" /></Connect><Hangup/></Response>`;
 }
 

@@ -25,7 +25,7 @@ async function callerOk(given: string | null): Promise<boolean> {
   return matches(given, token);
 }
 
-export const Route = createFileRoute("/api/public/legal/hooks/send-reminders")({
+export const Route = createFileRoute("/api/public/hooks/send-reminders")({
   server: {
     handlers: {
       POST: async ({ request }) => {

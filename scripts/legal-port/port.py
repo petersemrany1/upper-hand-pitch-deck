@@ -29,16 +29,17 @@ def transform(text, rel):
     text=text.replace('from "@tanstack/react-router"','from "@/legal/runtime/router"')
     text=re.sub(r'''(['"])@/(?!legal/)''', r'\1@/legal/', text)
     text=text.replace('pitch-deck-root','legal-pitch-deck-root')
-    # Legal's doorbells live under /api/public/legal/… in the portal.
-    text=re.sub(r'/api/public/(?!legal/)','/api/public/legal/',text)
     return text
 ROUTES_DST='/Users/peter/Developer/upper-hand-legal/src/routes'
 def port_api_route(f, rel):
-    """routes/api/public/hooks/x.ts -> src/routes/api.public.legal.hooks.x.ts, switched off until LEGAL_LIVE."""
-    sub=rel[len('routes/'):-3]
-    url='/'+sub
-    url='/api/public/legal'+(url[len('/api/public'):] if url.startswith('/api/public/') else url)
+    """routes/api/public/hooks/x.ts -> src/routes/api.public.hooks.x.ts, at the same address as in
+    the Legal app (no portal route uses these), so once boldfamilylaw.com.au points at this app
+    everything that rings it keeps working. Switched off until LEGAL_LIVE."""
+    url='/'+rel[len('routes/'):-3]
     name=url.strip('/').replace('/','.')+'.ts'
+    dst=os.path.join(ROUTES_DST,name)
+    if os.path.exists(dst) and not open(dst).read().startswith('// Ported from the Legal app'):
+        raise SystemExit(f'STOP: {name} is a portal route; Legal route {rel} would replace it')
     s=transform(open(f).read(),rel)
     s=s.replace('from "@/legal/runtime/router"','from "@tanstack/react-router"')
     s=re.sub(r'createFileRoute\("[^"]*"\)', f'createFileRoute("{url}")', s, count=1)
@@ -56,8 +57,12 @@ ALL='--all' in sys.argv
 # Legal pages outside the staff area: the firm portal and the pages clients and
 # firms reach from links (offers, deposits, set password). Copied to pages/public/.
 PUBLIC_PAGES={'firm-portal.tsx','firm-offer.tsx','firm-offer-complete.tsx',
-              'deposit-confirmed.tsx','deposit-cancelled.tsx','set-password.tsx'}
+              'deposit-confirmed.tsx','deposit-cancelled.tsx','set-password.tsx','pay-per-show.tsx','portal-guide.tsx'}
 if ALL:
+    # Drop earlier copies of Legal API routes (they are recreated below).
+    for fn in os.listdir(ROUTES_DST):
+        fp=os.path.join(ROUTES_DST,fn)
+        if fn.startswith(('api.','functions.')) and os.path.isfile(fp) and open(fp).read().startswith('// Ported from the Legal app'): os.remove(fp)
     pages=[]; public_pages=[]
     for dirpath,_,files in os.walk(SRC):
         for fn in files:

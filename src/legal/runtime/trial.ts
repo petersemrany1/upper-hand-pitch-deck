@@ -1,5 +1,9 @@
-// Legal screens still being moved open natively only with ?legalData=portal
-// ("try on copied records"); see src/legal/LegalView.tsx.
+// Which Legal screens open natively in the portal.
+// Before switch-over: only with ?legalData=portal ("try on copied records").
+// After switch-over (LEGAL_LIVE=true, read from /api/legal-live): every Legal
+// screen, for everyone, on this portal's records.
+import { useSyncExternalStore } from "react";
+
 export const TRIAL_PATHS: ReadonlySet<string> = new Set([
   "/sales-call",
   "/inbox",
@@ -29,8 +33,50 @@ export const TRIAL_PATHS: ReadonlySet<string> = new Set([
   "/legal/deposit-confirmed",
   "/legal/deposit-cancelled",
   "/legal/set-password",
+  "/legal/pay-per-show",
+  "/legal/portal-guide",
 ]);
 
+let live = false;
+let loaded = false;
+let loading: Promise<boolean> | null = null;
+const listeners = new Set<() => void>();
+
+/** Ask the server once whether the Legal move is switched over. */
+export function loadLegalLive(): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  loading ??= fetch("/api/legal-live", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : { live: false }))
+    .then((j: { live?: boolean }) => !!j.live)
+    .catch(() => false)
+    .then((value) => {
+      live = value;
+      loaded = true;
+      listeners.forEach((l) => l());
+      return value;
+    });
+  return loading;
+}
+
+export function legalLiveNow(): boolean {
+  return live;
+}
+
+/** True once switched over; re-renders when the answer arrives. */
+export function useLegalLive(): { live: boolean; loaded: boolean } {
+  const value = useSyncExternalStore(
+    (cb) => {
+      listeners.add(cb);
+      void loadLegalLive();
+      return () => listeners.delete(cb);
+    },
+    () => (loaded ? (live ? 2 : 1) : 0),
+    () => 0,
+  );
+  return { live: value === 2, loaded: value !== 0 };
+}
+
 export function legalTrialOn(): boolean {
+  if (live) return true;
   return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("legalData") === "portal";
 }

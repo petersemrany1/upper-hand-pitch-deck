@@ -116,7 +116,7 @@ export async function sendSmsToLead(
   const from = await claimPoolNumber();
   if (!from) return { ok: false, error: "No active number in the pool" };
 
-  const statusCallback = `${publicBaseUrl()}/api/public/legal/hooks/twilio-sms-status`;
+  const statusCallback = `${publicBaseUrl()}/api/public/hooks/twilio-sms-status`;
   const result = await twilioForm("/Messages.json", {
     To: to,
     From: from,
@@ -249,7 +249,7 @@ export async function sendBoldOfferSms(
     throw new Error("SMS test recipient is not allowlisted");
   const origin = legalEnv["BOLD_OFFER_ORIGIN"];
   if (!origin) throw new Error("Configure BOLD_OFFER_ORIGIN");
-  const callback = new URL("/api/public/legal/firm-offers/sms-status", origin);
+  const callback = new URL("/api/public/firm-offers/sms-status", origin);
   callback.searchParams.set("job", jobId);
   const result = await twilioForm(
     "/Messages.json",

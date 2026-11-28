@@ -3,8 +3,8 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { escapeXml } from "./ad-briefing.ts";
 
 export const HABOOB_VOICE_ID = "OUVPJgpVbDlN12ABdEeI";
-export const SPEECH_BRIDGE_PATH = "/api/public/legal/hooks/ad-briefing-media";
-export const SPEECH_BRAIN_PATH = "/api/public/legal/hooks/ad-briefing-speech";
+export const SPEECH_BRIDGE_PATH = "/api/public/hooks/ad-briefing-media";
+export const SPEECH_BRAIN_PATH = "/api/public/hooks/ad-briefing-speech";
 export const HABOOB_REVISION = "haboob-voice2-v1";
 
 export function speechEngineConfig(baseUrl: string, name: string) {
@@ -60,7 +60,7 @@ export function speechTwiml(baseUrl: string, callId: string) {
     /^https:/,
     "wss:",
   );
-  const end = `${baseUrl}/api/public/legal/hooks/ad-briefing-voice?id=${callId}&relay-end=1`;
+  const end = `${baseUrl}/api/public/hooks/ad-briefing-voice?id=${callId}&relay-end=1`;
   return `<Response><Connect action="${escapeXml(end)}" method="POST"><Stream url="${escapeXml(socket)}" /></Connect><Hangup/></Response>`;
 }
 

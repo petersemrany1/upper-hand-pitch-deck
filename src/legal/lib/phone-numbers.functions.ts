@@ -72,8 +72,8 @@ export const diagnosePoolNumbers = createServerFn({ method: "POST" })
       const known = new Set((rows ?? []).map((r) => r.number));
       for (const item of owned.numbers) {
         const wrongHooks =
-          !item.voiceUrl.includes("/api/public/legal/hooks/twilio-voice-inbound") ||
-          !item.smsUrl.includes("/api/public/legal/hooks/twilio-sms-inbound");
+          !item.voiceUrl.includes("/api/public/hooks/twilio-voice-inbound") ||
+          !item.smsUrl.includes("/api/public/hooks/twilio-sms-inbound");
         if (wrongHooks) await repairInboundUrls(item.sid);
         if (known.has(item.number)) continue;
         const { error } = await context.supabase

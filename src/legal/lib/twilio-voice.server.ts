@@ -10,11 +10,11 @@ const API_BASE = "https://api.twilio.com/2010-04-01";
 const TWIML_APP_NAME = "LegalGroup-Dialler";
 const TWIML_APP_SETTING = "twiml_app_sid";
 
-export const VOICE_OUTBOUND_PATH = "/api/public/legal/hooks/twilio-voice-outbound";
-export const VOICE_INBOUND_PATH = "/api/public/legal/hooks/twilio-voice-inbound";
-export const SMS_INBOUND_PATH = "/api/public/legal/hooks/twilio-sms-inbound";
-export const VOICE_STATUS_PATH = "/api/public/legal/hooks/twilio-status";
-export const VOICE_RECORDING_PATH = "/api/public/legal/hooks/twilio-recording";
+export const VOICE_OUTBOUND_PATH = "/api/public/hooks/twilio-voice-outbound";
+export const VOICE_INBOUND_PATH = "/api/public/hooks/twilio-voice-inbound";
+export const SMS_INBOUND_PATH = "/api/public/hooks/twilio-sms-inbound";
+export const VOICE_STATUS_PATH = "/api/public/hooks/twilio-status";
+export const VOICE_RECORDING_PATH = "/api/public/hooks/twilio-recording";
 
 function b64url(input: Buffer | string): string {
   return Buffer.from(input)

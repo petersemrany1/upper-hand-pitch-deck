@@ -180,7 +180,7 @@ export function verifySquareSignature(payload: string, header: string | null): b
   if (!secret || !header) return false;
   const url =
     legalEnv["SQUARE_WEBHOOK_NOTIFICATION_URL"] ||
-    `${publicBaseUrl().replace(/\/$/, "")}/api/public/legal/hooks/square-deposit`;
+    `${publicBaseUrl().replace(/\/$/, "")}/api/public/hooks/square-deposit`;
   const expected = createHmac("sha256", secret).update(`${url}${payload}`).digest("base64");
   const a = Buffer.from(expected);
   const b = Buffer.from(header);

@@ -3,9 +3,9 @@ import { legalHookOff } from "@/legal/runtime/hooks";
 import { legalEnv } from "@/legal/runtime/env";
 import { createFileRoute } from "@tanstack/react-router";
 
-const PATH = "/api/public/legal/hooks/twilio-recording";
+const PATH = "/api/public/hooks/twilio-recording";
 
-export const Route = createFileRoute("/api/public/legal/hooks/twilio-recording")({
+export const Route = createFileRoute("/api/public/hooks/twilio-recording")({
   server: {
     handlers: {
       POST: async ({ request }) => {
@@ -62,7 +62,7 @@ export const Route = createFileRoute("/api/public/legal/hooks/twilio-recording")
             if (secret) {
               try {
                 const response = await fetch(
-                  `${publicBaseUrl()}/api/public/legal/hooks/prospect-call-transcribed`,
+                  `${publicBaseUrl()}/api/public/hooks/prospect-call-transcribed`,
                   {
                     method: "POST",
                     headers: { "content-type": "application/json", "x-internal-secret": secret },
@@ -91,7 +91,7 @@ export const Route = createFileRoute("/api/public/legal/hooks/twilio-recording")
           if (secret) {
             try {
               const response = await fetch(
-                `${publicBaseUrl()}/api/public/legal/hooks/auto-analyse-call`,
+                `${publicBaseUrl()}/api/public/hooks/auto-analyse-call`,
                 {
                   method: "POST",
                   headers: { "content-type": "application/json", "x-internal-secret": secret },

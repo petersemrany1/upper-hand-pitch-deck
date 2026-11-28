@@ -7,7 +7,7 @@ import { createFileRoute } from "@tanstack/react-router";
  * and writes only the deposit/payment-reference columns — never
  * client_leads.status. Retries transient lookup and database failures instead of acknowledging lost payments.
  */
-export const Route = createFileRoute("/api/public/legal/hooks/square-deposit")({
+export const Route = createFileRoute("/api/public/hooks/square-deposit")({
   server: {
     handlers: {
       POST: async ({ request }) => {

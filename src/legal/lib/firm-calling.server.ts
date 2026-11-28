@@ -43,7 +43,7 @@ export async function firmApplicationDialTwiml(id: string, sid: string, identity
     .maybeSingle();
   if (claimError || !claimed) throw new Error("Call already started");
   const base = publicBaseUrl();
-  return `<Response><Dial callerId="${xmlEscape(from)}" record="record-from-answer-dual" answerOnBridge="true" ringTone="au" timeout="25" recordingStatusCallback="${xmlEscape(`${base}/api/public/legal/hooks/twilio-recording`)}" recordingStatusCallbackMethod="POST" recordingStatusCallbackEvent="completed"><Number statusCallback="${xmlEscape(`${base}/api/public/legal/hooks/twilio-status`)}" statusCallbackMethod="POST" statusCallbackEvent="initiated ringing answered completed">${xmlEscape(call.phone)}</Number></Dial></Response>`;
+  return `<Response><Dial callerId="${xmlEscape(from)}" record="record-from-answer-dual" answerOnBridge="true" ringTone="au" timeout="25" recordingStatusCallback="${xmlEscape(`${base}/api/public/hooks/twilio-recording`)}" recordingStatusCallbackMethod="POST" recordingStatusCallbackEvent="completed"><Number statusCallback="${xmlEscape(`${base}/api/public/hooks/twilio-status`)}" statusCallbackMethod="POST" statusCallbackEvent="initiated ringing answered completed">${xmlEscape(call.phone)}</Number></Dial></Response>`;
 }
 
 export async function applyFirmCallStatus(params: Record<string, string>) {
@@ -100,7 +100,7 @@ export async function receiveFirmRecording(params: Record<string, string>): Prom
       return true;
     }
     try {
-      const response = await fetch(`${publicBaseUrl()}/api/public/legal/hooks/auto-analyse-call`, {
+      const response = await fetch(`${publicBaseUrl()}/api/public/hooks/auto-analyse-call`, {
         method: "POST",
         headers: { "content-type": "application/json", "x-internal-secret": secret },
         body: JSON.stringify({ firmCallId: call.id }),

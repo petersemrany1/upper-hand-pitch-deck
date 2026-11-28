@@ -180,9 +180,9 @@ export async function buyAuMobileNumber(): Promise<{ number: string; sid: string
       BundleSid: bundleSid!,
       AddressSid: addressSid!,
       FriendlyName: friendlyName,
-      VoiceUrl: `${base}/api/public/legal/hooks/twilio-voice-inbound`,
+      VoiceUrl: `${base}/api/public/hooks/twilio-voice-inbound`,
       VoiceMethod: "POST",
-      SmsUrl: `${base}/api/public/legal/hooks/twilio-sms-inbound`,
+      SmsUrl: `${base}/api/public/hooks/twilio-sms-inbound`,
       SmsMethod: "POST",
     },
   });
@@ -339,9 +339,9 @@ export async function repairInboundUrls(sid: string): Promise<boolean> {
   const updated = await twilioRequest(`${API_BASE}/Accounts/${accountSid}/IncomingPhoneNumbers/${sid}.json`, {
     method: "POST",
     body: {
-      VoiceUrl: `${base}/api/public/legal/hooks/twilio-voice-inbound`,
+      VoiceUrl: `${base}/api/public/hooks/twilio-voice-inbound`,
       VoiceMethod: "POST",
-      SmsUrl: `${base}/api/public/legal/hooks/twilio-sms-inbound`,
+      SmsUrl: `${base}/api/public/hooks/twilio-sms-inbound`,
       SmsMethod: "POST",
     },
   });

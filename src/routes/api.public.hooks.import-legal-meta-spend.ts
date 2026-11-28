@@ -12,7 +12,7 @@ import {
 import { collectPages } from "@/legal/lib/collect-pages";
 import { addDays } from "@/legal/lib/reporting-period";
 
-export const Route = createFileRoute("/api/public/legal/hooks/import-legal-meta-spend")({
+export const Route = createFileRoute("/api/public/hooks/import-legal-meta-spend")({
   server: {
     handlers: {
       POST: async ({ request }) => {

@@ -7,9 +7,9 @@ import { createFileRoute } from "@tanstack/react-router";
  * Bold Marketing Stripe webhook (separate account and secret from any legacy
  * Stripe use). Handles checkout.session.completed for contract payment links;
  * idempotent on the Stripe event id. Register in the Bold Stripe dashboard:
- * <APP_URL>/api/public/legal/hooks/bold-stripe with BOLD_STRIPE_WEBHOOK_SECRET.
+ * <APP_URL>/api/public/hooks/bold-stripe with BOLD_STRIPE_WEBHOOK_SECRET.
  */
-export const Route = createFileRoute("/api/public/legal/hooks/bold-stripe")({
+export const Route = createFileRoute("/api/public/hooks/bold-stripe")({
   server: {
     handlers: {
       POST: async ({ request }) => {

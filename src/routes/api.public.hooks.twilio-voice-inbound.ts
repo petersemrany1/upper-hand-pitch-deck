@@ -2,9 +2,9 @@
 import { legalHookOff } from "@/legal/runtime/hooks";
 import { createFileRoute } from "@tanstack/react-router";
 
-const PATH = "/api/public/legal/hooks/twilio-voice-inbound";
+const PATH = "/api/public/hooks/twilio-voice-inbound";
 
-export const Route = createFileRoute("/api/public/legal/hooks/twilio-voice-inbound")({
+export const Route = createFileRoute("/api/public/hooks/twilio-voice-inbound")({
   server: {
     handlers: {
       POST: async ({ request }) => {
@@ -50,7 +50,7 @@ export const Route = createFileRoute("/api/public/legal/hooks/twilio-voice-inbou
               return twimlResponse(
                 `<Response><Say voice="alice">${xmlEscape(callbackGreeting())}</Say>` +
                   `<Record maxLength="120" playBeep="true" recordingStatusCallback="${xmlEscape(
-                    `${publicBaseUrl()}/api/public/legal/hooks/twilio-recording`,
+                    `${publicBaseUrl()}/api/public/hooks/twilio-recording`,
                   )}" recordingStatusCallbackMethod="POST"/><Hangup/></Response>`,
               );
             }
@@ -78,7 +78,7 @@ export const Route = createFileRoute("/api/public/legal/hooks/twilio-voice-inbou
         const voicemail =
           `<Say voice="alice">Thanks for calling Legal Group. Nobody is free right now, so please leave a message after the tone and we will call you straight back.</Say>` +
           `<Record maxLength="120" playBeep="true" recordingStatusCallback="${xmlEscape(
-            `${publicBaseUrl()}/api/public/legal/hooks/twilio-recording`,
+            `${publicBaseUrl()}/api/public/hooks/twilio-recording`,
           )}" recordingStatusCallbackMethod="POST"/><Hangup/>`;
 
         return twimlResponse(`<Response>${voicemail}</Response>`);

@@ -2,7 +2,7 @@
 import { legalHookOff } from "@/legal/runtime/hooks";
 import { legalEnv } from "@/legal/runtime/env";
 import { createFileRoute } from "@tanstack/react-router";
-export const Route = createFileRoute("/api/public/legal/firm-offers/worker")({
+export const Route = createFileRoute("/api/public/firm-offers/worker")({
   server: {
     handlers: {
       POST: async ({ request }) => {

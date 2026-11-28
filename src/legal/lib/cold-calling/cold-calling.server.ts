@@ -155,8 +155,8 @@ export async function prospectDialTwiml(attemptId: string, parentCallSid: string
     .eq("id", attemptId);
 
   const base = publicBaseUrl();
-  const statusUrl = `${base}/api/public/legal/hooks/twilio-status`;
-  const recordingUrl = `${base}/api/public/legal/hooks/twilio-recording`;
+  const statusUrl = `${base}/api/public/hooks/twilio-status`;
+  const recordingUrl = `${base}/api/public/hooks/twilio-recording`;
   // Every prospect call is recorded so a "Zoom set" call can be transcribed
   // and handed over to Peter by email.
   const recordAttrs = ` record="record-from-answer-dual" recordingStatusCallback="${xmlEscape(recordingUrl)}" recordingStatusCallbackMethod="POST" recordingStatusCallbackEvent="completed"`;
@@ -566,7 +566,7 @@ export async function requestTranscription(callRecordId: string): Promise<void> 
   if (recent && recent.length > 0) return; // one Whisper job at a time per recording
   await audit(db, null, "transcription_requested", null, { callRecordId });
   void import("@/legal/lib/twilio.server").then(({ publicBaseUrl }) =>
-    fetch(`${publicBaseUrl()}/api/public/legal/hooks/prospect-call-transcribed`, {
+    fetch(`${publicBaseUrl()}/api/public/hooks/prospect-call-transcribed`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-internal-secret": secret },
       body: JSON.stringify({ callRecordId }),

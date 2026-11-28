@@ -32,7 +32,7 @@ function Page() {
       /* invalid local session */
     }
     if (fragment) {
-      void fetch("/api/public/legal/firm-offers/workspace", {
+      void fetch("/api/public/firm-offers/workspace", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: fragment, action: "exchange" }),
@@ -56,7 +56,7 @@ function Page() {
       setBusy(true);
       setError("");
       try {
-        const response = await fetch("/api/public/legal/firm-offers/workspace", {
+        const response = await fetch("/api/public/firm-offers/workspace", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token, action, ...data }),

@@ -12,6 +12,7 @@ import {
 import { BusinessSwitch } from "./BusinessSwitch";
 import { LegalFrame } from "./LegalFrame";
 import { hasNativeLegalPage, LegalView } from "@/legal/LegalView";
+import { useLegalLive } from "@/legal/runtime/trial";
 
 export function useBusinessView(section: SwitchableSection | null): [BusinessView, (next: BusinessView) => void] {
   const location = useLocation();
@@ -63,6 +64,7 @@ export function BusinessSection({
 }) {
   const [view, setView] = useBusinessView(section);
   const { pathname } = useLocation();
+  useLegalLive(); // after switch-over every Legal page opens here, not in a frame
   const title = sectionTitle(section);
   // Sub-pages (training modules) open their own Legal page when there is one.
   const legalPath = hasNativeLegalPage(pathname) ? pathname : section.path;

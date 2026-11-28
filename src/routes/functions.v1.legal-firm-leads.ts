@@ -3,7 +3,7 @@ import { legalHookOff } from "@/legal/runtime/hooks";
 import { createFileRoute } from "@tanstack/react-router";
 
 // Alias so existing integrations posting to /functions/v1/legal-firm-leads keep working.
-export const Route = createFileRoute("/api/public/legal/functions/v1/legal-firm-leads")({
+export const Route = createFileRoute("/functions/v1/legal-firm-leads")({
   server: {
     handlers: {
       POST: async ({ request }) => {

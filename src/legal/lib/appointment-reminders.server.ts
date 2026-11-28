@@ -500,7 +500,7 @@ async function deliverJob(job: ReminderJob, now: Date): Promise<boolean> {
           To: to!,
           From: from!,
           Body: body,
-          StatusCallback: `${publicBaseUrl()}/api/public/legal/hooks/twilio-sms-status?appointmentReminderId=${job.id}`,
+          StatusCallback: `${publicBaseUrl()}/api/public/hooks/twilio-sms-status?appointmentReminderId=${job.id}`,
         }),
         signal: AbortSignal.timeout(15000),
       },

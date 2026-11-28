@@ -9,6 +9,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { NotificationsProvider } from "@/hooks/useNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { TAB_TO_URL, type TabKey } from "@/lib/tab-access";
 import { sectionForPath } from "@/lib/business";
 import { BusinessSection } from "@/components/business/BusinessSection";
@@ -71,6 +72,26 @@ function DashboardLayout() {
     if (userType === "clinic") {
       navigate({ to: "/clinic-portal", replace: true });
     }
+  }, [ready, session, userType, navigate]);
+
+  // Law firm logins (Legal Group's partner firms) have no portal role: once
+  // the Legal move is switched over, send them to their firm portal.
+  useEffect(() => {
+    if (!ready || !session || userType !== "unknown") return;
+    let alive = true;
+    const timer = setTimeout(async () => {
+      const { loadLegalLive } = await import("@/legal/runtime/trial");
+      if (!(await loadLegalLive()) || !alive) return;
+      const { data } = await (supabase.rpc as unknown as (fn: string) => Promise<{ data: unknown }>)(
+        "legal_current_portal_access",
+      );
+      const access = data as { isStaff?: boolean; firmId?: string | null } | null;
+      if (alive && access && !access.isStaff && access.firmId) navigate({ to: "/firm-portal" as never, replace: true });
+    }, 1500);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
   }, [ready, session, userType, navigate]);
 
   // Per-user tab access enforcement. Admins bypass (allowedTabs covers all).

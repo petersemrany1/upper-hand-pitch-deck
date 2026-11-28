@@ -13,7 +13,7 @@ function page(title: string, message: string, tone: "ok" | "warn" | "error"): Re
   );
 }
 
-export const Route = createFileRoute("/api/public/legal/conflict")({
+export const Route = createFileRoute("/api/public/conflict")({
   server: {
     handlers: {
       GET: async ({ request }) => {

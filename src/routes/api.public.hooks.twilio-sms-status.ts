@@ -2,9 +2,9 @@
 import { legalHookOff } from "@/legal/runtime/hooks";
 import { createFileRoute } from "@tanstack/react-router";
 
-const PATH = "/api/public/legal/hooks/twilio-sms-status";
+const PATH = "/api/public/hooks/twilio-sms-status";
 
-export const Route = createFileRoute("/api/public/legal/hooks/twilio-sms-status")({
+export const Route = createFileRoute("/api/public/hooks/twilio-sms-status")({
   server: {
     handlers: {
       POST: async ({ request }) => {

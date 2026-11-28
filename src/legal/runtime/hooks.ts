@@ -1,5 +1,5 @@
-// Legal's "doorbells" (webhooks and public API routes) are mounted under
-// /api/public/legal/… but answer only once the move is switched over: until
+// Legal's "doorbells" (webhooks and public API routes) are mounted at the
+// same addresses as in the Legal app but answer only once the move is switched over: until
 // LEGAL_LIVE=true every request gets a 503 and nothing runs. Twilio, Square,
 // Stripe, Annature and the lead forms keep ringing the Legal app until then.
 export function legalLive(): boolean {
