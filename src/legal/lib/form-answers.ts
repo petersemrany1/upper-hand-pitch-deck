@@ -67,7 +67,9 @@ function answerText(value: unknown): string | null {
   if (typeof value === "object") return null;
   const s = String(value).replace(/ /g, " ").trim();
   if (!s) return null;
-  if (/^[a-z0-9]+(_[a-z0-9]+)+$/.test(s)) return questionLabel(s);
+  // Option slugs: no spaces, words joined by underscores — including ones with
+  // punctuation like "(house,_super)" or "$750k" ("if_me_and_my_ex_sold…").
+  if (!/\s|@|\/|^\+?\d+$/.test(s) && /[a-z0-9)'’,]_[a-z0-9($'’]/i.test(s)) return questionLabel(s);
   return s;
 }
 
