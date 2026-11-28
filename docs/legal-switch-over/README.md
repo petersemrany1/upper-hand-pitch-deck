@@ -77,3 +77,25 @@ Remove `LEGAL_LIVE` (or set it to false) and publish: the Hair app goes back to
 showing the old app. Move the domain back to the Legal project, re-enable the old
 jobs (`cron.alter_job(jobid, active := true)`), and change the two Twilio numbers
 back. Records created in the Hair app meanwhile stay in its `legal_` tables.
+
+## Switch-over log, 28 Nov 2026
+
+- Final copy: 76 tables, 9,659 records, counts match; 13 stored files; 8 law
+  firm logins created (no emails sent).
+- Hair secrets: `LEGAL_LIVE=true`, `LEGAL_FIRM_BOOKING_SMS_ENABLED=true`,
+  `LEGAL_FIRM_BOOKING_SMS_FROM=+61495051956` (the number Legal already texts
+  firms from). Handover link and internal secrets are derived by the app.
+  Stripe isn't used.
+- Hair app published; boldfamilylaw.com.au (and www) moved from the Legal
+  project to the Hair project. It is **not** the Hair project's main address,
+  so hairtransplantgroup.lovable.app doesn't redirect. Lovable suggests updating
+  the GoDaddy A record to 185.41.148.252 (works for now on the old IP).
+- Twilio: all 6 Legal numbers ring boldfamilylaw.com.au.
+- Hair database: 62 Legal automations on, 6 tables streaming live updates.
+  Timed jobs are Lovable managed schedules, because Cloud won't take hand-written
+  HTTP cron. They ring `/api/public/legal-cron/*`, which check the scheduler's
+  signature and pass the call to Legal's doorbell with the app's internal
+  secret. The old app's 4 jobs are paused.
+- Still open: Square and Annature signing keys (Peter); the 2 Annature
+  endpoints still point at family-law-floater.lovable.app; a test call and
+  text; firm set-password emails.
