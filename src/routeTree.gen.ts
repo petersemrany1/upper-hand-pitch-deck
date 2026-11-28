@@ -120,6 +120,9 @@ import { Route as ApiPublicHooksTwilioSmsStatusRouteImport } from './routes/api.
 import { Route as ApiPublicHooksTwilioStatusRouteImport } from './routes/api.public.hooks.twilio-status'
 import { Route as ApiPublicHooksTwilioVoiceInboundRouteImport } from './routes/api.public.hooks.twilio-voice-inbound'
 import { Route as ApiPublicHooksTwilioVoiceOutboundRouteImport } from './routes/api.public.hooks.twilio-voice-outbound'
+import { Route as ApiPublicLegalCronFirmBookingFollowUpsRouteImport } from './routes/api.public.legal-cron.firm-booking-follow-ups'
+import { Route as ApiPublicLegalCronQualifiedClientCallHooksRouteImport } from './routes/api.public.legal-cron.qualified-client-call-hooks'
+import { Route as ApiPublicLegalCronSendAppointmentRemindersRouteImport } from './routes/api.public.legal-cron.send-appointment-reminders'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api.public.payments.webhook'
 import { Route as ApiPublicSquareWebhookRouteImport } from './routes/api.public.square.webhook'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
@@ -740,6 +743,24 @@ const ApiPublicHooksTwilioVoiceOutboundRoute =
     path: '/api/public/hooks/twilio-voice-outbound',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicLegalCronFirmBookingFollowUpsRoute =
+  ApiPublicLegalCronFirmBookingFollowUpsRouteImport.update({
+    id: '/api/public/legal-cron/firm-booking-follow-ups',
+    path: '/api/public/legal-cron/firm-booking-follow-ups',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalCronQualifiedClientCallHooksRoute =
+  ApiPublicLegalCronQualifiedClientCallHooksRouteImport.update({
+    id: '/api/public/legal-cron/qualified-client-call-hooks',
+    path: '/api/public/legal-cron/qualified-client-call-hooks',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLegalCronSendAppointmentRemindersRoute =
+  ApiPublicLegalCronSendAppointmentRemindersRouteImport.update({
+    id: '/api/public/legal-cron/send-appointment-reminders',
+    path: '/api/public/legal-cron/send-appointment-reminders',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPaymentsWebhookRoute =
   ApiPublicPaymentsWebhookRouteImport.update({
     id: '/api/public/payments/webhook',
@@ -880,6 +901,9 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/twilio-status': typeof ApiPublicHooksTwilioStatusRoute
   '/api/public/hooks/twilio-voice-inbound': typeof ApiPublicHooksTwilioVoiceInboundRoute
   '/api/public/hooks/twilio-voice-outbound': typeof ApiPublicHooksTwilioVoiceOutboundRoute
+  '/api/public/legal-cron/firm-booking-follow-ups': typeof ApiPublicLegalCronFirmBookingFollowUpsRoute
+  '/api/public/legal-cron/qualified-client-call-hooks': typeof ApiPublicLegalCronQualifiedClientCallHooksRoute
+  '/api/public/legal-cron/send-appointment-reminders': typeof ApiPublicLegalCronSendAppointmentRemindersRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/square/webhook': typeof ApiPublicSquareWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -996,6 +1020,9 @@ export interface FileRoutesByTo {
   '/api/public/hooks/twilio-status': typeof ApiPublicHooksTwilioStatusRoute
   '/api/public/hooks/twilio-voice-inbound': typeof ApiPublicHooksTwilioVoiceInboundRoute
   '/api/public/hooks/twilio-voice-outbound': typeof ApiPublicHooksTwilioVoiceOutboundRoute
+  '/api/public/legal-cron/firm-booking-follow-ups': typeof ApiPublicLegalCronFirmBookingFollowUpsRoute
+  '/api/public/legal-cron/qualified-client-call-hooks': typeof ApiPublicLegalCronQualifiedClientCallHooksRoute
+  '/api/public/legal-cron/send-appointment-reminders': typeof ApiPublicLegalCronSendAppointmentRemindersRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/square/webhook': typeof ApiPublicSquareWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -1115,6 +1142,9 @@ export interface FileRoutesById {
   '/api/public/hooks/twilio-status': typeof ApiPublicHooksTwilioStatusRoute
   '/api/public/hooks/twilio-voice-inbound': typeof ApiPublicHooksTwilioVoiceInboundRoute
   '/api/public/hooks/twilio-voice-outbound': typeof ApiPublicHooksTwilioVoiceOutboundRoute
+  '/api/public/legal-cron/firm-booking-follow-ups': typeof ApiPublicLegalCronFirmBookingFollowUpsRoute
+  '/api/public/legal-cron/qualified-client-call-hooks': typeof ApiPublicLegalCronQualifiedClientCallHooksRoute
+  '/api/public/legal-cron/send-appointment-reminders': typeof ApiPublicLegalCronSendAppointmentRemindersRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/square/webhook': typeof ApiPublicSquareWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -1234,6 +1264,9 @@ export interface FileRouteTypes {
     | '/api/public/hooks/twilio-status'
     | '/api/public/hooks/twilio-voice-inbound'
     | '/api/public/hooks/twilio-voice-outbound'
+    | '/api/public/legal-cron/firm-booking-follow-ups'
+    | '/api/public/legal-cron/qualified-client-call-hooks'
+    | '/api/public/legal-cron/send-appointment-reminders'
     | '/api/public/payments/webhook'
     | '/api/public/square/webhook'
     | '/lovable/email/queue/process'
@@ -1350,6 +1383,9 @@ export interface FileRouteTypes {
     | '/api/public/hooks/twilio-status'
     | '/api/public/hooks/twilio-voice-inbound'
     | '/api/public/hooks/twilio-voice-outbound'
+    | '/api/public/legal-cron/firm-booking-follow-ups'
+    | '/api/public/legal-cron/qualified-client-call-hooks'
+    | '/api/public/legal-cron/send-appointment-reminders'
     | '/api/public/payments/webhook'
     | '/api/public/square/webhook'
     | '/lovable/email/queue/process'
@@ -1468,6 +1504,9 @@ export interface FileRouteTypes {
     | '/api/public/hooks/twilio-status'
     | '/api/public/hooks/twilio-voice-inbound'
     | '/api/public/hooks/twilio-voice-outbound'
+    | '/api/public/legal-cron/firm-booking-follow-ups'
+    | '/api/public/legal-cron/qualified-client-call-hooks'
+    | '/api/public/legal-cron/send-appointment-reminders'
     | '/api/public/payments/webhook'
     | '/api/public/square/webhook'
     | '/lovable/email/queue/process'
@@ -1544,6 +1583,9 @@ export interface RootRouteChildren {
   ApiPublicHooksTwilioStatusRoute: typeof ApiPublicHooksTwilioStatusRoute
   ApiPublicHooksTwilioVoiceInboundRoute: typeof ApiPublicHooksTwilioVoiceInboundRoute
   ApiPublicHooksTwilioVoiceOutboundRoute: typeof ApiPublicHooksTwilioVoiceOutboundRoute
+  ApiPublicLegalCronFirmBookingFollowUpsRoute: typeof ApiPublicLegalCronFirmBookingFollowUpsRoute
+  ApiPublicLegalCronQualifiedClientCallHooksRoute: typeof ApiPublicLegalCronQualifiedClientCallHooksRoute
+  ApiPublicLegalCronSendAppointmentRemindersRoute: typeof ApiPublicLegalCronSendAppointmentRemindersRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   ApiPublicSquareWebhookRoute: typeof ApiPublicSquareWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -2330,6 +2372,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksTwilioVoiceOutboundRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/legal-cron/firm-booking-follow-ups': {
+      id: '/api/public/legal-cron/firm-booking-follow-ups'
+      path: '/api/public/legal-cron/firm-booking-follow-ups'
+      fullPath: '/api/public/legal-cron/firm-booking-follow-ups'
+      preLoaderRoute: typeof ApiPublicLegalCronFirmBookingFollowUpsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal-cron/qualified-client-call-hooks': {
+      id: '/api/public/legal-cron/qualified-client-call-hooks'
+      path: '/api/public/legal-cron/qualified-client-call-hooks'
+      fullPath: '/api/public/legal-cron/qualified-client-call-hooks'
+      preLoaderRoute: typeof ApiPublicLegalCronQualifiedClientCallHooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/legal-cron/send-appointment-reminders': {
+      id: '/api/public/legal-cron/send-appointment-reminders'
+      path: '/api/public/legal-cron/send-appointment-reminders'
+      fullPath: '/api/public/legal-cron/send-appointment-reminders'
+      preLoaderRoute: typeof ApiPublicLegalCronSendAppointmentRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/payments/webhook': {
       id: '/api/public/payments/webhook'
       path: '/api/public/payments/webhook'
@@ -2556,6 +2619,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksTwilioVoiceInboundRoute: ApiPublicHooksTwilioVoiceInboundRoute,
   ApiPublicHooksTwilioVoiceOutboundRoute:
     ApiPublicHooksTwilioVoiceOutboundRoute,
+  ApiPublicLegalCronFirmBookingFollowUpsRoute:
+    ApiPublicLegalCronFirmBookingFollowUpsRoute,
+  ApiPublicLegalCronQualifiedClientCallHooksRoute:
+    ApiPublicLegalCronQualifiedClientCallHooksRoute,
+  ApiPublicLegalCronSendAppointmentRemindersRoute:
+    ApiPublicLegalCronSendAppointmentRemindersRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   ApiPublicSquareWebhookRoute: ApiPublicSquareWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
