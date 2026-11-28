@@ -34,6 +34,17 @@ const source = (): Record<string, string | undefined> => {
     // Timed jobs here (Lovable's scheduler) sign with this app's own internal
     // secret, so Legal's doorbells accept it too.
     if (env.INTERNAL_FUNCTION_SECRET) derived.LEGAL_INTERNAL_FUNCTION_SECRET = env.INTERNAL_FUNCTION_SECRET;
+    // Legal and Hair share one Twilio account: browser calling signs its tokens
+    // with this app's proven API key pair rather than a separately pasted one.
+    const sameTwilio = !!env.TWILIO_ACCOUNT_SID && env.LEGAL_TWILIO_ACCOUNT_SID === env.TWILIO_ACCOUNT_SID;
+    if (sameTwilio && env.TWILIO_API_KEY_SID && env.TWILIO_API_KEY_SECRET)
+      return {
+        ...DEFAULTS,
+        ...derived,
+        ...env,
+        LEGAL_TWILIO_API_KEY_SID: env.TWILIO_API_KEY_SID,
+        LEGAL_TWILIO_API_KEY_SECRET: env.TWILIO_API_KEY_SECRET,
+      };
     return { ...DEFAULTS, ...derived, ...env };
   }
   return Object.fromEntries(Object.entries(env).filter(([k]) => PASSTHROUGH.has(k) || k === "LEGAL_LIVE"));
