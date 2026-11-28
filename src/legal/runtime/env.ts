@@ -28,7 +28,12 @@ const source = (): Record<string, string | undefined> => {
   if (/^\s*(true|1|yes|on)\s*$/i.test(env.LEGAL_LIVE ?? "")) {
     // Signs the conflict links in firm handover emails. Without its own value,
     // it's derived from this app's server key (never sent to browsers).
-    const derived = env.SUPABASE_SERVICE_ROLE_KEY ? { LEGAL_HANDOVER_LINK_SECRET: `legal-handover:${env.SUPABASE_SERVICE_ROLE_KEY}` } : {};
+    const derived: Record<string, string> = env.SUPABASE_SERVICE_ROLE_KEY
+      ? { LEGAL_HANDOVER_LINK_SECRET: `legal-handover:${env.SUPABASE_SERVICE_ROLE_KEY}` }
+      : {};
+    // Timed jobs here (Lovable's scheduler) sign with this app's own internal
+    // secret, so Legal's doorbells accept it too.
+    if (env.INTERNAL_FUNCTION_SECRET) derived.LEGAL_INTERNAL_FUNCTION_SECRET = env.INTERNAL_FUNCTION_SECRET;
     return { ...DEFAULTS, ...derived, ...env };
   }
   return Object.fromEntries(Object.entries(env).filter(([k]) => PASSTHROUGH.has(k) || k === "LEGAL_LIVE"));
