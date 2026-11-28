@@ -114,6 +114,10 @@ We move it in stages. Each stage is checked before the next one starts.
   of family-law-floater into `~/Developer/legal-src-snapshot`, then
   `LEGAL_SRC=…/src python3 scripts/legal-port/port.py --all` (the local
   family-law-floater checkout is a half-updated mix; don't port from it).
+- **2026-11-28 — Stage 3 keys (part 1).** Legal code can't see any `LEGAL_` key until
+  `LEGAL_LIVE=true` (`runtime/env.ts`). Peter added the 17 company keys to the
+  Hair project (see `docs/legal-keys-checklist.md`). Still to set: webhook signing
+  keys (switch-over), Legal settings values, and the shared link secrets.
 - Not yet: Peter's ad-briefing phone call (needs websocket handlers);
   the 2 firm-offer files; Stage 3 keys; then switch-over (firm logins, domain,
   webhooks, cron, `LEGAL_LIVE=true`).

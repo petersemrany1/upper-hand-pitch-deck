@@ -11,6 +11,8 @@ text, call, email, charge or spend anything.
 
 ## 1. Peter gets these from each company (a new key is fine)
 
+**Done 2026-11-28:** all 17 saved in the Hair project's Secrets (names checked; `LEGAL_LIVE` not set).
+
 | Company | Where | Hair secret name(s) |
 |---|---|---|
 | Twilio (Legal account) | console.twilio.com > Account info; API keys > Create | `LEGAL_TWILIO_ACCOUNT_SID`, `LEGAL_TWILIO_AUTH_TOKEN`, `LEGAL_TWILIO_API_KEY_SID`, `LEGAL_TWILIO_API_KEY_SECRET` |
