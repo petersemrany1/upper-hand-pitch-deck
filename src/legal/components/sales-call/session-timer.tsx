@@ -76,7 +76,7 @@ export function SessionTimer({ sessionId, startedAt }: { sessionId: string; star
         <span className="text-xs text-muted-foreground">
           {paused ? "On break" : "Session time"}
         </span>
-        <span className="font-mono text-sm font-semibold tabular-nums">
+        <span className="text-sm font-semibold tabular-nums">
           {formatDuration(Math.max(0, Math.floor(elapsedMs / 1000)))}
         </span>
       </div>
