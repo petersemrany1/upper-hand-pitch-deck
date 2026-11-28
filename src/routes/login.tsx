@@ -105,8 +105,8 @@ function LoginPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-semibold text-[#111111] transition active:scale-[0.99] disabled:opacity-50"
-            style={{ background: "#f4522d" }}
+            className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-semibold transition active:scale-[0.99] disabled:opacity-50"
+            style={legal ? { background: "oklch(0.5 0.28 268)", color: "#ffffff" } : { background: "#f4522d", color: "#111111" }}
           >
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
             Sign in

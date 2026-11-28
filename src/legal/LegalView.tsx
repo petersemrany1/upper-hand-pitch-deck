@@ -23,7 +23,7 @@ import "./legal.css";
 
 // Legal pages that now run natively inside the portal, keyed by the portal
 // section path. Sections not listed here still open the Legal app in a frame.
-const NATIVE: Record<string, () => Promise<{ LegalPage: ComponentType }>> = {
+const NATIVE: Record<string, PageModule> = {
   "/leads": () => import("./pages/leads"),
   "/pitch-deck": () => import("./pages/pitch-deck"),
   "/leaderboard": () => import("./pages/leaderboard"),
@@ -43,7 +43,42 @@ function dataModeFor(path: string): LegalDataMode {
   return "legal";
 }
 
-type PageModule = () => Promise<{ LegalPage: ComponentType }>;
+type HeadFn = () => { meta?: Array<Record<string, unknown>>; links?: Array<Record<string, string>> };
+type PageModule = () => Promise<{ LegalPage: ComponentType; Route?: { options?: unknown } }>;
+
+// Legal pages declare their tab title and own stylesheets in their route's
+// head(); the portal doesn't register them as routes, so apply it here.
+function withHead(Page: ComponentType, head?: HeadFn): ComponentType {
+  if (!head) return Page;
+  function LegalPageWithHead() {
+    useEffect(() => {
+      let h: ReturnType<HeadFn>;
+      try {
+        h = head!();
+      } catch {
+        return;
+      }
+      const added: HTMLLinkElement[] = [];
+      for (const l of h.links ?? []) {
+        if (!l.href || document.querySelector(`link[data-legal-head][href="${l.href}"]`)) continue;
+        const el = document.createElement("link");
+        for (const [k, v] of Object.entries(l)) el.setAttribute(k === "crossOrigin" ? "crossorigin" : k, v);
+        el.setAttribute("data-legal-head", "");
+        document.head.appendChild(el);
+        added.push(el);
+      }
+      const title = (h.meta ?? []).find((m) => typeof m.title === "string")?.title as string | undefined;
+      const before = document.title;
+      if (title) document.title = title;
+      return () => {
+        added.forEach((el) => el.remove());
+        if (title) document.title = before;
+      };
+    }, []);
+    return <Page />;
+  }
+  return LegalPageWithHead;
+}
 
 // Legal screens still being moved: they open natively only with the
 // "try on copied records" switch (?legalData=portal); everyone else keeps
@@ -92,7 +127,7 @@ function pageFor(path: string): ComponentType | null {
   if (!pages.has(path))
     pages.set(
       path,
-      lazy(() => load().then((m) => ({ default: m.LegalPage }))),
+      lazy(() => load().then((m) => ({ default: withHead(m.LegalPage, (m.Route?.options as { head?: HeadFn } | undefined)?.head) }))),
     );
   return pages.get(path)!;
 }
