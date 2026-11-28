@@ -67,7 +67,9 @@ function withHead(Page: ComponentType, head?: HeadFn): ComponentType {
         document.head.appendChild(el);
         added.push(el);
       }
-      const title = (h.meta ?? []).find((m) => typeof m.title === "string")?.title as string | undefined;
+      // On combined Hair + Legal pages the tab keeps the portal's own title.
+      const both = !!document.querySelector("[data-business-both]");
+      const title = both ? undefined : ((h.meta ?? []).find((m) => typeof m.title === "string")?.title as string | undefined);
       const before = document.title;
       if (title) document.title = title;
       return () => {

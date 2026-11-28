@@ -45,6 +45,12 @@ export function legalTarget(to: unknown, search?: unknown): LegalTarget {
     for (const [k, v] of Object.entries(search as Record<string, unknown>))
       if (v !== undefined && v !== null) params.set(k, String(v));
   const trial = legalTrialOn();
+  // Admins open a firm's portal from the portal's Partner Portal page: stay there.
+  if (path === "/firm-portal" && typeof window !== "undefined" && window.location.pathname.startsWith("/partner-clinics")) {
+    if (params.toString()) params.set("biz", "legal");
+    else params.set("biz", "both");
+    return { href: `/partner-clinics?${params.toString()}`, external: false };
+  }
   // While trying screens on copied records, training modules and Legal-only
   // screens open inside the portal too.
   const portal =

@@ -124,8 +124,25 @@ function ManagedFirmPortalPage() {
     void navigate({ to: "/auth", replace: true });
   };
 
+  // Inside the portal's Partner Portal page (admins), the portal already has
+  // its own menu and sign-out, so only the "All firms" button is kept.
+  const embedded = typeof window !== "undefined" && window.location.pathname.startsWith("/partner-clinics");
+
   return (
-    <div className="bold-portal firm-portal-ui min-h-screen bg-background text-foreground">
+    <div className={`bold-portal firm-portal-ui ${embedded ? "" : "min-h-screen"} bg-background text-foreground`}>
+      {embedded ? (
+        state?.isAdmin && (
+          <div className="mx-auto flex max-w-6xl px-6 pt-4">
+            <button
+              type="button"
+              onClick={() => void navigate({ to: "/firm-portal", search: {}, replace: true })}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> All firms
+            </button>
+          </div>
+        )
+      ) : (
       <header className="portal-header">
         <div className="portal-header-inner">
           <BoldBrand />
@@ -158,6 +175,7 @@ function ManagedFirmPortalPage() {
           </div>
         </div>
       </header>
+      )}
 
       {showAdminList ? (
         <FirmAdminList

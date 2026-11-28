@@ -101,7 +101,7 @@ export function BusinessSection({
     ) : section.stacked ? (
       // Both, for whole-page screens: Hair on top, Legal underneath, each the
       // exact page that business shows on its own.
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col" data-business-both="">
         <StackedPane business="hair">{children}</StackedPane>
         <StackedPane business="legal">{legalBody}</StackedPane>
       </div>
