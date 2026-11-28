@@ -164,8 +164,8 @@ function PartnerClinicsPage() {
   }
 
   return (
-    <div style={{ background: "#fafafa", minHeight: "100vh" }}>
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 28px 80px" }}>
+    <div style={{ background: "#fafafa" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 28px 40px" }}>
         {/* Header */}
         <div className="flex items-end justify-between" style={{ marginBottom: 24 }}>
           <div>
