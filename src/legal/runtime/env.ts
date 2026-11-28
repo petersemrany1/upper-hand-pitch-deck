@@ -25,7 +25,7 @@ const DEFAULTS: Record<string, string> = {
 const source = (): Record<string, string | undefined> => {
   // "auto" means "not set" (Lovable's secret form needs a value in every box).
   const env = Object.fromEntries(Object.entries(raw()).filter(([, v]) => v !== "auto"));
-  if (env.LEGAL_LIVE === "true") {
+  if (/^\s*(true|1|yes|on)\s*$/i.test(env.LEGAL_LIVE ?? "")) {
     // Signs the conflict links in firm handover emails. Without its own value,
     // it's derived from this app's server key (never sent to browsers).
     const derived = env.SUPABASE_SERVICE_ROLE_KEY ? { LEGAL_HANDOVER_LINK_SECRET: `legal-handover:${env.SUPABASE_SERVICE_ROLE_KEY}` } : {};

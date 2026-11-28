@@ -6,7 +6,7 @@ export const Route = createFileRoute("/api/legal-live")({
   server: {
     handlers: {
       GET: async () =>
-        new Response(JSON.stringify({ live: process.env.LEGAL_LIVE === "true" }), {
+        new Response(JSON.stringify({ live: /^\s*(true|1|yes|on)\s*$/i.test(process.env.LEGAL_LIVE ?? "") }), {
           headers: { "content-type": "application/json", "cache-control": "no-store" },
         }),
     },

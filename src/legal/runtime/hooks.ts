@@ -3,7 +3,7 @@
 // LEGAL_LIVE=true every request gets a 503 and nothing runs. Twilio, Square,
 // Stripe, Annature and the lead forms keep ringing the Legal app until then.
 export function legalLive(): boolean {
-  return process.env.LEGAL_LIVE === "true";
+  return /^\s*(true|1|yes|on)\s*$/i.test(process.env.LEGAL_LIVE ?? "");
 }
 
 /** The "not yet" response while Legal is switched off here, otherwise null. */
