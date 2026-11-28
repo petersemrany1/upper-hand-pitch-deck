@@ -136,3 +136,22 @@ boldfamilylaw.com.au) and fixed what wasn't right:
   redirect list includes it).
 - **Note:** after each publish, a browser holding the old version shows it
   until reloaded.
+
+## Sales calls and partner portals, 28 Nov 2026 (late afternoon)
+
+- **Legal calling fixed:** Twilio refused the Legal browser phone ("JWT signature
+  validation failed": the pasted LEGAL_TWILIO_API_KEY_SECRET doesn't match its
+  key ID). Legal and Hair share one Twilio account, so Legal now signs with the
+  portal's working API key pair (runtime/env.ts). Firms "Ring me for firm
+  callbacks" shows Ready for calls; a test call from the Legal dialler rang
+  Peter's mobile and connected.
+- **Legal Sales Call:** session starts, client loads with all 10 steps, details,
+  call history and autosaved notes; it only dials when Call is pressed.
+- **Hair Sales Call:** unchanged code; page loads, Hair phone registers. Not
+  started (Hair can auto-dial).
+- **Hair partner portals:** Partner Clinics and a clinic's portal view (credits,
+  appointments, availability) work as before.
+- **Legal firm portal:** the partner-firm list and a firm's own portal (credits,
+  offices, appointments) work; addresses no longer carry test labels.
+- The 4 public firm/client pages and sign-in show Legal Group branding on
+  boldfamilylaw.com.au.
