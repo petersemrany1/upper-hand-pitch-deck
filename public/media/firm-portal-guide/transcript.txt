@@ -1,0 +1,20 @@
+BOLD — FIRM PORTAL HANDOVER
+AI-narrated guide · Example clients only · 3 November 2026
+
+00:00  1. Welcome and credits
+Welcome to your Bold firm partner portal. This walkthrough uses example clients. Sign in with the account linked to your firm. Your workspace shows your appointments, availability, and consultation credits. Available credits are ready for new bookings. Reserved credits cover booked consultations. Used credits are consultations the client has attended. A no-show, cancellation, or disqualification does not use a credit.
+
+00:31  2. Review an appointment
+Open Appointments to see your bookings. Select a client to review the consultation time, contact details, and client intel. Check the other party's name before the consultation. If you identify a conflict, use Flag conflict so Bold can review it. You can add a note to keep the team informed. Use Reschedule when a booking needs to move. Choose a date, then choose an available time. The available times respect your operating hours, blocked time, and appointment buffers.
+
+01:03  3. Record the outcome
+After a consultation, open the appointment and select Showed up. If you want to record a summary or that the client signed, use Showed up plus add notes or signed. If the client did not attend, select No show. This releases the reserved credit. Use the follow-up option when you need Bold to chase a client. Keep outcomes up to date so your credit balance stays accurate.
+
+01:26  4. Set availability
+Open Availability to manage your calendar. The week view shows consultations, buffers, and blocked time. Use Settings to set your consultation length, the buffer between clients, and your normal weekly operating hours. The buffer is added automatically. For example, a sixty minute consultation followed by a fifteen minute buffer leaves a fifteen minute gap before the next client. Review any confirmation carefully before changing the length of existing appointments.
+
+01:56  5. Block time
+To make time unavailable, select or drag across free time in the calendar and save the block. You can also adjust a particular day's opening hours. Existing bookings are protected: a block cannot be saved across a booked consultation. Review the calendar after each change. If a change creates a warning, check the affected appointments before making further changes.
+
+02:21  6. Add a pack
+When you need more credits, select Add Pack. Choose ten, twenty, thirty, or fifty credits, or enter another quantity. Check the balance shown after adding the pack, then select Confirm. The credits are added immediately at your existing agreed rate. Bold receives an internal notification to arrange payment. No payment is collected by this button yet. Any credits owing are covered first. Wait for the success message, select Done, and continue using your portal.

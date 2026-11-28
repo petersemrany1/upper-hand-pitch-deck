@@ -59,6 +59,10 @@ ALL='--all' in sys.argv
 PUBLIC_PAGES={'firm-portal.tsx','firm-offer.tsx','firm-offer-complete.tsx',
               'deposit-confirmed.tsx','deposit-cancelled.tsx','set-password.tsx','pay-per-show.tsx','portal-guide.tsx'}
 if ALL:
+    # Legal's public files (logo, videos, the dialler's Twilio script) at the same addresses.
+    for sub in ('media','vendor'):
+        src_pub=os.path.join(os.path.dirname(SRC),'public',sub)
+        if os.path.isdir(src_pub): shutil.copytree(src_pub, os.path.join(os.path.dirname(ROUTES_DST),'..','public',sub), dirs_exist_ok=True)
     # Drop earlier copies of Legal API routes (they are recreated below).
     for fn in os.listdir(ROUTES_DST):
         fp=os.path.join(ROUTES_DST,fn)
