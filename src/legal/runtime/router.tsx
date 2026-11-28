@@ -46,9 +46,11 @@ export function legalTarget(to: unknown, search?: unknown): LegalTarget {
     (trial && TRIAL_PATHS.has(`/legal${path}`) ? `/legal${path}` : undefined);
   if (!path.startsWith("/") || path === "/") return { href: path || ".", external: false };
   if (portal) {
-    if (portal !== "/login") params.set("biz", "legal");
-    // Keep the "try on copied records" switch while clicking around.
-    if (trial) params.set("legalData", "portal");
+    // Legal-only screens (/legal/...) need no business switch.
+    if (portal !== "/login" && !portal.startsWith("/legal/")) params.set("biz", "legal");
+    // Keep the "try on copied records" test switch while clicking around (before switch-over only).
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("legalData") === "portal")
+      params.set("legalData", "portal");
     const q = params.toString();
     return { href: `${portal}${q ? `?${q}` : ""}`, external: false };
   }
@@ -105,7 +107,8 @@ export function useNavigate(_opts?: unknown) {
         const current = new URLSearchParams(window.location.search);
         const next = typeof options.search === "function" ? options.search(Object.fromEntries(current)) : options.search;
         const keep = current.get("legalData") === "portal" ? { legalData: "portal" } : {};
-        return navigate({ search: { ...(next as object), biz: "legal", ...keep } as never, replace: options.replace });
+        const biz = window.location.pathname.startsWith("/legal/") ? {} : { biz: "legal" };
+        return navigate({ search: { ...(next as object), ...biz, ...keep } as never, replace: options.replace });
       }
       const { href, external } = legalTarget(options.to, typeof options.search === "function" ? undefined : options.search);
       if (external) {
