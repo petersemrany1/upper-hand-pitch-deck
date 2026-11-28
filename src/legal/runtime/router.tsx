@@ -3,7 +3,7 @@
 // the real router, except that links and redirects to Legal app addresses go
 // to the matching portal section on its Legal side, and anything the portal
 // doesn't have yet opens in the Legal app itself.
-import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, useCallback, useMemo, type AnchorHTMLAttributes, type ReactNode } from "react";
 import * as Router from "@tanstack/react-router";
 import { LEGAL_APP_ORIGIN } from "@/lib/legal/client";
 import { useLegalContext, type LegalRouteContext } from "./context";
@@ -96,21 +96,26 @@ type NavigateOptions = { to?: unknown; search?: unknown; replace?: boolean; hash
 
 export function useNavigate(_opts?: unknown) {
   const navigate = Router.useNavigate();
-  return (options: NavigateOptions = {}) => {
-    if (options.to === undefined) {
-      // Search-only update on the current page: keep the Legal switch.
-      const current = new URLSearchParams(window.location.search);
-      const next = typeof options.search === "function" ? options.search(Object.fromEntries(current)) : options.search;
-      const keep = current.get("legalData") === "portal" ? { legalData: "portal" } : {};
-      return navigate({ search: { ...(next as object), biz: "legal", ...keep } as never, replace: options.replace });
-    }
-    const { href, external } = legalTarget(options.to, typeof options.search === "function" ? undefined : options.search);
-    if (external) {
-      window.open(href, "_blank", "noopener");
-      return Promise.resolve();
-    }
-    return navigate({ to: href.split("?")[0] as never, search: searchOf(href) as never, replace: options.replace });
-  };
+  // Stable across renders, like the real useNavigate: Legal pages list it in
+  // effect dependencies, and a new function each render would re-run them forever.
+  return useCallback(
+    (options: NavigateOptions = {}) => {
+      if (options.to === undefined) {
+        // Search-only update on the current page: keep the Legal switch.
+        const current = new URLSearchParams(window.location.search);
+        const next = typeof options.search === "function" ? options.search(Object.fromEntries(current)) : options.search;
+        const keep = current.get("legalData") === "portal" ? { legalData: "portal" } : {};
+        return navigate({ search: { ...(next as object), biz: "legal", ...keep } as never, replace: options.replace });
+      }
+      const { href, external } = legalTarget(options.to, typeof options.search === "function" ? undefined : options.search);
+      if (external) {
+        window.open(href, "_blank", "noopener");
+        return Promise.resolve();
+      }
+      return navigate({ to: href.split("?")[0] as never, search: searchOf(href) as never, replace: options.replace });
+    },
+    [navigate],
+  );
 }
 
 export function Navigate(props: NavigateOptions) {
@@ -131,7 +136,10 @@ export function useRouteContext(_opts?: unknown): LegalRouteContext {
 export function getRouteApi(_id: string) {
   return {
     useRouteContext: (): LegalRouteContext => useLegalContext(),
-    useSearch: () => Object.fromEntries(new URLSearchParams(window.location.search)) as Record<string, string>,
+    useSearch: function useLegalRouteSearch() {
+      const searchStr = Router.useLocation().searchStr;
+      return useMemo(() => Object.fromEntries(new URLSearchParams(searchStr)) as Record<string, string>, [searchStr]);
+    },
     useNavigate: () => useNavigate(),
   };
 }
