@@ -3,7 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { RequireLegal } from "@/components/business/LegalConnect";
-import { legalDb } from "@/lib/legal/client";
+import { oldLegalDb as legalDb } from "@/lib/legal/client";
+import { useLegalLive } from "@/legal/runtime/trial";
 import { LEGAL_TABLES } from "@/legal/move/manifest";
 import {
   importLegalRowsFn,
@@ -198,6 +199,18 @@ function LegalMovePage() {
       setFiles(`Couldn't copy stored files: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
+
+  const { live } = useLegalLive();
+  if (live)
+    return (
+      <div className="mx-auto w-full max-w-4xl space-y-3 p-6">
+        <h1 className="text-xl font-semibold">Legal move: copy records</h1>
+        <p className="rounded-md p-4 text-sm" style={{ background: "#fdf6e3", color: "#7a5b00" }}>
+          The Legal move is switched over: the Legal records here are the live ones, so copying from
+          the old Legal app is turned off (it would overwrite today's work).
+        </p>
+      </div>
+    );
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 p-6">

@@ -2,13 +2,16 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { Loader2, Lock } from "lucide-react";
 import { legalDb } from "@/lib/legal/client";
+import { useLegalLive } from "@/legal/runtime/trial";
 import { BUSINESS_COLOR } from "@/lib/business";
 
 export type LegalSessionState = { ready: boolean; session: Session | null };
 
 export function useLegalSession(): LegalSessionState {
   const [state, setState] = useState<LegalSessionState>({ ready: false, session: null });
+  const { live } = useLegalLive();
   useEffect(() => {
+    // After switch-over legalDb() is the portal connection, so this is the portal session.
     const db = legalDb();
     let alive = true;
     db.auth.getSession().then(({ data }) => {
@@ -21,7 +24,7 @@ export function useLegalSession(): LegalSessionState {
       alive = false;
       sub.subscription.unsubscribe();
     };
-  }, []);
+  }, [live]);
   return state;
 }
 

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ExternalLink, KanbanSquare, LayoutList, Loader2, Mail, MapPin, Phone, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { legalDb, LEGAL_APP_ORIGIN } from "@/lib/legal/client";
+import { legalAppLink, legalDb } from "@/lib/legal/client";
 import { BusinessChip, BusinessSwitch } from "@/components/business/BusinessSwitch";
 import { LegalConnectCard, useLegalSession } from "@/components/business/LegalConnect";
 import { BUSINESS_COLOR, type Business, type BusinessView } from "@/lib/business";
@@ -585,8 +585,8 @@ function RecordDrawer({ r, onClose, onMove }: { r: CrmRecord; onClose: () => voi
             </Link>
           ) : (
             <a
-              href={`${LEGAL_APP_ORIGIN}/firms`}
-              target="_blank"
+              href={legalAppLink("/firms").href}
+              target={legalAppLink("/firms").external ? "_blank" : undefined}
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-white"
               style={{ background: c.fg }}

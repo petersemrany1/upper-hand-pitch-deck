@@ -1,4 +1,4 @@
-import { DollarSign, Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Users, Headphones, Trophy, ChevronDown, Calendar, GraduationCap, FileAudio, Megaphone, ListTodo, KanbanSquare, RefreshCcw } from "lucide-react";
+import { Scale, Briefcase, PhoneOutgoing, Landmark, Radio, SlidersHorizontal, Gauge, DollarSign, Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Users, Headphones, Trophy, ChevronDown, Calendar, GraduationCap, FileAudio, Megaphone, ListTodo, KanbanSquare, RefreshCcw } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
@@ -19,6 +19,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { supabase } from "@/integrations/supabase/client";
 
 import type { TabKey } from "@/lib/tab-access";
+import { useLegalMenu } from "@/legal/runtime/legal-menu";
 
 type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; tab: TabKey };
 type NavFolder = { title: string; items: NavItem[]; repIcon: NavItem["icon"]; repUrl: string };
@@ -69,6 +70,15 @@ const ALL_FOLDERS: NavFolder[] = [
     ],
   },
 ];
+
+const LEGAL_ICONS: Record<string, NavItem["icon"]> = {
+  "/legal/dashboard": Gauge,
+  "/legal/firms": Briefcase,
+  "/legal/firm-cold-calling": PhoneOutgoing,
+  "/legal/firm-portal": Landmark,
+  "/legal/ad-briefing": Radio,
+  "/legal/settings": SlidersHorizontal,
+};
 
 const settingsItem = { title: "Settings", url: "/settings", icon: SettingsIcon };
 
@@ -136,12 +146,22 @@ export function AppSidebar() {
         .map((i) => (role === "caller" && i.url === "/crm" ? { ...i, url: "/clinics" } : i)),
     }))
     .filter((f) => f.items.length > 0);
+  // Legal-only screens (shown after the Legal move is switched over), filtered
+  // by the person's Legal role.
+  const legalMenu = useLegalMenu();
+  if (legalMenu.length)
+    folders.push({
+      title: "Legal",
+      repIcon: Scale,
+      repUrl: legalMenu[0]!.url,
+      items: legalMenu.map((i) => ({ title: i.title, url: i.url, icon: LEGAL_ICONS[i.url] ?? Scale, tab: "dashboard" as TabKey })),
+    });
 
   const isActive = (path: string) =>
     pathMatchesItem(currentPath, path) || (path === "/crm" && pathMatchesItem(currentPath, "/clinics"));
 
   const [openFolders, setOpenFolders] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(ALL_FOLDERS.map((folder) => [folder.title, true])),
+    Object.fromEntries([...ALL_FOLDERS.map((folder) => [folder.title, true]), ["Legal", true]]),
   );
 
   useEffect(() => {

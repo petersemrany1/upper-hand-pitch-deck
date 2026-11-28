@@ -37,7 +37,15 @@ export const TRIAL_PATHS: ReadonlySet<string> = new Set([
   "/legal/portal-guide",
 ]);
 
-let live = false;
+const STORAGE_KEY = "upperhand-legal-live";
+function remembered(): boolean {
+  try {
+    return typeof window !== "undefined" && window.localStorage.getItem(STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+let live = remembered();
 let loaded = false;
 let loading: Promise<boolean> | null = null;
 const listeners = new Set<() => void>();
@@ -51,6 +59,11 @@ export function loadLegalLive(): Promise<boolean> {
     .catch(() => false)
     .then((value) => {
       live = value;
+      try {
+        window.localStorage.setItem(STORAGE_KEY, value ? "1" : "0");
+      } catch {
+        /* private mode: the answer is still used for this page */
+      }
       loaded = true;
       listeners.forEach((l) => l());
       return value;

@@ -14,7 +14,7 @@ import {
   useLegalSession,
 } from "@/components/business/LegalConnect";
 import { LegalContext, type LegalRouteContext } from "./runtime/context";
-import { resolveRole } from "./lib/roles";
+import { resolveRole, roleMayOpen } from "./lib/roles";
 import { legalTrialOn, useLegalLive } from "./runtime/trial";
 import { setLegalDataMode, type LegalDataMode } from "./runtime/mode";
 import { supabase as portalSupabase } from "@/integrations/supabase/client";
@@ -196,6 +196,16 @@ function LegalUser({ mode, path, children }: { mode: LegalDataMode; path: string
   }
   if (failed) return <div className="m-6 text-sm" style={{ color: "#b83232" }}>{failed}</div>;
   if (!ctx) return null;
+  // Same page rules as the Legal app: each person sees the Legal screens their
+  // Legal role allows. Pages opened from links (offers, deposits) and the firm
+  // portal check access themselves.
+  const legalPath = path.startsWith("/legal/") ? path.slice(6) : path === "/my-recordings" ? "/transcripts" : path;
+  if (!OPEN_PAGES.has(path) && path !== "/legal/firm-portal" && !roleMayOpen(ctx.role, legalPath))
+    return (
+      <div className="m-6 rounded-lg p-4 text-sm" style={{ background: "#f7f7f5", color: "#6b6b68" }}>
+        Your Legal access doesn't include this screen. Ask an admin to add it in Legal Settings → Staff.
+      </div>
+    );
   return <LegalContext.Provider value={ctx}>{children}</LegalContext.Provider>;
 }
 

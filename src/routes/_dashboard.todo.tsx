@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { ChaseQueuePanel } from "@/components/ChaseQueuePanel";
 import { BusinessChip } from "@/components/business/BusinessSwitch";
 import { RequireLegal } from "@/components/business/LegalConnect";
-import { legalDb, LEGAL_APP_ORIGIN } from "@/lib/legal/client";
+import { legalAppLink, legalDb } from "@/lib/legal/client";
 import { BUSINESS_COLOR } from "@/lib/business";
 import { sydneyTodayISO } from "@/lib/timezone";
 
@@ -382,8 +382,8 @@ function LegalChaseList() {
           </div>
           {r.appointment_date && <span className="text-xs" style={{ color: "#6b6b68" }}>{fmtDue(r.appointment_date)}</span>}
           <a
-            href={`${LEGAL_APP_ORIGIN}/booked-appointments`}
-            target="_blank"
+            href={legalAppLink("/booked-appointments").href}
+            target={legalAppLink("/booked-appointments").external ? "_blank" : undefined}
             rel="noreferrer"
             className="inline-flex items-center gap-1 text-xs font-medium"
             style={{ color: BUSINESS_COLOR.legal.fg }}
