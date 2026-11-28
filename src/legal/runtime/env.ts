@@ -23,7 +23,8 @@ const DEFAULTS: Record<string, string> = {
 };
 
 const source = (): Record<string, string | undefined> => {
-  const env = raw();
+  // "auto" means "not set" (Lovable's secret form needs a value in every box).
+  const env = Object.fromEntries(Object.entries(raw()).filter(([, v]) => v !== "auto"));
   if (env.LEGAL_LIVE === "true") {
     // Signs the conflict links in firm handover emails. Without its own value,
     // it's derived from this app's server key (never sent to browsers).
