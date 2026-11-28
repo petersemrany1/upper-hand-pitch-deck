@@ -25,7 +25,16 @@ function Tile({ label, value, sub, accent, warn }: { label: string; value: strin
   );
 }
 
-export function CostPerLeadStrip({ scope, city, loading, spendStale = false }: { scope: CityStats; city: string; loading: boolean; spendStale?: boolean }) {
+/** "28 Nov" / "27 Nov and 28 Nov" for the part-day spend caveat. */
+export function partialSpendCaveat(days: string[]): string | null {
+  if (days.length === 0) return null;
+  const label = days
+    .map((d) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-AU", { day: "numeric", month: "short", timeZone: "UTC" }))
+    .join(" and ");
+  return `Ad spend for ${label} is only part of the day so far (the 3am import tops it up the next morning), while every lead from that day is counted, so the marketing figures read a little low until then.`;
+}
+
+export function CostPerLeadStrip({ scope, city, loading, spendStale = false, partialSpendDays = [] }: { scope: CityStats; city: string; loading: boolean; spendStale?: boolean; partialSpendDays?: string[] }) {
   const shows = scope.shows;
   const noShowsYet = shows === 0;
   const noHours = !scope.hoursOk;
@@ -43,6 +52,8 @@ export function CostPerLeadStrip({ scope, city, loading, spendStale = false }: {
     caveats.push(`${n(scope.upcoming)} booked consults haven't happened yet. They count as shows until marked no-show, so these figures will rise if people don't turn up.`);
   if (spendStale)
     caveats.push("The ad spend feed has stopped updating, so the marketing figures are missing days and read low.");
+  const partial = spendStale ? null : partialSpendCaveat(partialSpendDays);
+  if (partial) caveats.push(partial);
   if (scope.needsOutcome > 0)
     caveats.push(`${n(scope.needsOutcome)} past consults have no outcome saved. They count as shows until marked no-show.`);
   if (scope.noshow > 0)

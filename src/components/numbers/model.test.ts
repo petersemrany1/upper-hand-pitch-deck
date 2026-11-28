@@ -320,3 +320,12 @@ describe("labourSentence", () => {
     expect(all?.detail).toBe("2.5 hours of rep time per booking.");
   });
 });
+
+describe("part-day spend caveat", () => {
+  test("names the part days, and says nothing when every day is final", async () => {
+    const { partialSpendCaveat } = await import("./CostPerLeadStrip");
+    expect(partialSpendCaveat([])).toBeNull();
+    expect(partialSpendCaveat(["2026-11-28"])).toContain("Ad spend for 28 Nov is only part of the day");
+    expect(partialSpendCaveat(["2026-11-27", "2026-11-28"])).toContain("27 Nov and 28 Nov");
+  });
+});

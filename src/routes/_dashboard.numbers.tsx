@@ -110,6 +110,7 @@ function NumbersPage() {
 
   const [spendCoverage, setSpendCoverage] = useState<{ from: string | null; to: string | null }>({ from: null, to: null });
   const [spendDuplicates, setSpendDuplicates] = useState(0);
+  const [spendPartialDays, setSpendPartialDays] = useState<string[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [peterExcluded, setPeterExcluded] = useState(false);
   const runAudit = useServerFn(runNumbersDataAudit);
@@ -180,6 +181,7 @@ function NumbersPage() {
       setPackEconomics(res.packEconomics);
       setSpendCoverage(res.spendCoverage);
       setSpendDuplicates(res.spendDuplicates);
+      setSpendPartialDays(res.spendPartialDays ?? []);
       setWarnings(res.warnings ?? []);
       setPeterExcluded(!!res.peterExcluded);
       setSyncState(res.syncState);
@@ -501,7 +503,7 @@ function NumbersPage() {
         )}
 
         {loadedOnce && (
-          <CostPerLeadStrip scope={scope} city={locFilter || "All cities"} loading={loading} spendStale={staleness.stale} />
+          <CostPerLeadStrip scope={scope} city={locFilter || "All cities"} loading={loading} spendStale={staleness.stale} partialSpendDays={spendPartialDays} />
         )}
 
         {audit && (

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { groupAdActivity } from "./numbers-ad-report.server";
+import { groupAdActivity, partialSpendDays } from "./numbers-ad-report.server";
 import { dailySpendKey } from "./numbers-ad-identity";
 import { buildAdStats } from "../components/numbers/model";
 
@@ -88,4 +88,25 @@ test("read the second spend page and prefer the nested webhook ID over a conflic
   expect(outcomes.get("location")).toBe("eq.Melbourne");
   expect(outcomes.getAll("created_at")).toEqual(["gte.2026-11-15T00:00:00+11:00", "lt.2026-11-16T00:00:00+11:00"]);
   expect(seen.find(u => u.pathname.endsWith("/meta_leads"))!.searchParams.get("select")).toContain("nested:raw_payload->raw_payload->>ad_id");
+});
+
+describe("part-day spend", () => {
+  // The 3am push writes "today" with only a few hours of spend; it is final
+  // once a later push (after that Sydney day ended) has rewritten it.
+  test("a day last written on that same Sydney day is partial; a later rewrite makes it final", () => {
+    expect(partialSpendDays([
+      { date: "2026-11-27", updated_at: "2026-11-27T16:01:09Z" }, // 28 Nov 3:01am Sydney
+      { date: "2026-11-28", updated_at: "2026-11-27T16:01:13Z" }, // 28 Nov 3:01am Sydney
+      { date: "2026-11-28", updated_at: "2026-11-27T16:01:21Z" },
+    ])).toEqual(["2026-11-28"]);
+  });
+  test("Sydney date, not UTC: 11pm UTC on the 27th is already the 28th in Sydney", () => {
+    expect(partialSpendDays([{ date: "2026-11-27", updated_at: "2026-11-27T23:00:00Z" }])).toEqual([]);
+    expect(partialSpendDays([{ date: "2026-11-28", updated_at: "2026-11-27T23:00:00Z" }])).toEqual(["2026-11-28"]);
+  });
+  test("rows without a write time are never flagged; groupAdActivity reports only days in the window", () => {
+    expect(partialSpendDays([{ date: "2026-11-28" }])).toEqual([]);
+    const rows = [spend({ date: "2026-11-15", updated_at: "2026-11-15T02:00:00Z" }), spend({ date: "2026-11-20", ad_id: "9", updated_at: "2026-11-19T20:00:00Z" })];
+    expect(groupAdActivity(rows, [], { from: "2026-11-16", to: "2026-11-30" }).spendPartialDays).toEqual(["2026-11-20"]);
+  });
 });

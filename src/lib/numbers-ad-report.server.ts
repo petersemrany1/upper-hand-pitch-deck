@@ -6,7 +6,7 @@ import { locationFromCampaign } from "./meta-spend.server";
 
 type Db = SupabaseClient<Database>;
 type Window = { from?: string; to?: string; start?: string; endExclusive?: string; city?: string };
-type Spend = DailyAd & { spend_aud: number; impressions: number; clicks: number };
+type Spend = DailyAd & { spend_aud: number; impressions: number; clicks: number; updated_at?: string | null };
 type Lead = {
   lead_id: string; ad_id: string | null; created_at: string; location: string | null;
   ad_name: string | null; adset_name: string | null; campaign_name: string | null;
@@ -27,7 +27,7 @@ async function pages<T>(fetchPage: (lo: number, hi: number) => PromiseLike<{ dat
 async function readSpend(db: Db) {
   // Resolve legacy leads against all known ads, independently of the selected date window.
   return pages((lo, hi) => db.from("ad_spend_daily")
-    .select("ad_id, ad_name, campaign_name, adset_name, location, date, spend_aud, impressions, clicks, source")
+    .select("ad_id, ad_name, campaign_name, adset_name, location, date, spend_aud, impressions, clicks, source, updated_at")
     .order("date").order("id").range(lo, hi));
 }
 async function readLeads(db: Db, w: Window) {
@@ -58,6 +58,24 @@ async function readLeads(db: Db, w: Window) {
     if (typeof id === "string") ids.set(r.id, id.trim());
   }
   return outcomes.filter(r => r.lead_id).map(r => ({ ...r, ad_id: ids.get(r.lead_id!) ?? null })) as Lead[];
+}
+
+/**
+ * Spend days that are still a part-day figure. The Make push runs at 3am
+ * Sydney and writes the last few days including "today", so the newest day
+ * holds only the first few hours of spend until the next morning's push
+ * rewrites it. A day is final once any of its rows was written after that
+ * day ended (Sydney); until then its leads are whole but its spend is not.
+ */
+export function partialSpendDays(rows: { date: string; updated_at?: string | null }[]): string[] {
+  const lastWrite = new Map<string, string>();
+  for (const r of rows) {
+    if (!r.updated_at) continue;
+    const written = new Date(r.updated_at).toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });
+    const cur = lastWrite.get(r.date);
+    if (!cur || written > cur) lastWrite.set(r.date, written);
+  }
+  return [...lastWrite].filter(([day, written]) => written <= day).map(([day]) => day).sort();
 }
 
 export function groupAdActivity(history: Spend[], leads: Lead[], w: Window) {
@@ -97,6 +115,7 @@ export function groupAdActivity(history: Spend[], leads: Lead[], w: Window) {
   }
   return {
     ads: [...rows.values()], members, spendDuplicates: manualOverlapDays(inScope),
+    spendPartialDays: partialSpendDays(inScope),
     spendCoverage: { from: history[0]?.date ?? null, to: history.at(-1)?.date ?? null },
   };
 }

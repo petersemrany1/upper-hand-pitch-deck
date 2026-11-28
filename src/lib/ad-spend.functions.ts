@@ -153,25 +153,65 @@ export type MoneyMonthPoint = {
   bonus_cost: number;
 };
 
-/** Calls per lead (and the latest), from the call log. Test leads never have a rep, so they fall out with the rest. */
+/**
+ * Calls per lead (and the latest), from the call log. Test leads never have a
+ * rep, so they fall out with the rest. With leadIds, only those leads' calls
+ * are read (the drill-down); otherwise every call since `from`, fetched a few
+ * pages at a time in parallel rather than one page after another.
+ */
 async function callCountsByLead(
   db: { from: (t: string) => any }, // eslint-disable-line @typescript-eslint/no-explicit-any
   from: string | undefined,
+  leadIds?: string[],
 ): Promise<Map<string, { calls: number; last: string | null }>> {
   const out = new Map<string, { calls: number; last: string | null }>();
   const page = 1000;
-  for (let i = 0; i < 100; i += 1) {
-    let q = db.from("call_records").select("id, lead_id, called_at").not("lead_id", "is", null).order("called_at", { ascending: true }).order("id", { ascending: true }).range(i * page, i * page + page - 1);
-    if (from) q = q.gte("called_at", sydneyDayStart(from));
-    const { data, error } = (await q) as { data: { lead_id: string; called_at: string | null }[] | null; error: { message: string } | null };
-    if (error) throw new Error(`call_records: ${error.message}`);
-    for (const c of data ?? []) {
+  type CallRow = { lead_id: string; called_at: string | null };
+  type Page = { data: CallRow[] | null; error: { message: string } | null; count?: number | null };
+  const add = (rows: CallRow[] | null) => {
+    for (const c of rows ?? []) {
       const cur = out.get(c.lead_id) ?? { calls: 0, last: null };
       cur.calls += 1;
       if (c.called_at && (!cur.last || c.called_at > cur.last)) cur.last = c.called_at;
       out.set(c.lead_id, cur);
     }
-    if (!data || data.length < page) break;
+  };
+  const query = (i: number, ids?: string[], count = false) => {
+    let q = db.from("call_records").select("id, lead_id, called_at", count ? { count: "exact" } : undefined)
+      .not("lead_id", "is", null).order("called_at", { ascending: true }).order("id", { ascending: true })
+      .range(i * page, i * page + page - 1);
+    if (from) q = q.gte("called_at", sydneyDayStart(from));
+    if (ids) q = q.in("lead_id", ids);
+    return q as Promise<Page>;
+  };
+  const check = (r: Page) => { if (r.error) throw new Error(`call_records: ${r.error.message}`); return r; };
+
+  if (leadIds) {
+    for (let j = 0; j < leadIds.length; j += 100) {
+      const ids = leadIds.slice(j, j + 100);
+      for (let i = 0; i < 100; i += 1) {
+        const r = check(await query(i, ids));
+        add(r.data);
+        if (!r.data || r.data.length < page) break;
+      }
+    }
+    return out;
+  }
+
+  const first = check(await query(0, undefined, true));
+  add(first.data);
+  if (!first.data || first.data.length < page) return out;
+  const pages = Math.min(100, Math.ceil((first.count ?? 0) / page));
+  let i = 1;
+  for (; i < pages; i += 6) {
+    const batch = await Promise.all(Array.from({ length: Math.min(6, pages - i) }, (_, k) => query(i + k)));
+    for (const r of batch) add(check(r).data);
+  }
+  // Calls logged after the count was taken: carry on one page at a time.
+  for (; i < 100; i += 1) {
+    const r = check(await query(i));
+    add(r.data);
+    if (!r.data || r.data.length < page) break;
   }
   return out;
 }
@@ -204,46 +244,45 @@ export const getNumbersReport = createServerFn({ method: "GET" })
     }
 
     const { readAdActivity } = await import("./numbers-ad-report.server");
-    const [activity, perfAll, locs, monthly, sync, labLoc, labAd, revLoc, revAd, moneyMonth, labLocP, labAdP, moneyMonthP, packEcon] = await Promise.all([
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });
+    // Everything below is independent, so it all runs at once. The call log
+    // and the unresolved-outcome list used to wait for the rest to finish,
+    // which added several seconds to every load. Only what the page shows is
+    // fetched: the per-ad labour/revenue and the monthly series had no reader.
+    const [activity, perfAll, locs, sync, labLoc, revLoc, labLocP, packEcon, callsResult, unresolvedResult] = await Promise.all([
       readAdActivity(db, reportingWindow(data)),
       // Unfiltered: every lead and every spend row in the window, city or not.
       // "All cities" is measured against this so nothing can fall out of it.
       location ? db.rpc("ad_performance", { p_from: from, p_to: to, p_location: undefined }) : Promise.resolve(null),
       db.rpc("ad_location_summary", { p_from: from, p_to: to }),
-      db.rpc("ad_cost_per_show_monthly", { p_from: from, p_to: to }),
       db.from("ad_spend_sync_state").select("*").eq("id", 1).maybeSingle(),
       rpc("labour_by_key", { p_from: from, p_to: to, p_mode: "location" }),
-      rpc("labour_by_key", { p_from: from, p_to: to, p_mode: "ad" }),
       rpc("revenue_by_key", { p_from: from, p_to: to, p_mode: "location" }),
-      rpc("revenue_by_key", { p_from: from, p_to: to, p_mode: "ad" }),
-      rpc("money_monthly", { p_from: from, p_to: to }),
       peterId ? rpc("labour_by_key", { p_from: from, p_to: to, p_mode: "location", p_rep: peterId }) : Promise.resolve({ data: null, error: null }),
-      peterId ? rpc("labour_by_key", { p_from: from, p_to: to, p_mode: "ad", p_rep: peterId }) : Promise.resolve({ data: null, error: null }),
-      peterId ? rpc("money_monthly", { p_from: from, p_to: to, p_rep: peterId }) : Promise.resolve({ data: null, error: null }),
       rpc("clinic_pack_economics", {}),
+      callCountsByLead(db, from).then((calls) => ({ calls, error: null as Error | null }), (error: Error) => ({ calls: null, error })),
+      // Unresolved outcomes: past-dated appointments with no outcome recorded.
+      db
+        .from("clinic_appointments")
+        .select("id, patient_name, appointment_date, appointment_time, clinic_id")
+        .is("outcome", null)
+        .lt("appointment_date", today)
+        .order("appointment_date", { ascending: false })
+        .limit(200),
     ]);
     // Anything that is not the money figures must never take the page down.
     const warnings: string[] = [];
     let pipelines: Record<string, Pipeline> = {};
-    try {
-      const calls = await callCountsByLead(db, from);
+    if (callsResult.calls) {
+      const calls = callsResult.calls;
       pipelines = Object.fromEntries([...activity.members].map(([key, leads]) => [key,
         pipelineOf(leads.map(l => ({ status: l.status, calls: calls.get(l.lead_id)?.calls ?? 0, booked: !!l.is_booked }))),
       ]));
+    } else {
+      warnings.push(`The "Called" column could not be worked out: ${callsResult.error?.message ?? "unknown error"}`);
     }
-    catch (e) { warnings.push(`The "Called" column could not be worked out: ${(e as Error).message}`); }
 
-
-    // Unresolved outcomes: past-dated appointments with no outcome recorded.
-    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });
-    const { data: unresolved } = await db
-      .from("clinic_appointments")
-      .select("id, patient_name, appointment_date, appointment_time, clinic_id")
-      .is("outcome", null)
-      .lt("appointment_date", today)
-      .order("appointment_date", { ascending: false })
-      .limit(200);
-
+    const unresolved = unresolvedResult.data;
     const clinicIds = Array.from(
       new Set((unresolved ?? []).map((a) => a.clinic_id).filter(Boolean)),
     ) as string[];
@@ -261,10 +300,10 @@ export const getNumbersReport = createServerFn({ method: "GET" })
     const fatal = perfAll?.error ?? locs.error;
     if (fatal) throw new Error(`Report query failed: ${fatal.message}`);
     const soft = (label: string, r: { error: { message: string } | null } | null) => { if (r?.error) warnings.push(`${label} could not be loaded (${r.error.message}); those figures are blank.`); };
-    soft("Labour", labLoc); soft("Labour by ad", labAd); soft("Revenue", revLoc); soft("Revenue by ad", revAd); soft("Monthly figures", moneyMonth); soft("Monthly cost per show", monthly);
+    soft("Labour", labLoc); soft("Revenue", revLoc);
     if (data.excludePeter && !peterId) warnings.push("Could not find Peter's rep record, so his pay is still counted in labour.");
-    if (peterId && (labLocP.error || labAdP.error || moneyMonthP.error)) warnings.push("Peter's own labour could not be separated out, so his pay is still counted in labour.");
-    const peterExcluded = peterId !== null && !labLocP.error && !labAdP.error;
+    if (peterId && labLocP.error) warnings.push("Peter's own labour could not be separated out, so his pay is still counted in labour.");
+    const peterExcluded = peterId !== null && !labLocP.error;
     const num = (v: unknown) => Number(v ?? 0);
     // Whatever the window holds that no city claims: leads with no city on them
     // and spend on campaigns that name no city. It goes into one "Website" row
@@ -315,46 +354,15 @@ export const getNumbersReport = createServerFn({ method: "GET" })
         };
       });
     };
-    const subMoney = (base: MoneyMonthPoint[], sub: unknown): MoneyMonthPoint[] => {
-      const subRows = ((sub ?? []) as Record<string, unknown>[]);
-      const subMap = new Map(
-        subRows.map((r) => [`${r.month}|${String(r.location ?? "").toLowerCase()}`, r]),
-      );
-      return base.map((r) => {
-        const s = subMap.get(`${r.month}|${r.location.toLowerCase()}`) as Record<string, unknown> | undefined;
-        if (!s) return r;
-        return {
-          ...r,
-          labour_cost: r.labour_cost - num(s.labour_cost),
-          bonus_cost: r.bonus_cost - num(s.bonus_cost),
-        };
-      });
-    };
-
     const labourLocRows = subLabour(mapLabour(labLoc.data), labLocP.data);
-    const labourAdRows = subLabour(mapLabour(labAd.data), labAdP.data);
-    const moneyMonthRows = subMoney(
-      ((moneyMonth.data ?? []) as Record<string, unknown>[]).map((r) => ({
-        month: String(r.month ?? ""),
-        location: String(r.location ?? ""),
-        spend: num(r.spend),
-        showed: num(r.showed),
-        revenue: num(r.revenue),
-        labour_cost: num(r.labour_cost),
-        bonus_cost: num(r.bonus_cost),
-      })) as MoneyMonthPoint[],
-      moneyMonthP.data,
-    );
 
     return {
       peterExcluded,
       spendCoverage: activity.spendCoverage,
       spendDuplicates: activity.spendDuplicates,
+      spendPartialDays: activity.spendPartialDays,
       labourByLocation: labourLocRows,
-      labourByAd: labourAdRows,
       revenueByLocation: mapRevenue(revLoc.data),
-      revenueByAd: mapRevenue(revAd.data),
-      moneyMonthly: moneyMonthRows,
       packEconomics: ((packEcon.data ?? []) as Record<string, unknown>[]).map((r) => ({
         clinic_id: String(r.clinic_id ?? ""),
         clinic_name: String(r.clinic_name ?? ""),
@@ -377,11 +385,6 @@ export const getNumbersReport = createServerFn({ method: "GET" })
       pipelines,
       locations: [...locRows.map((r) => ({ ...r, spend: Number(r.spend ?? 0) })), ...(websiteRow ? [websiteRow] : [])],
       warnings,
-      monthly: ((monthly.data ?? []) as unknown as MonthlyPoint[]).map((r) => ({
-        ...r,
-        spend: Number(r.spend ?? 0),
-      })),
-
       needsOutcome: (unresolved ?? []).map((a) => ({
         appointment_id: a.id,
         patient_name: a.patient_name,
@@ -423,7 +426,7 @@ export const listAdLeads = createServerFn({ method: "GET" })
     }
     rows.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
     // How many times each lead has been called, so the list can say who is still to call.
-    const calls = await callCountsByLead(db, data.from ?? undefined);
+    const calls = await callCountsByLead(db, data.from ?? undefined, leads.map((l) => l.lead_id));
     return (rows ?? []).map((r) => { const c = r.lead_id ? calls.get(r.lead_id) : undefined; return { ...r, calls: c?.calls ?? 0, last_called_at: c?.last ?? null }; });
   });
 
@@ -485,16 +488,24 @@ export const listSpendRows = createServerFn({ method: "GET" })
   .inputValidator((input) => RangeSchema.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const db = await assertAdmin(context.claims as Record<string, unknown>);
-    let q = db
-      .from("ad_spend_daily")
-      .select("*")
-      .order("date", { ascending: false })
-      .limit(500);
-    if (data.from) q = q.gte("date", data.from);
-    if (data.to) q = q.lte("date", data.to);
-    const { data: rows, error } = await q;
-    if (error) throw new Error(error.message);
-    return (rows ?? []).map((r) => ({ ...r, spend_aud: Number(r.spend_aud) })) as SpendRow[];
+    // Every row in the range, a page at a time: a flat 500-row cap silently
+    // dropped the oldest entries once the table grew past it.
+    const rows: Record<string, unknown>[] = [];
+    for (let lo = 0; lo < 20000; lo += 1000) {
+      let q = db
+        .from("ad_spend_daily")
+        .select("*")
+        .order("date", { ascending: false })
+        .order("id", { ascending: true })
+        .range(lo, lo + 999);
+      if (data.from) q = q.gte("date", data.from);
+      if (data.to) q = q.lte("date", data.to);
+      const { data: page, error } = await q;
+      if (error) throw new Error(error.message);
+      rows.push(...(page ?? []));
+      if (!page || page.length < 1000) break;
+    }
+    return rows.map((r) => ({ ...r, spend_aud: Number(r.spend_aud) })) as SpendRow[];
   });
 
 export const upsertManualSpend = createServerFn({ method: "POST" })
