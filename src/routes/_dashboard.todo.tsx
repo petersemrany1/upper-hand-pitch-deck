@@ -1,397 +1,567 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Check, ChevronDown, ExternalLink, ListTodo, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, CheckCircle2, ChevronDown, ChevronsUpDown, List as ListIcon, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { ChaseQueuePanel } from "@/components/ChaseQueuePanel";
-import { BusinessChip } from "@/components/business/BusinessSwitch";
-import { RequireLegal } from "@/components/business/LegalConnect";
-import { legalAppLink, legalDb } from "@/lib/legal/client";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { BUSINESS_COLOR } from "@/lib/business";
 import { sydneyTodayISO } from "@/lib/timezone";
+import {
+  defaultsForList,
+  dueLabel,
+  groupTodos,
+  matchesBusiness,
+  openCount,
+  parseQuickAdd,
+  sortCompleted,
+  tasksForList,
+  type ListKey,
+  type Todo,
+  type TodoBusiness,
+} from "@/lib/todo";
+import { C, ListDot, TodoStyles } from "@/components/todo/bits";
+import { CalendarView } from "@/components/todo/CalendarView";
+import { ChaseRequests } from "@/components/todo/ChaseRequests";
+import { ListsNav, SMART_LISTS } from "@/components/todo/ListsNav";
+import { QuickAdd } from "@/components/todo/QuickAdd";
+import { TaskDetail } from "@/components/todo/TaskDetail";
+import { TaskRow } from "@/components/todo/TaskRow";
+import { useTodos, type TodoDraft } from "@/components/todo/useTodos";
 
 export const Route = createFileRoute("/_dashboard/todo")({
   head: () => ({ meta: [{ title: "To Do" }] }),
   component: TodoPage,
 });
 
-type TodoBusiness = "hair" | "legal" | "both";
-type Todo = {
-  id: string;
-  title: string;
-  notes: string | null;
-  business: TodoBusiness;
-  due_date: string | null;
-  assignee_email: string | null;
-  created_by_email: string | null;
-  done_at: string | null;
-  created_at: string;
-};
 type Filter = "all" | "hair" | "legal";
+type View = "list" | "calendar";
 
-// portal_todos is newer than the generated types file.
-const todos = () => (supabase as unknown as { from: (t: string) => any }).from("portal_todos");
+const COMPLETE_DELAY_MS = 600;
 
-function fmtDue(iso: string): string {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
+function readPref<T extends string>(key: string, fallback: T, allowed: (v: string) => boolean): T {
+  try {
+    const v = window.localStorage.getItem(key);
+    return v && allowed(v) ? (v as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writePref(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    /* private mode */
+  }
+}
+
+/** Sydney "today", rolling over at midnight while the page stays open. */
+function useSydneyToday(): string {
+  const [today, setToday] = useState(() => sydneyTodayISO());
+  useEffect(() => {
+    const id = window.setInterval(() => setToday(sydneyTodayISO()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  return today;
+}
+
+function isTypingTarget(el: EventTarget | null): boolean {
+  if (!(el instanceof HTMLElement)) return false;
+  return el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName);
 }
 
 function TodoPage() {
   const { user } = useAuth();
-  const [items, setItems] = useState<Todo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [missingTable, setMissingTable] = useState(false);
-  const [filter, setFilter] = useState<Filter>("all");
-  const [showDone, setShowDone] = useState(false);
-  const [chaseCount, setChaseCount] = useState<number | null>(null);
+  const store = useTodos(user?.email ?? null);
+  const { items, lists, loading, missingTable, extended, listsOn } = store;
+  const today = useSydneyToday();
 
-  const load = useCallback(async () => {
-    const { data, error } = await todos()
-      .select("id, title, notes, business, due_date, assignee_email, created_by_email, done_at, created_at")
-      .order("done_at", { ascending: false, nullsFirst: true })
-      .order("due_date", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: true })
-      .limit(500);
-    if (error) {
-      if (/portal_todos|schema cache|does not exist/i.test(error.message)) setMissingTable(true);
-      else toast.error(error.message);
-    } else {
-      setMissingTable(false);
-      setItems((data ?? []) as Todo[]);
-    }
-    setLoading(false);
+  const [active, setActiveState] = useState<ListKey>("today");
+  const [view, setViewState] = useState<View>("list");
+  const [filter, setFilterState] = useState<Filter>("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showDone, setShowDone] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  const [clinicChase, setClinicChase] = useState<number | null>(null);
+  const [firmChase, setFirmChase] = useState<number | null>(null);
+  // Tasks ticked a moment ago: shown done while the tick plays, then moved.
+  const [completing, setCompleting] = useState<Set<string>>(new Set());
+  const timers = useRef<Map<string, number>>(new Map());
+  const quickAddRef = useRef<HTMLInputElement>(null);
+
+  // Remembered per browser: last list, view and business filter.
+  useEffect(() => {
+    setActiveState(readPref<ListKey>("todo.list", "today", (v) => SMART_LISTS.some((s) => s.key === v) || v.startsWith("list:")));
+    setViewState(readPref<View>("todo.view", "list", (v) => v === "list" || v === "calendar"));
+    setFilterState(readPref<Filter>("todo.filter", "all", (v) => ["all", "hair", "legal"].includes(v)));
+  }, []);
+  const setActive = (k: ListKey) => {
+    setActiveState(k);
+    writePref("todo.list", k);
+    setNavOpen(false);
+    setShowDone(false);
+  };
+  const setView = (v: View) => {
+    setViewState(v);
+    writePref("todo.view", v);
+  };
+  const setFilter = (f: Filter) => {
+    setFilterState(f);
+    writePref("todo.filter", f);
+  };
+
+  // A remembered list that was deleted (or lists aren't available yet) falls back.
+  useEffect(() => {
+    if (loading || !active.startsWith("list:")) return;
+    if (!listsOn || !lists.some((l) => `list:${l.id}` === active)) setActiveState(listsOn ? "inbox" : "today");
+  }, [loading, active, lists, listsOn]);
+
+  // Cheap count for the Chase requests badge before that list is opened.
+  useEffect(() => {
+    supabase
+      .from("clinic_appointments")
+      .select("id", { count: "exact", head: true })
+      .eq("chase_status", "requested")
+      .then(({ count, error }) => {
+        if (!error && typeof count === "number") setClinicChase(count);
+      });
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => () => timers.current.forEach((id) => window.clearTimeout(id)), []);
 
-  const today = sydneyTodayISO();
-  const visible = items.filter((t) => filter === "all" || t.business === filter || t.business === "both");
-  const open = visible.filter((t) => !t.done_at);
-  const done = visible.filter((t) => t.done_at);
-  const groups = useMemo(
-    () => [
-      { key: "overdue", label: "Overdue", tone: "#b83232", rows: open.filter((t) => t.due_date && t.due_date < today) },
-      { key: "today", label: "Today", tone: "#111111", rows: open.filter((t) => t.due_date === today) },
-      { key: "upcoming", label: "Upcoming", tone: "#111111", rows: open.filter((t) => t.due_date && t.due_date > today) },
-      { key: "anytime", label: "No date", tone: "#6b6b68", rows: open.filter((t) => !t.due_date) },
-    ],
-    [open, today],
+  const scoped = useMemo(() => items.filter((t) => matchesBusiness(t, filter)), [items, filter]);
+  const listById = useMemo(() => new Map(lists.map((l) => [l.id, l])), [lists]);
+  const selected = selectedId ? items.find((t) => t.id === selectedId) ?? null : null;
+
+  useEffect(() => {
+    if (selectedId && !loading && !items.some((t) => t.id === selectedId)) setSelectedId(null);
+  }, [items, selectedId, loading]);
+
+  const isDone = useCallback((t: Todo) => (completing.has(t.id) ? true : !!t.done_at), [completing]);
+
+  const counts = useMemo(() => {
+    const c: Partial<Record<ListKey, number | null>> = {};
+    for (const s of SMART_LISTS) if (s.key !== "completed" && s.key !== "chase") c[s.key] = openCount(scoped, s.key, today);
+    for (const l of lists) c[`list:${l.id}`] = openCount(scoped, `list:${l.id}`, today);
+    const chase = (filter !== "legal" ? clinicChase ?? 0 : 0) + (filter !== "hair" ? firmChase ?? 0 : 0);
+    c.chase = chase || null;
+    return c;
+  }, [scoped, lists, today, filter, clinicChase, firmChase]);
+
+  const inList = useMemo(() => tasksForList(scoped, active, today), [scoped, active, today]);
+  const openTasks = inList.filter((t) => !t.done_at);
+  const doneTasks = sortCompleted(inList.filter((t) => !!t.done_at));
+  const groups = useMemo(() => groupTodos(openTasks, today), [openTasks, today]);
+
+  const toggle = (t: Todo, animate = true) => {
+    const pending = timers.current.get(t.id);
+    if (pending !== undefined) {
+      // Second click during the tick: cancel it.
+      window.clearTimeout(pending);
+      timers.current.delete(t.id);
+      setCompleting((s) => {
+        const n = new Set(s);
+        n.delete(t.id);
+        return n;
+      });
+      return;
+    }
+    if (t.done_at || !animate) {
+      void store.toggleTask(t);
+      return;
+    }
+    setCompleting((s) => new Set(s).add(t.id));
+    const id = window.setTimeout(() => {
+      timers.current.delete(t.id);
+      setCompleting((s) => {
+        const n = new Set(s);
+        n.delete(t.id);
+        return n;
+      });
+      void store.toggleTask(t);
+    }, COMPLETE_DELAY_MS);
+    timers.current.set(t.id, id);
+  };
+
+  const defaultBusiness: TodoBusiness = filter === "legal" ? "legal" : "hair";
+  const listDefaults = defaultsForList(active, today);
+  const defaultList = listsOn ? listDefaults.list_id : null;
+
+  // Add a task, and say where it went if it lands outside the open list.
+  const addTask = async (draft: TodoDraft) => {
+    const saved = await store.addTask(draft);
+    if (saved && (!matchesBusiness(saved, filter) || tasksForList([saved], active, today).length === 0)) {
+      const where = saved.due_date ? `for ${dueLabel(saved.due_date, today)}` : saved.list_id ? `to ${listById.get(saved.list_id)?.name ?? "its list"}` : "to the Inbox";
+      toast.success(`Added ${where}`, { description: saved.title });
+    }
+    return saved;
+  };
+
+  const addOnDay = (iso: string, text: string) => {
+    const p = parseQuickAdd(text, today);
+    void store.addTask({
+      title: p.title,
+      business: defaultBusiness,
+      due_date: iso,
+      ...(extended ? { due_time: p.due_time, priority: p.priority ?? 0, list_id: defaultList } : {}),
+    });
+  };
+
+  // Keyboard: Escape closes the task panel, N jumps to quick add.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      const overlayOpen = !!document.querySelector('[role="dialog"][data-state="open"], [role="menu"][data-state="open"], [data-radix-popper-content-wrapper]');
+      if (e.key === "Escape" && selectedId && !overlayOpen) {
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+        setSelectedId(null);
+        return;
+      }
+      if ((e.key === "n" || e.key === "N") && !e.metaKey && !e.ctrlKey && !e.altKey && !isTypingTarget(e.target) && !overlayOpen) {
+        e.preventDefault();
+        quickAddRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedId]);
+
+  const activeSmart = SMART_LISTS.find((s) => s.key === active);
+  const activeList = active.startsWith("list:") ? listById.get(active.slice(5)) ?? null : null;
+  const title = activeSmart?.label ?? activeList?.name ?? "To Do";
+  const showViewToggle = active !== "chase" && active !== "completed";
+  const effectiveView: View = showViewToggle ? view : "list";
+  // The calendar shows the open list's tasks; smart date lists show everything dated.
+  const calendarTasks = active === "inbox" || active.startsWith("list:") ? inList : scoped;
+
+  const subtitle =
+    active === "today"
+      ? new Date(`${today}T00:00:00Z`).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })
+      : active === "chase"
+        ? "Patients and clients partners have asked us to follow up"
+        : active === "completed"
+          ? `${doneTasks.length} completed`
+          : `${openTasks.length} open`;
+
+  const nav = (
+    <ListsNav
+      active={active}
+      onSelect={setActive}
+      counts={counts}
+      lists={lists}
+      listsOn={listsOn && !missingTable}
+      onCreate={store.createList}
+      onRename={(id, name) => void store.updateList(id, { name })}
+      onRecolor={(id, color) => void store.updateList(id, { color })}
+      onDelete={(id) => void store.deleteList(id)}
+    />
   );
 
-  const add = async (draft: { title: string; business: TodoBusiness; due_date: string | null; notes: string | null }) => {
-    const { data, error } = await todos()
-      .insert({ ...draft, created_by_email: user?.email ?? null })
-      .select("id, title, notes, business, due_date, assignee_email, created_by_email, done_at, created_at")
-      .single();
-    if (error) {
-      toast.error(error.message);
-      return false;
-    }
-    setItems((prev) => [...prev, data as Todo]);
-    return true;
-  };
-
-  const toggle = async (t: Todo) => {
-    const done_at = t.done_at ? null : new Date().toISOString();
-    setItems((prev) => prev.map((x) => (x.id === t.id ? { ...x, done_at } : x)));
-    const { error } = await todos().update({ done_at }).eq("id", t.id);
-    if (error) {
-      toast.error(error.message);
-      void load();
-    }
-  };
-
-  const remove = async (t: Todo) => {
-    setItems((prev) => prev.filter((x) => x.id !== t.id));
-    const { error } = await todos().delete().eq("id", t.id);
-    if (error) {
-      toast.error(error.message);
-      void load();
-    }
-  };
-
   return (
-    <div className="mx-auto max-w-5xl p-4 md:p-6">
-      <header className="mb-5 flex flex-wrap items-center gap-3">
-        <ListTodo className="h-6 w-6" style={{ color: "#f4522d" }} />
-        <h1 className="text-2xl font-extrabold" style={{ color: "#111" }}>To Do</h1>
-        <span className="text-sm" style={{ color: "#6b6b68" }}>
-          {open.length} open{chaseCount ? ` · ${chaseCount} clinic chase${chaseCount === 1 ? "" : "s"}` : ""}
-        </span>
-        <div className="ml-auto inline-flex rounded-full p-0.5" style={{ background: "#f1f1ef", border: "1px solid #e6e6e3" }}>
-          {(["all", "hair", "legal"] as Filter[]).map((f) => (
+    <div className="flex h-full min-h-0" style={{ background: C.bg }}>
+      <TodoStyles />
+
+      {/* Lists column (wide screens) */}
+      <aside className="hidden w-60 shrink-0 flex-col overflow-y-auto lg:flex" style={{ borderRight: `1px solid ${C.border}`, background: "#fbfbfa" }}>
+        <div className="px-4 pb-1 pt-5 text-[15px] font-bold" style={{ color: C.text }}>
+          To Do
+        </div>
+        {nav}
+      </aside>
+
+      {/* Lists sheet (narrow screens) */}
+      <Sheet open={navOpen} onOpenChange={setNavOpen}>
+        <SheetContent side="left" className="w-[280px] p-0" style={{ background: "#fbfbfa" }}>
+          <SheetHeader className="px-4 pb-1 pt-5 text-left">
+            <SheetTitle className="text-[15px]">To Do</SheetTitle>
+          </SheetHeader>
+          {nav}
+        </SheetContent>
+      </Sheet>
+
+      {/* Main column */}
+      <section className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+        <header className={`flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-3 pt-1 md:pt-5 sm:px-6 ${selected ? "" : "md:pr-16"}`}>
+          <div className="min-w-0">
             <button
-              key={f}
               type="button"
-              onClick={() => setFilter(f)}
-              className="rounded-full px-3 py-1 text-xs font-medium"
-              style={{
-                background: filter === f ? (f === "all" ? "#fff" : BUSINESS_COLOR[f].bg) : "transparent",
-                color: filter === f ? (f === "all" ? "#111" : BUSINESS_COLOR[f].fg) : "#6b6b68",
-              }}
+              onClick={() => setNavOpen(true)}
+              className="-ml-1 flex items-center gap-2 rounded-lg px-1 py-0.5 text-left lg:pointer-events-none"
+              aria-label="Choose a list"
             >
-              {f === "all" ? "Everything" : f === "hair" ? "Hair Transplants" : "Legal"}
+              {activeList ? <ListDot color={activeList.color} size={10} /> : active === "today" ? <Sun className="h-5 w-5" style={{ color: C.accent }} /> : null}
+              <h1 className="truncate text-[22px] font-bold tracking-tight" style={{ color: C.text }}>
+                {title}
+              </h1>
+              <ChevronsUpDown className="h-4 w-4 shrink-0 lg:hidden" style={{ color: C.faint }} />
             </button>
-          ))}
-        </div>
-      </header>
+            <p className="mt-0.5 text-xs" style={{ color: C.muted }}>
+              {subtitle}
+            </p>
+          </div>
 
-      {missingTable ? (
-        <div className="mb-6 rounded-xl p-4 text-sm" style={{ background: "#fffbeb", border: "1px solid #fde68a", color: "#92400e" }}>
-          The to-do list needs one database update before it can save tasks (migration
-          <code className="mx-1">20261127120000_portal_todos.sql</code>). Clinic chase requests below work already.
-        </div>
-      ) : (
-        <AddTodo defaultBusiness={filter === "legal" ? "legal" : "hair"} onAdd={add} />
-      )}
+          <div className="ml-auto flex items-center gap-2">
+            {showViewToggle && (
+              <Segmented
+                value={view}
+                onChange={(v) => setView(v as View)}
+                options={[
+                  { value: "list", label: "List", icon: <ListIcon className="h-3.5 w-3.5" /> },
+                  { value: "calendar", label: "Calendar", icon: <CalendarDays className="h-3.5 w-3.5" /> },
+                ]}
+              />
+            )}
+            <Segmented
+              value={filter}
+              onChange={(v) => setFilter(v as Filter)}
+              options={[
+                { value: "all", label: "All" },
+                { value: "hair", label: "Hair", tint: BUSINESS_COLOR.hair },
+                { value: "legal", label: "Legal", tint: BUSINESS_COLOR.legal },
+              ]}
+            />
+          </div>
+        </header>
 
-      {!missingTable && (
-        <section className="mb-8 space-y-5">
-          {loading ? (
-            <p className="text-sm" style={{ color: "#6b6b68" }}>Loading…</p>
-          ) : open.length === 0 ? (
-            <div className="rounded-xl p-6 text-center text-sm" style={{ background: "#fff", border: "1px solid #ebebeb", color: "#6b6b68" }}>
-              Nothing on the list. Add a to-do above.
+        <div className="flex min-h-0 flex-1 flex-col px-4 pb-10 sm:px-6">
+          {active === "chase" ? (
+            <ChaseRequests filter={filter} onClinicCount={setClinicChase} onFirmCount={setFirmChase} />
+          ) : missingTable ? (
+            <div className="rounded-xl p-4 text-sm" style={{ background: "#fffbeb", border: "1px solid #fde68a", color: "#92400e" }}>
+              The to-do list needs one database update before it can save tasks (migration 20261127120000_portal_todos.sql). Chase requests
+              already work.
             </div>
           ) : (
-            groups
-              .filter((g) => g.rows.length > 0)
-              .map((g) => (
-                <div key={g.key}>
-                  <h2 className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: g.tone }}>
-                    {g.label} · {g.rows.length}
-                  </h2>
-                  <ul className="overflow-hidden rounded-xl" style={{ background: "#fff", border: "1px solid #ebebeb" }}>
-                    {g.rows.map((t) => (
-                      <TodoRow key={t.id} todo={t} overdue={g.key === "overdue"} onToggle={toggle} onRemove={remove} />
-                    ))}
-                  </ul>
+            <>
+              {active !== "completed" && (
+                <div className="mb-4">
+                  <QuickAdd
+                    today={today}
+                    defaultDue={listDefaults.due_date}
+                    defaultList={defaultList}
+                    defaultBusiness={defaultBusiness}
+                    lists={lists}
+                    extended={extended}
+                    inputRef={quickAddRef}
+                    placeholder={activeList ? `Add a task to ${activeList.name}, press Enter` : undefined}
+                    onAdd={addTask}
+                  />
                 </div>
-              ))
-          )}
-          {done.length > 0 && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowDone((v) => !v)}
-                className="mb-1.5 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
-                style={{ color: "#8a8a86" }}
-              >
-                <ChevronDown className="h-3 w-3" style={{ transform: showDone ? "none" : "rotate(-90deg)" }} />
-                Done · {done.length}
-              </button>
-              {showDone && (
-                <ul className="overflow-hidden rounded-xl" style={{ background: "#fff", border: "1px solid #ebebeb" }}>
-                  {done.slice(0, 100).map((t) => (
-                    <TodoRow key={t.id} todo={t} onToggle={toggle} onRemove={remove} />
-                  ))}
-                </ul>
               )}
-            </div>
+
+              {loading ? (
+                <LoadingRows />
+              ) : effectiveView === "calendar" ? (
+                <div className="min-h-0 flex-1">
+                  <CalendarView
+                    tasks={calendarTasks}
+                    today={today}
+                    selectedId={selectedId}
+                    isDone={isDone}
+                    onOpen={(t) => setSelectedId(t.id)}
+                    onToggle={(t) => toggle(t, false)}
+                    onMove={(t, iso) => void store.updateTask(t.id, { due_date: iso })}
+                    onAdd={addOnDay}
+                  />
+                  <p className="mt-2 hidden text-[11px] sm:block" style={{ color: C.faint }}>
+                    Click a day to add a task. Drag a task to another day to move it.
+                  </p>
+                </div>
+              ) : active === "completed" ? (
+                doneTasks.length === 0 ? (
+                  <Empty icon={<CheckCircle2 className="h-6 w-6" />} title="Nothing completed yet" body="Ticked-off tasks will collect here." />
+                ) : (
+                  <TaskCard>
+                    {doneTasks.slice(0, 300).map((t) => (
+                      <TaskRow
+                        key={t.id}
+                        todo={t}
+                        today={today}
+                        list={t.list_id ? listById.get(t.list_id) ?? null : null}
+                        showList={listsOn}
+                        selected={selectedId === t.id}
+                        done={isDone(t)}
+                        onToggle={() => toggle(t)}
+                        onOpen={() => setSelectedId(t.id)}
+                      />
+                    ))}
+                  </TaskCard>
+                )
+              ) : (
+                <div className="space-y-6">
+                  {groups.length === 0 && (
+                    <Empty
+                      icon={active === "today" ? <Sun className="h-6 w-6" /> : <CheckCircle2 className="h-6 w-6" />}
+                      title={active === "today" ? "All clear for today" : active === "next7" ? "Nothing in the next 7 days" : "No open tasks"}
+                      body={doneTasks.length ? "Everything here is done. Nice work." : "Type above and press Enter to add one."}
+                    />
+                  )}
+                  {groups.map((g) => (
+                    <div key={g.key}>
+                      <h2 className="mb-2 flex items-center gap-2 px-1 text-[12px] font-semibold" style={{ color: g.key === "overdue" ? C.red : C.text }}>
+                        {g.label}
+                        <span className="font-normal" style={{ color: C.faint }}>
+                          {g.rows.length}
+                        </span>
+                      </h2>
+                      <TaskCard>
+                        {g.rows.map((t) => (
+                          <TaskRow
+                            key={t.id}
+                            todo={t}
+                            today={today}
+                            list={t.list_id ? listById.get(t.list_id) ?? null : null}
+                            showList={listsOn && !active.startsWith("list:")}
+                            selected={selectedId === t.id}
+                            done={isDone(t)}
+                            onToggle={() => toggle(t)}
+                            onOpen={() => setSelectedId(t.id)}
+                          />
+                        ))}
+                      </TaskCard>
+                    </div>
+                  ))}
+
+                  {doneTasks.length > 0 && (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setShowDone((v) => !v)}
+                        className="mb-2 inline-flex items-center gap-1.5 px-1 text-[12px] font-semibold"
+                        style={{ color: C.muted }}
+                        aria-expanded={showDone}
+                      >
+                        <ChevronDown className="h-3.5 w-3.5 transition-transform" style={{ transform: showDone ? "none" : "rotate(-90deg)" }} />
+                        Completed
+                        <span className="font-normal" style={{ color: C.faint }}>
+                          {doneTasks.length}
+                        </span>
+                      </button>
+                      {showDone && (
+                        <TaskCard>
+                          {doneTasks.slice(0, 100).map((t) => (
+                            <TaskRow
+                              key={t.id}
+                              todo={t}
+                              today={today}
+                              list={t.list_id ? listById.get(t.list_id) ?? null : null}
+                              showList={listsOn && !active.startsWith("list:")}
+                              selected={selectedId === t.id}
+                              done={isDone(t)}
+                              onToggle={() => toggle(t)}
+                              onOpen={() => setSelectedId(t.id)}
+                            />
+                          ))}
+                        </TaskCard>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
-        </section>
-      )}
+        </div>
+      </section>
 
-      {filter !== "legal" && (
-        <section className="mb-8">
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold" style={{ color: "#111" }}>
-            Clinic chase requests <BusinessChip business="hair" />
-          </h2>
-          <ChaseQueuePanel onCount={setChaseCount} />
-        </section>
-      )}
-
-      {filter !== "hair" && (
-        <section className="mb-8">
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold" style={{ color: "#111" }}>
-            Firm chase requests <BusinessChip business="legal" />
-          </h2>
-          <RequireLegal compact>
-            <LegalChaseList />
-          </RequireLegal>
-        </section>
+      {/* Task detail: full screen on phones, slide-over on tablets, a column on desktop. */}
+      {selected && (
+        <>
+          <div className="fixed inset-0 z-[55] hidden bg-black/10 md:block lg:hidden" onClick={() => setSelectedId(null)} aria-hidden />
+          <aside
+            className="todo-panel-in fixed inset-0 z-[60] flex flex-col md:inset-y-0 md:left-auto md:right-0 md:w-[400px] md:shadow-2xl lg:static lg:z-auto lg:w-[380px] lg:shrink-0 lg:shadow-none xl:w-[420px]"
+            style={{ background: C.card, borderLeft: `1px solid ${C.border}` }}
+            aria-label="Task details"
+          >
+            <TaskDetail
+              key={selected.id}
+              todo={selected}
+              today={today}
+              lists={lists}
+              extended={extended}
+              listsOn={listsOn}
+              onChange={(patch) => void store.updateTask(selected.id, patch)}
+              onToggle={() => toggle(selected, false)}
+              onDelete={() => {
+                setSelectedId(null);
+                void store.removeTask(selected);
+              }}
+              onClose={() => setSelectedId(null)}
+            />
+          </aside>
+        </>
       )}
     </div>
   );
 }
 
-function AddTodo({
-  defaultBusiness,
-  onAdd,
-}: {
-  defaultBusiness: TodoBusiness;
-  onAdd: (d: { title: string; business: TodoBusiness; due_date: string | null; notes: string | null }) => Promise<boolean>;
-}) {
-  const [title, setTitle] = useState("");
-  const [business, setBusiness] = useState<TodoBusiness>(defaultBusiness);
-  const [due, setDue] = useState("");
-  const [busy, setBusy] = useState(false);
-  useEffect(() => setBusiness(defaultBusiness), [defaultBusiness]);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-    setBusy(true);
-    const ok = await onAdd({ title: title.trim(), business, due_date: due || null, notes: null });
-    setBusy(false);
-    if (ok) {
-      setTitle("");
-      setDue("");
-    }
-  };
-
+function TaskCard({ children }: { children: React.ReactNode }) {
   return (
-    <form
-      onSubmit={submit}
-      className="mb-6 flex flex-wrap items-center gap-2 rounded-xl p-2"
-      style={{ background: "#fff", border: "1px solid #ebebeb" }}
-    >
-      <Plus className="ml-1 h-4 w-4" style={{ color: "#8a8a86" }} />
-      <input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Add a to-do…"
-        className="min-w-[180px] flex-1 bg-transparent px-1 py-1.5 text-sm outline-none"
-        maxLength={500}
-      />
-      <select
-        value={business}
-        onChange={(e) => setBusiness(e.target.value as TodoBusiness)}
-        className="rounded-md px-2 py-1.5 text-xs"
-        style={{ border: "1px solid #e6e6e3", background: "#fafaf9" }}
-        aria-label="Business"
-      >
-        <option value="hair">Hair Transplants</option>
-        <option value="legal">Legal</option>
-        <option value="both">Both</option>
-      </select>
-      <label className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs" style={{ border: "1px solid #e6e6e3", background: "#fafaf9" }}>
-        <CalendarDays className="h-3.5 w-3.5" style={{ color: "#8a8a86" }} />
-        <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="bg-transparent outline-none" aria-label="Due date" />
-      </label>
-      <button
-        type="submit"
-        disabled={busy || !title.trim()}
-        className="rounded-md px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
-        style={{ background: "#f4522d" }}
-      >
-        Add
-      </button>
-    </form>
+    <ul className="overflow-hidden rounded-xl [&>li:first-child]:border-t-0" style={{ background: C.card, border: `1px solid ${C.border}` }}>
+      {children}
+    </ul>
   );
 }
 
-function TodoRow({
-  todo,
-  overdue,
-  onToggle,
-  onRemove,
-}: {
-  todo: Todo;
-  overdue?: boolean;
-  onToggle: (t: Todo) => void;
-  onRemove: (t: Todo) => void;
-}) {
-  const done = !!todo.done_at;
+function Empty({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
-    <li className="group flex items-center gap-3 px-3 py-2.5" style={{ borderTop: "1px solid #f3f3f1" }}>
-      <button
-        type="button"
-        onClick={() => onToggle(todo)}
-        aria-label={done ? "Mark not done" : "Mark done"}
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
-        style={{ border: `1.5px solid ${done ? "#1a7a4a" : "#cfcfcb"}`, background: done ? "#1a7a4a" : "transparent" }}
-      >
-        {done && <Check className="h-3 w-3 text-white" />}
-      </button>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm" style={{ color: done ? "#8a8a86" : "#111", textDecoration: done ? "line-through" : "none" }}>
-          {todo.title}
-        </div>
-        {todo.created_by_email && (
-          <div className="truncate text-[11px]" style={{ color: "#a3a3a0" }}>Added by {todo.created_by_email.split("@")[0]}</div>
-        )}
+    <div className="flex flex-col items-center rounded-xl px-6 py-14 text-center" style={{ background: C.card, border: `1px solid ${C.border}` }}>
+      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full" style={{ background: C.accentSoft, color: C.accent }}>
+        {icon}
       </div>
-      {todo.due_date && (
-        <span className="shrink-0 text-xs" style={{ color: overdue ? "#b83232" : "#6b6b68", fontWeight: overdue ? 600 : 400 }}>
-          {fmtDue(todo.due_date)}
-        </span>
-      )}
-      {todo.business === "both" ? (
-        <span className="flex gap-1"><BusinessChip business="hair" /><BusinessChip business="legal" /></span>
-      ) : (
-        <BusinessChip business={todo.business} />
-      )}
-      <button
-        type="button"
-        onClick={() => onRemove(todo)}
-        aria-label="Delete to-do"
-        className="opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
-        style={{ color: "#a3a3a0" }}
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
-    </li>
+      <div className="text-sm font-semibold" style={{ color: C.text }}>
+        {title}
+      </div>
+      <div className="mt-1 text-xs" style={{ color: C.muted }}>
+        {body}
+      </div>
+    </div>
   );
 }
 
-type LegalChase = {
-  id: string;
-  client_name: string | null;
-  appointment_date: string | null;
-  chase_note: string | null;
-  chase_requested_at: string | null;
-  firms: { firm_name: string | null } | null;
-};
-
-function LegalChaseList() {
-  const [rows, setRows] = useState<LegalChase[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    legalDb()
-      .from("firm_appointments")
-      .select("id, client_name, appointment_date, chase_note, chase_requested_at, firms(firm_name)")
-      .eq("chase_status", "requested")
-      .order("chase_requested_at", { ascending: true })
-      .then(({ data, error: err }) => {
-        if (err) setError(err.message);
-        else setRows((data ?? []) as unknown as LegalChase[]);
-      });
-  }, []);
-  if (error) return <p className="text-sm" style={{ color: "#b83232" }}>{error}</p>;
-  if (!rows) return <p className="text-sm" style={{ color: "#6b6b68" }}>Loading…</p>;
-  if (rows.length === 0) {
-    return (
-      <div className="rounded-xl p-6 text-center text-sm" style={{ background: "#fff", border: "1px solid #ebebeb", color: "#6b6b68" }}>
-        No firm chase requests right now.
-      </div>
-    );
-  }
+function LoadingRows() {
   return (
-    <ul className="overflow-hidden rounded-xl" style={{ background: "#fff", border: "1px solid #ebebeb" }}>
-      {rows.map((r) => (
-        <li key={r.id} className="flex items-center gap-3 px-3 py-2.5" style={{ borderTop: "1px solid #f3f3f1" }}>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm" style={{ color: "#111" }}>
-              {r.client_name ?? "Client"} <span style={{ color: "#8a8a86" }}>· {r.firms?.firm_name ?? "Firm"}</span>
-            </div>
-            {r.chase_note && <div className="truncate text-xs" style={{ color: "#6b6b68" }}>{r.chase_note}</div>}
-          </div>
-          {r.appointment_date && <span className="text-xs" style={{ color: "#6b6b68" }}>{fmtDue(r.appointment_date)}</span>}
-          <a
-            href={legalAppLink("/booked-appointments").href}
-            target={legalAppLink("/booked-appointments").external ? "_blank" : undefined}
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 text-xs font-medium"
-            style={{ color: BUSINESS_COLOR.legal.fg }}
-          >
-            Open <ExternalLink className="h-3 w-3" />
-          </a>
+    <TaskCard>
+      {[0, 1, 2, 3].map((i) => (
+        <li key={i} className="flex items-center gap-3 px-4 py-3" style={{ borderTop: `1px solid ${C.soft}` }}>
+          <span className="h-[18px] w-[18px] animate-pulse rounded-[5px]" style={{ background: "#f0f0ee" }} />
+          <span className="h-3 animate-pulse rounded" style={{ background: "#f0f0ee", width: `${40 + i * 12}%` }} />
         </li>
       ))}
-    </ul>
+    </TaskCard>
+  );
+}
+
+function Segmented({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string; icon?: React.ReactNode; tint?: { fg: string; bg: string } }[];
+}) {
+  return (
+    <div className="inline-flex rounded-lg p-0.5" style={{ background: "#efefed" }}>
+      {options.map((o) => {
+        const on = value === o.value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(o.value)}
+            aria-pressed={on}
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
+            style={{
+              background: on ? (o.tint ? o.tint.bg : "#fff") : "transparent",
+              color: on ? (o.tint ? o.tint.fg : C.text) : C.muted,
+              boxShadow: on ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
+            }}
+          >
+            {o.icon}
+            <span className={o.icon ? "hidden sm:inline" : undefined}>{o.label}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
