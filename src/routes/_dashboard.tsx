@@ -74,6 +74,14 @@ function DashboardLayout() {
     }
   }, [ready, session, userType, navigate]);
 
+  // On Legal Group's own address the home page is the Legal dashboard.
+  useEffect(() => {
+    if (!ready || !session || location.pathname !== "/" || userType === "unknown") return;
+    void import("@/lib/legal-host").then(({ isLegalHost }) => {
+      if (isLegalHost()) navigate({ to: "/legal/$" as never, params: { _splat: "dashboard" } as never, replace: true });
+    });
+  }, [ready, session, userType, location.pathname, navigate]);
+
   // Law firm logins (Legal Group's partner firms) have no portal role: once
   // the Legal move is switched over, send them to their firm portal.
   useEffect(() => {

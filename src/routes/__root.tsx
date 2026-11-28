@@ -11,6 +11,7 @@ import { toast } from "sonner";
 
 import appCss from "../styles.css?url";
 import htgLogo from "@/assets/htg-logo.png?url";
+import { isLegalHost, LEGAL_BRAND } from "@/lib/legal-host";
 
 // Attach Supabase JWT to all server function calls so requireSupabaseAuth middleware passes.
 if (typeof window !== "undefined" && !(window as unknown as { __serverFnAuthPatched?: boolean }).__serverFnAuthPatched) {
@@ -140,7 +141,22 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+// On boldfamilylaw.com.au the tab shows Legal Group's name and icon.
+function useLegalHostBranding() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (!isLegalHost()) return;
+    const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (icon && icon.href !== new URL(LEGAL_BRAND.logo, window.location.origin).href) {
+      icon.href = LEGAL_BRAND.logo;
+      icon.type = "image/jpeg";
+    }
+    if (document.title.includes("Hair Transplant Group")) document.title = LEGAL_BRAND.name;
+  }, [pathname]);
+}
+
 function RootComponent() {
+  useLegalHostBranding();
   const demo = isDemoClinicPath(useLocation().pathname);
   useEffect(() => {
     // Demo text and actions must never enter the production error log.

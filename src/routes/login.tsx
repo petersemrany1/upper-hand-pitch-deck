@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import htgLogo from "@/assets/htg-logo.png";
+import { isLegalHost, LEGAL_BRAND } from "@/lib/legal-host";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -45,6 +46,7 @@ function LoginPage() {
     // Redirect handled by the effect once userType resolves.
   };
 
+  const legal = isLegalHost();
   return (
     <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "#f7f7f5" }}>
       <div
@@ -53,11 +55,11 @@ function LoginPage() {
       >
         <div className="mb-6 flex flex-col items-center text-center">
           <img
-            src={htgLogo}
-            alt="Hair Transplant Group"
+            src={legal ? LEGAL_BRAND.logo : htgLogo}
+            alt={legal ? LEGAL_BRAND.alt : "Hair Transplant Group"}
             className="mb-3 h-14 w-14 rounded-full object-cover"
           />
-          <h1 className="text-xl font-bold text-[#111111]">Hair Transplant Group Portal</h1>
+          <h1 className="text-xl font-bold text-[#111111]">{legal ? LEGAL_BRAND.name : "Hair Transplant Group Portal"}</h1>
           <p className="mt-1 text-sm text-[#111111]">Sign in to continue</p>
         </div>
 
