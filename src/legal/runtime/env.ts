@@ -15,9 +15,16 @@ const raw = (): Record<string, string | undefined> =>
 // Legal keys can be added ahead of switch-over: until LEGAL_LIVE=true, Legal
 // code sees none of them (only the portal database connection), so it can't
 // call, text, email, charge or spend on AI from this app early.
+// Plain addresses (not keys) the Legal app needs and that are the same for
+// everyone once boldfamilylaw.com.au points here. A LEGAL_ value overrides them.
+const DEFAULTS: Record<string, string> = {
+  LEGAL_APP_URL: "https://boldfamilylaw.com.au",
+  LEGAL_BOLD_OFFER_ORIGIN: "https://boldfamilylaw.com.au",
+};
+
 const source = (): Record<string, string | undefined> => {
   const env = raw();
-  if (env.LEGAL_LIVE === "true") return env;
+  if (env.LEGAL_LIVE === "true") return { ...DEFAULTS, ...env };
   return Object.fromEntries(Object.entries(env).filter(([k]) => PASSTHROUGH.has(k) || k === "LEGAL_LIVE"));
 };
 

@@ -8,6 +8,7 @@ import { LEGAL_TABLES } from "@/legal/move/manifest";
 import {
   importLegalRowsFn,
   legalCopyCountsFn,
+  legalCreateFirmLoginsFn,
   legalStorageCountsFn,
   legalStorageUploadLinksFn,
   legalUserMapFn,
@@ -41,15 +42,17 @@ async function exportAll(table: string): Promise<Record<string, unknown>[]> {
   }
 }
 
-/** Legal staff logins (law firm portal logins are left alone until switch-over). */
-async function legalStaffLogins(): Promise<{ id: string; email: string | null }[]> {
+type Login = { id: string; email: string | null; firm: boolean };
+
+/** Every Legal login; law firm logins are marked (they match a portal login once one exists). */
+async function legalLogins(): Promise<Login[]> {
   const firmUsers = new Set((await exportAll("firm_portal_users")).map((r) => String(r.id)));
-  const users: { id: string; email: string | null }[] = [];
+  const users: Login[] = [];
   for (let offset = 0; ; offset += 1000) {
     const { data, error } = await legalDb().rpc("portal_auth_users_export", { p_offset: offset });
     if (error) throw new Error(`Reading Legal logins: ${error.message}`);
     const page = (data ?? []) as { id: string; email: string | null }[];
-    users.push(...page.filter((u) => !firmUsers.has(u.id)).map((u) => ({ id: u.id, email: u.email })));
+    users.push(...page.map((u) => ({ id: u.id, email: u.email, firm: firmUsers.has(u.id) })));
     if (page.length < 1000) return users;
   }
 }
@@ -59,6 +62,25 @@ function LegalMovePage() {
   const counts = useServerFn(legalCopyCountsFn);
   const userMap = useServerFn(legalUserMapFn);
   const uploadLinks = useServerFn(legalStorageUploadLinksFn);
+  const createFirmLogins = useServerFn(legalCreateFirmLoginsFn);
+  const [firms, setFirms] = useState<string | null>(null);
+
+  // Switch-over only: a portal login for each law firm login (nothing is sent).
+  async function makeFirmLogins() {
+    if (!window.confirm("Create a portal login for every Legal law firm login? No emails are sent. Do this on switch-over day.")) return;
+    setFirms("Creating firm logins…");
+    try {
+      const firmLogins = (await legalLogins()).filter((l) => l.firm).map(({ id, email }) => ({ id, email }));
+      const res = await createFirmLogins({ data: { users: firmLogins } });
+      setFirms(
+        `Firm logins: ${res.created.length} created, ${res.reused.length} already existed` +
+          (res.failed.length ? `; problems: ${res.failed.join("; ")}` : "") +
+          ". Now run “Copy all Legal records” again so firm records point at them.",
+      );
+    } catch (e) {
+      setFirms(`Couldn't create firm logins: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   const storageCounts = useServerFn(legalStorageCountsFn);
   const [files, setFiles] = useState<string | null>(null);
   const [people, setPeople] = useState<{ matched: string[]; unmatched: string[] } | null>(null);
@@ -79,7 +101,10 @@ function LegalMovePage() {
     let users: Record<string, string> = {};
     try {
       const { data: me } = await legalDb().auth.getUser();
-      const res = await userMap({ data: { users: await legalStaffLogins(), me: me.user?.id } });
+      const logins = await legalLogins();
+      const res = await userMap({ data: { users: logins.map(({ id, email }) => ({ id, email })), me: me.user?.id } });
+      const firmEmails = new Set(logins.filter((l) => l.firm).map((l) => l.email));
+      res.unmatched = res.unmatched.map((e) => (firmEmails.has(e) ? `${e} (law firm)` : e));
       users = res.map;
       setPeople({ matched: res.matched, unmatched: res.unmatched });
     } catch (e) {
@@ -202,9 +227,18 @@ function LegalMovePage() {
           >
             Copy stored files
           </button>
+          <button
+            type="button"
+            onClick={makeFirmLogins}
+            disabled={running}
+            className="rounded-md border px-4 py-2 text-sm font-medium disabled:opacity-60"
+          >
+            Create firm logins (switch-over)
+          </button>
           {summary && <span className="text-sm font-medium">{summary}</span>}
         </div>
         {files && <p className="mt-3 text-sm">{files}</p>}
+        {firms && <p className="mt-3 text-sm">{firms}</p>}
         {people && (
           <p className="mt-3 text-sm">
             Matched {people.matched.length} Legal staff to their portal logins ({people.matched.join(", ")})

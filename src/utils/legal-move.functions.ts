@@ -257,3 +257,48 @@ export async function listAll(bucket: Lister, prefix: string): Promise<string[]>
   }
   return out;
 }
+
+/**
+ * Switch-over: gives each Legal law-firm login a portal login with the same
+ * email (no password, nothing sent). The next copy then points the firm's
+ * records at it, and staff send each firm its "set your password" email from
+ * the firm portal setup button. Existing portal logins are reused.
+ */
+export const legalCreateFirmLoginsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { users: { id: string; email: string | null }[] }) =>
+    z.object({ users: z.array(z.object({ id: z.string().uuid(), email: z.string().nullable() })).max(2000) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as never);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const existing = new Set<string>();
+    for (let page = 1; ; page++) {
+      const { data: res, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (error) throw new Error(error.message);
+      for (const u of res.users) if (u.email) existing.add(u.email.trim().toLowerCase());
+      if (res.users.length < 1000) break;
+    }
+    const created: string[] = [];
+    const reused: string[] = [];
+    const failed: string[] = [];
+    for (const u of data.users) {
+      const email = u.email?.trim().toLowerCase();
+      if (!email) continue;
+      if (existing.has(email)) {
+        reused.push(email);
+        continue;
+      }
+      const { error } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        user_metadata: { legal_firm_login: true },
+      });
+      if (error) failed.push(`${email}: ${error.message}`);
+      else {
+        created.push(email);
+        existing.add(email);
+      }
+    }
+    return { created, reused, failed };
+  });
