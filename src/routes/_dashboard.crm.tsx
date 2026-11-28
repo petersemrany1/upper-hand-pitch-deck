@@ -1,5 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { ClinicMetaLeads } from "@/components/ClinicMetaLeads";
+import { useLegalMayOpen } from "@/legal/runtime/legal-menu";
 import { ExternalLink, KanbanSquare, LayoutList, Loader2, Mail, MapPin, Phone, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,8 +25,9 @@ import {
 
 export const Route = createFileRoute("/_dashboard/crm")({
   head: () => ({ meta: [{ title: "CRM" }] }),
-  validateSearch: (s: Record<string, unknown>): { biz?: BusinessView } => ({
+  validateSearch: (s: Record<string, unknown>): { biz?: BusinessView; tab?: CrmTab } => ({
     biz: s.biz === "hair" || s.biz === "legal" || s.biz === "both" ? s.biz : undefined,
+    tab: s.tab === "firms" || s.tab === "meta-leads" ? s.tab : undefined,
   }),
   component: CrmPage,
 });
@@ -169,11 +173,76 @@ async function writeStage(r: CrmRecord, stage: string): Promise<void> {
     .then(() => undefined, () => undefined);
 }
 
+type CrmTab = "pipeline" | "firms" | "meta-leads";
+
+const LegalFirmsView = lazy(() => import("@/legal/LegalView").then((m) => ({ default: () => <m.LegalView path="/legal/firms" /> })));
+
+// The CRM has three parts: the sales pipeline (clinics and law firms being
+// won), the partner law firms Legal works with, and Clinic Meta Leads.
 function CrmPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
+  const { role } = useAuth();
+  const firmsOk = useLegalMayOpen("/firms");
+  const tabs: { key: CrmTab; label: string; business?: Business }[] = [
+    { key: "pipeline", label: "Pipeline" },
+    ...(firmsOk ? [{ key: "firms" as const, label: "Law Firms", business: "legal" as const }] : []),
+    ...(role === "admin" ? [{ key: "meta-leads" as const, label: "Clinic Meta Leads", business: "hair" as const }] : []),
+  ];
+  const tab: CrmTab = tabs.some((t) => t.key === search.tab) ? search.tab! : "pipeline";
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="flex shrink-0 flex-wrap items-center gap-3 px-4 pt-4 md:px-6 md:pr-16">
+        <KanbanSquare className="h-6 w-6" style={{ color: "#f4522d" }} />
+        <h1 className="text-2xl font-extrabold" style={{ color: "#111" }}>CRM</h1>
+        {tabs.length > 1 && (
+          <nav aria-label="CRM sections" className="ml-2 flex items-center gap-1">
+            {tabs.map((t) => {
+              const active = t.key === tab;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => navigate({ search: (s) => ({ ...s, tab: t.key === "pipeline" ? undefined : t.key }), replace: true })}
+                  className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                  style={{
+                    background: active ? "#111" : "transparent",
+                    color: active ? "#fff" : "#55554f",
+                  }}
+                >
+                  {t.business && (
+                    <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: BUSINESS_COLOR[t.business].fg }} />
+                  )}
+                  {t.label}
+                </button>
+              );
+            })}
+          </nav>
+        )}
+      </header>
+      {tab === "pipeline" ? (
+        <PipelineView />
+      ) : tab === "firms" ? (
+        <div className="flex min-h-0 flex-1 flex-col pt-2">
+          <Suspense fallback={<div className="flex items-center gap-2 px-6 py-8 text-sm" style={{ color: "#6b6b68" }}><Loader2 className="h-4 w-4 animate-spin" /> Loading law firms…</div>}>
+            <LegalFirmsView />
+          </Suspense>
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <ClinicMetaLeads />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PipelineView() {
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
   const view: BusinessView = search.biz ?? "both";
-  const setView = (biz: BusinessView) => navigate({ search: { biz }, replace: true });
+  const setView = (biz: BusinessView) => navigate({ search: (s) => ({ ...s, biz }), replace: true });
 
   const legal = useLegalSession();
   const hair = useHairRecords();
@@ -232,10 +301,8 @@ function CrmPage() {
   const loading = (view !== "legal" && hair.loading) || (view !== "hair" && !!legal.session && legalRows.loading);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-wrap items-center gap-3 px-4 pb-3 pt-4 md:px-6 md:pr-16">
-        <KanbanSquare className="h-6 w-6" style={{ color: "#f4522d" }} />
-        <h1 className="text-2xl font-extrabold" style={{ color: "#111" }}>CRM</h1>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="flex shrink-0 flex-wrap items-center gap-3 px-4 pb-3 pt-3 md:px-6 md:pr-16">
         <BusinessSwitch value={view} onChange={setView} allowBoth />
         <div className="relative ml-auto">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "#8a8a86" }} />

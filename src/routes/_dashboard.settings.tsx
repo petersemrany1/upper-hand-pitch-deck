@@ -7,7 +7,9 @@ import {
   FileText,
   ChevronRight,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { BusinessSwitch } from "@/components/business/BusinessSwitch";
+import { useLegalMayOpen } from "@/legal/runtime/legal-menu";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,6 +70,9 @@ export function loadDeckSettings(): DeckSettings {
 }
 
 export const Route = createFileRoute("/_dashboard/settings")({
+  validateSearch: (s: Record<string, unknown>): { section?: "legal" } => ({
+    section: s.section === "legal" ? "legal" : undefined,
+  }),
   component: SettingsPage,
   head: () => ({
     meta: [{ title: "Settings" }],
@@ -77,9 +82,16 @@ export const Route = createFileRoute("/_dashboard/settings")({
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
+const LegalSettingsView = lazy(() =>
+  import("@/legal/LegalView").then((m) => ({ default: () => <m.LegalView path="/legal/settings" /> })),
+);
+
 function SettingsPage() {
   const { role, user } = useAuth();
   const isAdmin = role === "admin";
+  const navigate = Route.useNavigate();
+  const legalOk = useLegalMayOpen("/settings") === true;
+  const legalSection = Route.useSearch().section === "legal";
   return (
     <div className="min-h-full md:h-full md:overflow-y-auto bg-[#f7f7f5] px-6 py-10 md:px-10 md:py-12" style={{ fontFamily: "DM Sans, sans-serif" }}>
       <div className="max-w-4xl mx-auto">
@@ -100,6 +112,22 @@ function SettingsPage() {
           </div>
         </div>
 
+        {legalOk && (
+          <div className="mb-8">
+            <BusinessSwitch
+              value={legalSection ? "legal" : "hair"}
+              onChange={(v) => navigate({ search: { section: v === "legal" ? "legal" : undefined }, replace: true })}
+            />
+          </div>
+        )}
+
+        {legalOk && legalSection ? (
+          <div className="legal-settings-embed -mx-6">
+            <Suspense fallback={<p className="px-6 text-sm text-muted-foreground">Loading Legal settings…</p>}>
+              <LegalSettingsView />
+            </Suspense>
+          </div>
+        ) : (
         <div className="space-y-8">
           {isAdmin && <PartnerViewSection />}
           {isAdmin && <TeamSection />}
@@ -116,6 +144,7 @@ function SettingsPage() {
           <PracticeRecordingsSection />
           {isAdmin && <LogsSection />}
         </div>
+        )}
       </div>
     </div>
   );

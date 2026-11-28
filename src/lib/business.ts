@@ -25,9 +25,16 @@ export type SwitchableSection = {
   legalPath: string;
   // Whether a combined "Both" view exists.
   both?: boolean;
+  // "Both" shows the two pages one above the other (whole-page dashboards)
+  // instead of side by side, and is where the section opens by default.
+  stacked?: boolean;
+  // The Legal screen to show when it lives at a different path (e.g. /legal/dashboard).
+  legalNative?: string;
 };
 
 export const SWITCHABLE_SECTIONS: SwitchableSection[] = [
+  { path: "/", legalPath: "/dashboard", legalNative: "/legal/dashboard", both: true, stacked: true },
+  { path: "/partner-clinics", legalPath: "/firm-portal", legalNative: "/legal/firm-portal", both: true, stacked: true },
   { path: "/sales-call", legalPath: "/sales-call" },
   { path: "/inbox", legalPath: "/inbox" },
   { path: "/booked-appointments", legalPath: "/booked-appointments" },
@@ -41,7 +48,9 @@ export const SWITCHABLE_SECTIONS: SwitchableSection[] = [
 
 export function sectionForPath(pathname: string): SwitchableSection | null {
   return (
-    SWITCHABLE_SECTIONS.find((s) => pathname === s.path || pathname.startsWith(`${s.path}/`)) ?? null
+    SWITCHABLE_SECTIONS.find(
+      (s) => pathname === s.path || (s.path !== "/" && pathname.startsWith(`${s.path}/`)),
+    ) ?? null
   );
 }
 

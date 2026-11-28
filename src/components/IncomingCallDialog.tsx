@@ -255,6 +255,20 @@ export function IncomingCallDialog() {
               </span>
               <span
                 style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  background: "#fff1ee",
+                  color: "#c2410c",
+                  boxShadow: "inset 0 0 0 1px #fbd5c9",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Hair Transplants
+              </span>
+              <span
+                style={{
                   fontSize: 14,
                   fontWeight: 700,
                   color: "#111",

@@ -1,5 +1,4 @@
 // Ported from the Legal app (family-law-floater/src/routes/_authenticated/settings.tsx). Re-run the port script to refresh.
-import { Link } from "@/legal/runtime/router";
 import { useQuery } from "@tanstack/react-query";
 
 import { PhoneNumbersCard } from "@/legal/components/settings/phone-numbers-card";
@@ -8,7 +7,6 @@ import { FocusCitiesCard } from "@/legal/components/settings/focus-cities-card";
 import { LinkingEducationCard } from "@/legal/components/settings/linking-education-card";
 import { StaffNameCard } from "@/legal/components/settings/staff-name-card";
 import { ExportTranscriptsCard } from "@/legal/components/settings/export-transcripts-card";
-import { ColdCallingCard } from "@/legal/components/settings/cold-calling-card";
 import { StaffCard } from "@/legal/components/settings/staff-card";
 import { ExampleCallsCard } from "@/legal/components/settings/example-calls-card";
 import { PracticeReviewCard } from "@/legal/components/settings/practice-review-card";
@@ -46,18 +44,11 @@ function SettingsPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 space-y-6 overflow-y-auto p-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">Portal configuration and telephony.</p>
-      </header>
 
       {staff.isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : isAdmin ? (
         <>
-          <Link to="/ad-briefing" className="block rounded-lg border p-4 font-medium text-primary">
-            Your daily ad briefing →
-          </Link>
           <ExportTranscriptsCard />
           <StaffNameCard />
           <StaffCard />
@@ -66,7 +57,6 @@ function SettingsPage() {
           <ExampleCallsCard />
           <TrainingVideosCard />
           <PhoneNumbersCard />
-          <ColdCallingCard />
           <FocusCitiesCard />
           <PausedCitiesCard />
           <LinkingEducationCard />

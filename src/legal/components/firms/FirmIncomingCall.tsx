@@ -111,6 +111,13 @@ export function FirmIncomingCall({
           <Phone size={21} />
         </div>
         <div className="min-w-0 flex-1" aria-live="polite">
+          <span
+            className="mb-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold"
+            style={{ background: "#eef2ff", color: "#1e40af", boxShadow: "inset 0 0 0 1px #c7d2fe" }}
+          >
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: "#1e40af" }} />
+            Legal Group
+          </span>
           <p className="text-xs font-medium text-muted-foreground">
             {connected
               ? `Connected · ${Math.floor(receiver.seconds / 60)}:${String(receiver.seconds % 60).padStart(2, "0")}`

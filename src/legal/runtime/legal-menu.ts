@@ -16,6 +16,37 @@ export const LEGAL_MENU: LegalMenuItem[] = [
   { title: "Legal Settings", url: "/legal/settings", legalPath: "/settings" },
 ];
 
+/**
+ * The signed-in person's Legal role once the move is live: undefined while
+ * loading, null when they have no Legal staff access.
+ */
+export function useLegalRole(): PortalRole | null | undefined {
+  const { live } = useLegalLive();
+  const [role, setRole] = useState<PortalRole | null | undefined>(undefined);
+  useEffect(() => {
+    if (!live) return setRole(null);
+    let alive = true;
+    void (legalDb().rpc("current_portal_access") as unknown as Promise<{ data: unknown; error: unknown }>).then(
+      ({ data, error }) => {
+        if (!alive) return;
+        const r = !error && data && typeof data === "object" ? (data as PortalRole) : null;
+        setRole(r && r.isStaff ? r : null);
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [live]);
+  return role;
+}
+
+/** Whether this person may open a Legal screen (by its Legal app path). */
+export function useLegalMayOpen(legalPath: string): boolean | undefined {
+  const role = useLegalRole();
+  if (role === undefined) return undefined;
+  return !!role && roleMayOpen(role, legalPath);
+}
+
 export function useLegalMenu(): LegalMenuItem[] {
   const { live } = useLegalLive();
   const [role, setRole] = useState<PortalRole | null>(null);

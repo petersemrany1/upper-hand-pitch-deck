@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BusinessChip } from "@/components/business/BusinessSwitch";
 import {
   Phone, PhoneOff, Mic, MicOff, Pause, Play, Grid3x3, Minus, X, FileText, ArrowRight,
 } from "lucide-react";
@@ -438,6 +439,7 @@ export function FloatingCallWidget() {
           <span className="text-[11px] font-semibold uppercase tracking-widest text-emerald-400">
             {statusLabel}
           </span>
+          <BusinessChip business="hair" />
         </div>
         <button
           type="button"

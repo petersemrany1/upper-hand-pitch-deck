@@ -13,6 +13,7 @@ import { BusinessSwitch } from "./BusinessSwitch";
 import { LegalFrame } from "./LegalFrame";
 import { hasNativeLegalPage, LegalView } from "@/legal/LegalView";
 import { useLegalLive } from "@/legal/runtime/trial";
+import { useLegalMayOpen } from "@/legal/runtime/legal-menu";
 
 export function useBusinessView(section: SwitchableSection | null): [BusinessView, (next: BusinessView) => void] {
   const location = useLocation();
@@ -22,7 +23,14 @@ export function useBusinessView(section: SwitchableSection | null): [BusinessVie
   // On Legal Group's own address (boldfamilylaw.com.au) sections open on their Legal side.
   const legalHost = typeof window !== "undefined" && /(^|\.)boldfamilylaw\.com\.au$/.test(window.location.hostname);
   const view: BusinessView =
-    fromUrl ?? (legalHost ? "legal" : remembered && (remembered !== "both" || section?.both) ? remembered : "hair");
+    fromUrl ??
+    (legalHost
+      ? "legal"
+      : remembered && (remembered !== "both" || section?.both)
+        ? remembered
+        : section?.stacked
+          ? "both"
+          : "hair");
 
   useEffect(() => {
     if (section && fromUrl) rememberView(section.path, fromUrl);
@@ -64,12 +72,21 @@ export function BusinessSection({
   children: ReactNode;
   floating?: boolean;
 }) {
-  const [view, setView] = useBusinessView(section);
+  const [chosen, setView] = useBusinessView(section);
   const { pathname } = useLocation();
+  // Whole-page screens (dashboard, partner portal) only offer Legal to people
+  // whose Legal role includes that screen; everyone else just sees Hair.
+  const legalOk = useLegalMayOpen(section.legalPath);
+  const hairOnly = !!section.stacked && legalOk === false;
+  const view: BusinessView = hairOnly ? "hair" : chosen;
   useLegalLive(); // after switch-over every Legal page opens here, not in a frame
   const title = sectionTitle(section);
   // Sub-pages (training modules) open their own Legal page when there is one.
-  const legalPath = hasNativeLegalPage(pathname) ? pathname : section.path;
+  const legalPath = hasNativeLegalPage(pathname)
+    ? pathname
+    : section.legalNative && hasNativeLegalPage(section.legalNative)
+      ? section.legalNative
+      : section.path;
   const legalBody = hasNativeLegalPage(legalPath) ? (
     <LegalView key={legalPath} path={legalPath} fullscreen={floating} />
   ) : (
@@ -81,6 +98,13 @@ export function BusinessSection({
       children
     ) : view === "legal" ? (
       legalBody
+    ) : section.stacked ? (
+      // Both, for whole-page screens: Hair on top, Legal underneath, each the
+      // exact page that business shows on its own.
+      <div className="flex min-h-0 flex-1 flex-col">
+        <StackedPane business="hair">{children}</StackedPane>
+        <StackedPane business="legal">{legalBody}</StackedPane>
+      </div>
     ) : (
       // Both: each business's own page, side by side, so every figure is the
       // exact one that business's page shows.
@@ -106,11 +130,22 @@ export function BusinessSection({
     <div className="flex h-full min-h-0 flex-col">
       <div
         className="sticky top-0 z-30 flex shrink-0 items-center gap-3 px-4 py-2 md:pr-16"
-        style={{ background: "#f7f7f5", borderBottom: "1px solid #ebebeb" }}
+        style={{
+          background: view === "both" ? "#f7f7f5" : BUSINESS_COLOR[view].bg,
+          borderBottom: `2px solid ${view === "both" ? "#ebebeb" : BUSINESS_COLOR[view].fg}`,
+        }}
       >
-        <BusinessSwitch value={view} onChange={setView} allowBoth={section.both} />
-        <span className="hidden text-xs sm:inline" style={{ color: "#8a8a86" }}>
-          {title} · {BUSINESS_LABEL[view]}
+        {!hairOnly && <BusinessSwitch value={view} onChange={setView} allowBoth={section.both} />}
+        <span
+          className="hidden items-center gap-2 text-xs sm:inline-flex"
+          style={{ color: view === "both" ? "#6b6b68" : BUSINESS_COLOR[view].fg }}
+        >
+          {view !== "both" && (
+            <span className="text-[11px] font-bold uppercase" style={{ letterSpacing: "0.08em" }}>
+              {view === "hair" ? "Hair Transplant Group" : "Legal Group"}
+            </span>
+          )}
+          <span style={{ opacity: 0.75 }}>{title}</span>
         </span>
       </div>
       <div className="flex min-h-0 flex-1 flex-col">{body}</div>
@@ -130,6 +165,22 @@ function BothPane({ business, children }: { business: "hair" | "legal"; children
         {BUSINESS_LABEL[business]}
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">{children}</div>
+    </section>
+  );
+}
+
+function StackedPane({ business, children }: { business: "hair" | "legal"; children: ReactNode }) {
+  const c = BUSINESS_COLOR[business];
+  return (
+    <section className="flex min-w-0 flex-col" style={{ borderTop: business === "legal" ? "1px solid #ebebeb" : undefined }}>
+      <div
+        className="flex shrink-0 items-center gap-2 px-4 py-2 text-[11px] font-bold uppercase"
+        style={{ background: c.bg, color: c.fg, letterSpacing: "0.08em", borderBottom: `1px solid ${c.border}` }}
+      >
+        <span className="h-2 w-2 rounded-full" style={{ background: c.fg }} />
+        {business === "hair" ? "Hair Transplant Group" : "Legal Group"}
+      </div>
+      <div className="flex min-w-0 flex-col">{children}</div>
     </section>
   );
 }

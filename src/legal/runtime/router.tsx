@@ -25,7 +25,14 @@ const PORTAL_PATHS: Record<string, string> = {
   "/pitch-deck": "/pitch-deck",
   "/firms": "/crm",
   "/crm": "/crm",
+  "/settings": "/settings",
   "/auth": "/login",
+};
+
+/** Extra address parts for Legal screens that live inside a portal page. */
+const PORTAL_SEARCH: Record<string, Record<string, string>> = {
+  "/firms": { tab: "firms" },
+  "/settings": { section: "legal" },
 };
 
 export type LegalTarget = { href: string; external: boolean };
@@ -46,8 +53,9 @@ export function legalTarget(to: unknown, search?: unknown): LegalTarget {
     (trial && TRIAL_PATHS.has(`/legal${path}`) ? `/legal${path}` : undefined);
   if (!path.startsWith("/") || path === "/") return { href: path || ".", external: false };
   if (portal) {
-    // Legal-only screens (/legal/...) need no business switch.
-    if (portal !== "/login" && !portal.startsWith("/legal/")) params.set("biz", "legal");
+    for (const [k, v] of Object.entries(PORTAL_SEARCH[path] ?? {})) params.set(k, v);
+    // Legal-only screens (/legal/...) and Legal tabs inside a portal page need no business switch.
+    if (portal !== "/login" && !portal.startsWith("/legal/") && !PORTAL_SEARCH[path]) params.set("biz", "legal");
     // Keep the "try on copied records" test switch while clicking around (before switch-over only).
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("legalData") === "portal")
       params.set("legalData", "portal");
@@ -106,9 +114,14 @@ export function useNavigate(_opts?: unknown) {
         // Search-only update on the current page: keep the Legal switch.
         const current = new URLSearchParams(window.location.search);
         const next = typeof options.search === "function" ? options.search(Object.fromEntries(current)) : options.search;
-        const keep = current.get("legalData") === "portal" ? { legalData: "portal" } : {};
-        const biz = window.location.pathname.startsWith("/legal/") ? {} : { biz: "legal" };
-        return navigate({ search: { ...(next as object), ...biz, ...keep } as never, replace: options.replace });
+        // The portal's own address parts (business switch, CRM/settings tab)
+        // stay as they are; the Legal page only changes its own.
+        const keep: Record<string, string> = {};
+        for (const k of ["legalData", "biz", "tab", "section"]) {
+          const v = current.get(k);
+          if (v) keep[k] = v;
+        }
+        return navigate({ search: { ...(next as object), ...keep } as never, replace: options.replace });
       }
       const { href, external } = legalTarget(options.to, typeof options.search === "function" ? undefined : options.search);
       if (external) {
