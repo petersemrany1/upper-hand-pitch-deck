@@ -106,3 +106,33 @@ back. Records created in the Hair app meanwhile stay in its `legal_` tables.
   Not proven: an outgoing call from the browser dialler. It sat on
   "Connecting…" with no Twilio attempt, probably because the tab was in the
   background (no microphone).
+
+## Handover review, 28 Nov 2026 (afternoon)
+
+Walked every Legal screen live (hairtransplantgroup.lovable.app and
+boldfamilylaw.com.au) and fixed what wasn't right:
+
+- **Old-app leftovers:** CRM (Legal), To Do (Legal), the "Connect Legal Group"
+  sign-in box and the "open in Legal app" links now use the Hair app's Legal
+  records and sign-in. The copy page is locked (it would overwrite live work).
+- **Menu:** a Legal section (Legal Dashboard, Firms, Firm Cold Calling, Firm
+  Portal, Ad Briefing, Legal Settings), shown per the person's Legal role.
+  Legal screens enforce the Legal app's page rules.
+- **Firm Portal:** it looped forever (an unstable navigate helper); fixed for
+  every Legal page.
+- **Public files:** the Bold logo, firm-portal guide video, pay-per-show
+  video and the dialler's Twilio script were missing. That's why outgoing Legal
+  calls hung on "Connecting…". Firms now shows the ringing switch as Connected.
+- **Pages' own titles and stylesheets** (from head()) are applied; the
+  pay-per-show page layout is correct.
+- **boldfamilylaw.com.au:** Legal Group branding on sign-in (Bold logo, blue
+  button), tab title and icon; home opens the Legal dashboard.
+- **Leads:** form answers read as text ("If me and my ex sold everything…").
+- **Checked fine:** Leads, Sales Call, Messages, Appointments, Numbers,
+  Training, Leaderboard, Transcripts, Pitch deck, Legal Dashboard, Firms, Legal
+  Settings, Firm Portal (4 firms), portal guide, deposit-confirmed, firm offer
+  and set-password (sensible states without a link). Hair Leads and Dashboard
+  are unaffected. Firm invite links may return to boldfamilylaw.com.au (auth
+  redirect list includes it).
+- **Note:** after each publish, a browser holding the old version shows it
+  until reloaded.
