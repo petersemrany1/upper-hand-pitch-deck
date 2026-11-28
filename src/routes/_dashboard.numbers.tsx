@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, Check, X, Ban, Plus, Pencil, Trash2, RefreshCw, Clock } from "lucide-react";
+import { AlertTriangle, Check, X, Ban, Plus, Pencil, Trash2, RefreshCw, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { APP_TIMEZONE } from "@/lib/timezone";
@@ -96,6 +96,9 @@ function NumbersPage() {
   const [locFilter, setLocFilter] = useState("");
   const [countMyPay, setCountMyPay] = useState(true);
   const [loading, setLoading] = useState(true);
+  // Until the first report arrives, show a loading state rather than zeros and
+  // "no ad spend" warnings that make it look like the data is missing.
+  const [loadedOnce, setLoadedOnce] = useState(false);
 
   const [ads, setAds] = useState<AdPerformanceRow[]>([]);
   const [pipelines, setPipelines] = useState<Record<string, Pipeline>>({});
@@ -180,6 +183,7 @@ function NumbersPage() {
       setWarnings(res.warnings ?? []);
       setPeterExcluded(!!res.peterExcluded);
       setSyncState(res.syncState);
+      setLoadedOnce(true);
     } catch (e) {
       if (request === latestReport.current) toast.error((e as Error).message || "Could not load the numbers");
     } finally {
@@ -462,7 +466,13 @@ function NumbersPage() {
         </div>
 
         {/* The three headline costs, for the range and city chosen above. */}
-        {staleness.stale && (
+        {!loadedOnce && (
+          <div style={{ ...CARD, padding: 18, display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, color: MUTED }}>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Working out the numbers from every lead, call and booking… this can take up to half a minute.
+          </div>
+        )}
+        {loadedOnce && staleness.stale && (
           <div
             role="alert"
             style={{
@@ -490,7 +500,9 @@ function NumbersPage() {
           </div>
         )}
 
-        <CostPerLeadStrip scope={scope} city={locFilter || "All cities"} loading={loading} spendStale={staleness.stale} />
+        {loadedOnce && (
+          <CostPerLeadStrip scope={scope} city={locFilter || "All cities"} loading={loading} spendStale={staleness.stale} />
+        )}
 
         {audit && (
           <div style={{ ...CARD, padding: 0 }}>
@@ -683,7 +695,7 @@ function NumbersPage() {
           </div>
         )}
 
-        {view === "performance" && (
+        {view === "performance" && loadedOnce && (
           <div className="numbers-shell">
             <div className="numbers-rail">
               <CityRail all={all} items={diagnosed} selected={locFilter} onSelect={setLocFilter} />
