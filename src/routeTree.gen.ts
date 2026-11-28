@@ -29,7 +29,12 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SetPasswordRouteImport } from './routes/set-password'
 import { Route as SquarepaymentRouteImport } from './routes/squarepayment'
 import { Route as ThankYouRouteImport } from './routes/thank-you'
+import { Route as legalLinksAdBriefingRouteImport } from './routes/(legal-links)/ad-briefing'
 import { Route as legalLinksDashboardRouteImport } from './routes/(legal-links)/dashboard'
+import { Route as legalLinksFirmColdCallingRouteImport } from './routes/(legal-links)/firm-cold-calling'
+import { Route as legalLinksFirmsRouteImport } from './routes/(legal-links)/firms'
+import { Route as legalLinksHandoverCheckRouteImport } from './routes/(legal-links)/handover-check'
+import { Route as legalLinksTranscriptsRouteImport } from './routes/(legal-links)/transcripts'
 import { Route as DotwellKnownAppleDeveloperMerchantidDomainAssociationRouteImport } from './routes/[.]well-known.apple-developer-merchantid-domain-association'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
@@ -220,9 +225,35 @@ const ThankYouRoute = ThankYouRouteImport.update({
   path: '/thank-you',
   getParentRoute: () => rootRouteImport,
 } as any)
+const legalLinksAdBriefingRoute = legalLinksAdBriefingRouteImport.update({
+  id: '/(legal-links)/ad-briefing',
+  path: '/ad-briefing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const legalLinksDashboardRoute = legalLinksDashboardRouteImport.update({
   id: '/(legal-links)/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const legalLinksFirmColdCallingRoute =
+  legalLinksFirmColdCallingRouteImport.update({
+    id: '/(legal-links)/firm-cold-calling',
+    path: '/firm-cold-calling',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const legalLinksFirmsRoute = legalLinksFirmsRouteImport.update({
+  id: '/(legal-links)/firms',
+  path: '/firms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const legalLinksHandoverCheckRoute = legalLinksHandoverCheckRouteImport.update({
+  id: '/(legal-links)/handover-check',
+  path: '/handover-check',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const legalLinksTranscriptsRoute = legalLinksTranscriptsRouteImport.update({
+  id: '/(legal-links)/transcripts',
+  path: '/transcripts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute =
@@ -760,7 +791,12 @@ export interface FileRoutesByFullPath {
   '/set-password': typeof SetPasswordRoute
   '/squarepayment': typeof SquarepaymentRoute
   '/thank-you': typeof ThankYouRoute
+  '/ad-briefing': typeof legalLinksAdBriefingRoute
   '/dashboard': typeof legalLinksDashboardRoute
+  '/firm-cold-calling': typeof legalLinksFirmColdCallingRoute
+  '/firms': typeof legalLinksFirmsRoute
+  '/handover-check': typeof legalLinksHandoverCheckRoute
+  '/transcripts': typeof legalLinksTranscriptsRoute
   '/.well-known/apple-developer-merchantid-domain-association': typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/booked-appointments': typeof DashboardBookedAppointmentsRoute
@@ -871,7 +907,12 @@ export interface FileRoutesByTo {
   '/set-password': typeof SetPasswordRoute
   '/squarepayment': typeof SquarepaymentRoute
   '/thank-you': typeof ThankYouRoute
+  '/ad-briefing': typeof legalLinksAdBriefingRoute
   '/dashboard': typeof legalLinksDashboardRoute
+  '/firm-cold-calling': typeof legalLinksFirmColdCallingRoute
+  '/firms': typeof legalLinksFirmsRoute
+  '/handover-check': typeof legalLinksHandoverCheckRoute
+  '/transcripts': typeof legalLinksTranscriptsRoute
   '/.well-known/apple-developer-merchantid-domain-association': typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/booked-appointments': typeof DashboardBookedAppointmentsRoute
@@ -984,7 +1025,12 @@ export interface FileRoutesById {
   '/set-password': typeof SetPasswordRoute
   '/squarepayment': typeof SquarepaymentRoute
   '/thank-you': typeof ThankYouRoute
+  '/(legal-links)/ad-briefing': typeof legalLinksAdBriefingRoute
   '/(legal-links)/dashboard': typeof legalLinksDashboardRoute
+  '/(legal-links)/firm-cold-calling': typeof legalLinksFirmColdCallingRoute
+  '/(legal-links)/firms': typeof legalLinksFirmsRoute
+  '/(legal-links)/handover-check': typeof legalLinksHandoverCheckRoute
+  '/(legal-links)/transcripts': typeof legalLinksTranscriptsRoute
   '/.well-known/apple-developer-merchantid-domain-association': typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
   '/_dashboard/booked-appointments': typeof DashboardBookedAppointmentsRoute
@@ -1099,7 +1145,12 @@ export interface FileRouteTypes {
     | '/set-password'
     | '/squarepayment'
     | '/thank-you'
+    | '/ad-briefing'
     | '/dashboard'
+    | '/firm-cold-calling'
+    | '/firms'
+    | '/handover-check'
+    | '/transcripts'
     | '/.well-known/apple-developer-merchantid-domain-association'
     | '/analytics'
     | '/booked-appointments'
@@ -1210,7 +1261,12 @@ export interface FileRouteTypes {
     | '/set-password'
     | '/squarepayment'
     | '/thank-you'
+    | '/ad-briefing'
     | '/dashboard'
+    | '/firm-cold-calling'
+    | '/firms'
+    | '/handover-check'
+    | '/transcripts'
     | '/.well-known/apple-developer-merchantid-domain-association'
     | '/analytics'
     | '/booked-appointments'
@@ -1322,7 +1378,12 @@ export interface FileRouteTypes {
     | '/set-password'
     | '/squarepayment'
     | '/thank-you'
+    | '/(legal-links)/ad-briefing'
     | '/(legal-links)/dashboard'
+    | '/(legal-links)/firm-cold-calling'
+    | '/(legal-links)/firms'
+    | '/(legal-links)/handover-check'
+    | '/(legal-links)/transcripts'
     | '/.well-known/apple-developer-merchantid-domain-association'
     | '/_dashboard/analytics'
     | '/_dashboard/booked-appointments'
@@ -1436,7 +1497,12 @@ export interface RootRouteChildren {
   SetPasswordRoute: typeof SetPasswordRoute
   SquarepaymentRoute: typeof SquarepaymentRoute
   ThankYouRoute: typeof ThankYouRoute
+  legalLinksAdBriefingRoute: typeof legalLinksAdBriefingRoute
   legalLinksDashboardRoute: typeof legalLinksDashboardRoute
+  legalLinksFirmColdCallingRoute: typeof legalLinksFirmColdCallingRoute
+  legalLinksFirmsRoute: typeof legalLinksFirmsRoute
+  legalLinksHandoverCheckRoute: typeof legalLinksHandoverCheckRoute
+  legalLinksTranscriptsRoute: typeof legalLinksTranscriptsRoute
   DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute: typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   ApiCoachStreamRoute: typeof ApiCoachStreamRoute
   ApiLegalLiveRoute: typeof ApiLegalLiveRoute
@@ -1627,11 +1693,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ThankYouRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/(legal-links)/ad-briefing': {
+      id: '/(legal-links)/ad-briefing'
+      path: '/ad-briefing'
+      fullPath: '/ad-briefing'
+      preLoaderRoute: typeof legalLinksAdBriefingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/(legal-links)/dashboard': {
       id: '/(legal-links)/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof legalLinksDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(legal-links)/firm-cold-calling': {
+      id: '/(legal-links)/firm-cold-calling'
+      path: '/firm-cold-calling'
+      fullPath: '/firm-cold-calling'
+      preLoaderRoute: typeof legalLinksFirmColdCallingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(legal-links)/firms': {
+      id: '/(legal-links)/firms'
+      path: '/firms'
+      fullPath: '/firms'
+      preLoaderRoute: typeof legalLinksFirmsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(legal-links)/handover-check': {
+      id: '/(legal-links)/handover-check'
+      path: '/handover-check'
+      fullPath: '/handover-check'
+      preLoaderRoute: typeof legalLinksHandoverCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(legal-links)/transcripts': {
+      id: '/(legal-links)/transcripts'
+      path: '/transcripts'
+      fullPath: '/transcripts'
+      preLoaderRoute: typeof legalLinksTranscriptsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.well-known/apple-developer-merchantid-domain-association': {
@@ -2399,7 +2500,12 @@ const rootRouteChildren: RootRouteChildren = {
   SetPasswordRoute: SetPasswordRoute,
   SquarepaymentRoute: SquarepaymentRoute,
   ThankYouRoute: ThankYouRoute,
+  legalLinksAdBriefingRoute: legalLinksAdBriefingRoute,
   legalLinksDashboardRoute: legalLinksDashboardRoute,
+  legalLinksFirmColdCallingRoute: legalLinksFirmColdCallingRoute,
+  legalLinksFirmsRoute: legalLinksFirmsRoute,
+  legalLinksHandoverCheckRoute: legalLinksHandoverCheckRoute,
+  legalLinksTranscriptsRoute: legalLinksTranscriptsRoute,
   DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute:
     DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute,
   ApiCoachStreamRoute: ApiCoachStreamRoute,

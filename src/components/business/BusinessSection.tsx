@@ -19,8 +19,10 @@ export function useBusinessView(section: SwitchableSection | null): [BusinessVie
   const navigate = useNavigate();
   const fromUrl = parseBusinessView(new URLSearchParams(location.searchStr).get("biz"), !!section?.both);
   const remembered = section ? rememberedView(section.path) : null;
+  // On Legal Group's own address (boldfamilylaw.com.au) sections open on their Legal side.
+  const legalHost = typeof window !== "undefined" && /(^|\.)boldfamilylaw\.com\.au$/.test(window.location.hostname);
   const view: BusinessView =
-    fromUrl ?? (remembered && (remembered !== "both" || section?.both) ? remembered : "hair");
+    fromUrl ?? (legalHost ? "legal" : remembered && (remembered !== "both" || section?.both) ? remembered : "hair");
 
   useEffect(() => {
     if (section && fromUrl) rememberView(section.path, fromUrl);
