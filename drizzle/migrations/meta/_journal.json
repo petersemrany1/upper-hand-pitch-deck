@@ -162,6 +162,13 @@
       "when": 1795821524164,
       "tag": "0022_legal_storage_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795834515724,
+      "tag": "0023_legal_switch_on_triggers_realtime",
+      "breakpoints": true
     }
   ]
 }
