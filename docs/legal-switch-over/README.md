@@ -99,3 +99,10 @@ back. Records created in the Hair app meanwhile stay in its `legal_` tables.
 - Still open: Square and Annature signing keys (Peter); the 2 Annature
   endpoints still point at family-law-floater.lovable.app; a test call and
   text; firm set-password emails.
+- Tests 28 Nov: a text from the Legal inbox reached Peter, its delivery status
+  came back ("sent"), and Peter's reply showed in the Legal inbox. Peter rang
+  0495 051 956 and it logged as an inbound Legal call. Annature now sends to
+  boldfamilylaw.com.au (new endpoints; the old two are disabled, not deleted).
+  Not proven: an outgoing call from the browser dialler. It sat on
+  "Connecting…" with no Twilio attempt, probably because the tab was in the
+  background (no microphone).
