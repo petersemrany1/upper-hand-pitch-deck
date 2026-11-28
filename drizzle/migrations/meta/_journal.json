@@ -169,6 +169,13 @@
       "when": 1795834515724,
       "tag": "0023_legal_switch_on_triggers_realtime",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795858105751,
+      "tag": "0024_portal_todo_lists",
+      "breakpoints": true
     }
   ]
 }

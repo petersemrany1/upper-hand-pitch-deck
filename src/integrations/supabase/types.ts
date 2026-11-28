@@ -7380,47 +7380,97 @@ export type Database = {
         }
         Relationships: []
       }
+      portal_todo_lists: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          name: string
+          position: number | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name: string
+          position?: number | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string
+          position?: number | null
+        }
+        Relationships: []
+      }
       portal_todos: {
         Row: {
           assignee_email: string | null
           business: string
+          completed_by_email: string | null
           created_at: string
           created_by: string | null
           created_by_email: string | null
           done_at: string | null
           due_date: string | null
+          due_time: string | null
           id: string
+          list_id: string | null
           notes: string | null
+          position: number | null
+          priority: number
           title: string
           updated_at: string
         }
         Insert: {
           assignee_email?: string | null
           business?: string
+          completed_by_email?: string | null
           created_at?: string
           created_by?: string | null
           created_by_email?: string | null
           done_at?: string | null
           due_date?: string | null
+          due_time?: string | null
           id?: string
+          list_id?: string | null
           notes?: string | null
+          position?: number | null
+          priority?: number
           title: string
           updated_at?: string
         }
         Update: {
           assignee_email?: string | null
           business?: string
+          completed_by_email?: string | null
           created_at?: string
           created_by?: string | null
           created_by_email?: string | null
           done_at?: string | null
           due_date?: string | null
+          due_time?: string | null
           id?: string
+          list_id?: string | null
           notes?: string | null
+          position?: number | null
+          priority?: number
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "portal_todos_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "portal_todo_lists"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       practice_call_recordings: {
         Row: {
