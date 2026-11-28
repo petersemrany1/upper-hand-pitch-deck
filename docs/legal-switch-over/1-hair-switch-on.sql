@@ -2,7 +2,7 @@
 -- after boldfamilylaw.com.au points at this app and LEGAL_LIVE=true.
 -- Turns on Legal's database automations, live updates and timed jobs.
 -- The timed jobs ring Legal's doorbells on boldfamilylaw.com.au with the
--- cron token stored in legal_app_settings (copied from the Legal app).
+-- portal's internal secret from the vault (as the portal's own jobs do).
 
 -- 1. Database automations (created switched off in the legal_ schema parts).
 ALTER TABLE public.legal_app_settings ENABLE TRIGGER "set_app_settings_updated_at";
@@ -84,7 +84,7 @@ SELECT cron.schedule('legal-firm-booking-follow-ups', '* * * * *', $job$
   SELECT net.http_post(
     url := 'https://boldfamilylaw.com.au/api/public/hooks/send-reminders',
     headers := jsonb_build_object('Content-Type', 'application/json',
-      'x-internal-secret', (SELECT value->>'token' FROM public.legal_app_settings WHERE key = 'cron_token'),
+      'x-internal-secret', (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'internal_function_secret'),
       'x-booking-follow-ups-only', 'true'),
     body := '{}'::jsonb);
 $job$);
@@ -92,13 +92,13 @@ SELECT cron.schedule('legal-qualified-client-call-hooks', '* * * * *', $job$
   SELECT net.http_post(
     url := 'https://boldfamilylaw.com.au/api/public/hooks/process-call-hooks',
     headers := jsonb_build_object('Content-Type', 'application/json',
-      'x-internal-secret', (SELECT value->>'token' FROM public.legal_app_settings WHERE key = 'cron_token')),
+      'x-internal-secret', (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'internal_function_secret')),
     body := '{}'::jsonb, timeout_milliseconds := 120000);
 $job$);
 SELECT cron.schedule('legal-send-appointment-reminders', '*/15 * * * *', $job$
   SELECT net.http_post(
     url := 'https://boldfamilylaw.com.au/api/public/hooks/send-reminders',
     headers := jsonb_build_object('Content-Type', 'application/json',
-      'x-internal-secret', (SELECT value->>'token' FROM public.legal_app_settings WHERE key = 'cron_token')),
+      'x-internal-secret', (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'internal_function_secret')),
     body := '{}'::jsonb);
 $job$);
